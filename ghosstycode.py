@@ -25,8 +25,8 @@ CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 CART_PHOTO = "https://cdn-icons-png.flaticon.com/512/3081/3081840.png"
 
-DISCOUNT_PERCENT = 35
-DISCOUNT_MULT = 0.65 # Коефіцієнт для розрахунку ціни (100% - 35% = 65%)
+DISCOUNT_PERCENT = 45
+DISCOUNT_MULT = 0.55 # Коефіцієнт для розрахунку ціни (100% - 45% = 55%)
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
