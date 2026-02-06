@@ -1262,8 +1262,13 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     orders = context.user_data.setdefault("orders", [])
     order_id = f"GHST-{update.effective_user.id}-{len(orders) + 1}"
 
-    promo = profile.get("promo", "AUTO-35")
+    promo = profile.get("promo_code", "—")
+    promo_discount = profile.get("promo_discount", DISCOUNT_PERCENT)
+
     total = sum(i["price"] for i in cart)
+    gift_count = sum(1 for i in cart if i.get("gift_liquid"))
+
+    payment_comment = f"{order_id} | @{update.effective_user.username or 'user'}"
 
     text = (
         f"📦 <b>Замовлення сформовано</b>\n\n"
@@ -1278,40 +1283,23 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += f"• {i['name']} — {i['price']} грн\n"
 
     text += (
-        f"\n🎁 <b>Подарунок:</b> 3 рідини 30ml\n"
-        f"🏷 <b>Промокод:</b> {promo} (-35%)\n"
-        f"🚚 <b>Доставка:</b> Безкоштовна (VIP)\n"
+        f"\n🎁 <b>Подарунок:</b> {gift_count * 3 if gift_count else 3} рідини 30ml\n"
+        f"🏷 <b>Промокод:</b> {promo} (-{promo_discount}%)\n"
+        f"🚚 <b>Доставка:</b> VIP — <b>безкоштовно</b>\n"
         f"💰 <b>До оплати:</b> {total} грн\n\n"
-        f"💳 Оплата за посиланням нижче ⬇️"
+        f"💳 <b>Коментар до оплати:</b>\n"
+        f"<code>{payment_comment}</code>\n\n"
+        f"⬇️ Оплатіть за посиланням нижче"
     )
 
     kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("💳 Оплатити", url=PAYMENT_LINK),
-        ],
-        [
-            InlineKeyboardButton(
-                "📤 Надіслати менеджеру",
-                callback_data=f"send_manager_{order_id}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "💳 Я оплатив / Надіслати квитанцію",
-                callback_data=f"pay_{order_id}"
-            )
-        ],
-        [
-            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-        ]
+        [InlineKeyboardButton("💳 Оплатити", url=PAYMENT_LINK)],
+        [InlineKeyboardButton("📤 Надіслати менеджеру", callback_data=f"send_manager_{order_id}")],
+        [InlineKeyboardButton("💳 Я оплатив / Квитанція", callback_data=f"pay_{order_id}")],
+        [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
     ])
 
-    # ✅ куди відповідати
-    target = (
-        update.message
-        if update.message
-        else update.callback_query.message
-    )
+    target = update.message if update.message else update.callback_query.message
 
     await target.reply_text(
         text,
@@ -1319,20 +1307,20 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=kb
     )
 
-    # ✅ ЗБЕРІГАЄМО ЗАМОВЛЕННЯ
     orders.append({
         "id": order_id,
         "items": cart.copy(),
         "total": total,
         "promo": promo,
+        "discount": promo_discount,
+        "gift_liquid": gift_count > 0,
+        "payment_comment": payment_comment,
         "status": "Очікує оплату",
-        "delivery": "VIP безкоштовна"
+        "delivery": "VIP безкоштовна",
+        "created_at": datetime.now().isoformat()
     })
 
-    # очищаємо кошик
     context.user_data["cart"] = []
-
-    # запамʼятати активне замовлення
     context.user_data["active_order_id"] = order_id
 
 # ===================== SEND TO MANAGER =====================
