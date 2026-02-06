@@ -1,4 +1,8 @@
+# імпорти
 import logging
+from telegram.error import BadRequest
+from telegram import InputMediaPhoto
+...
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 import random
@@ -89,15 +93,18 @@ def build_item_caption(item: dict, user_data: dict) -> str:
     return text
 
 # ===================== HELPERS =====================
+
 def generate_promo_code(user_id: int) -> str:
     return f"GHOST-{user_id % 10000}{random.randint(100,999)}"
+
 def gen_order_id(uid: int) -> str:
     return f"GHST-{uid}-{random.randint(1000,9999)}"
 
 def vip_until(profile: dict) -> datetime:
-    base = profile.get("vip_base", VIP_FREE_DELIVERY_UNTIL)
+    base = profile.get("vip_base", BASE_VIP_DATE)
     refs = profile.get("referrals", 0)
     return base + timedelta(days=7 * refs)
+
 async def safe_edit_media(message, photo_url: str, caption: str, kb):
     try:
         await message.edit_media(
@@ -118,7 +125,7 @@ async def safe_edit_media(message, photo_url: str, caption: str, kb):
                 reply_markup=kb
             )
         except Exception as e:
-    logger.warning(f"safe_edit_media failed: {e}")
+            logger.warning(f"safe_edit_media failed: {e}")
 
 # ===================== CITIES & DISTRICTS =====================
 CITIES = [
