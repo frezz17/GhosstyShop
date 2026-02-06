@@ -78,11 +78,12 @@ def build_item_caption(item: dict, user_data: dict) -> str:
 
     text += f"{item['desc']}\n\n"
 
-        gifts = "\n".join(f"• {g}" for g in get_gift_liquids())
-        text += (
-            "🎁 <b>Рідина у подарунок на вибір:</b>\n"
-            f"{gifts}\n\n"
-        )
+    # Ось тут правильний відступ і без зайвого "81"
+    gifts = "\n".join(f"• {g}" for g in get_gift_liquids())
+    text += (
+        "🎁 <b>Рідина у подарунок на вибір:</b>\n"
+        f"{gifts}\n\n"
+    )
 
     if is_vip:
         text += "👑 <b>VIP:</b> безкоштовна доставка 🚚\n"
