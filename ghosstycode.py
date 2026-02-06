@@ -522,21 +522,24 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===================== KEYBOARDS =====================
 def main_menu():
     return InlineKeyboardMarkup([
-        
+        [
             InlineKeyboardButton("👤 Профіль", callback_data="profile"),
             InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")
         ],
         [
-            InlineKeyboardButton("📍 Місто", callback_data="city"),
+            InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all"),
             InlineKeyboardButton("🛒 Кошик", callback_data="cart")
         ],
         [
-            InlineKeyboardButton("📦 Замовлення", callback_data="orders"),
-            InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/ghosstydpbot".)
+            InlineKeyboardButton("📍 Обрати місто", callback_data="city"),
+            InlineKeyboardButton("📦 Мої замовлення", callback_data="orders")
         ],
         [
-            InlineKeyboardButton("📜 Угода", callback_data="terms"),
+            InlineKeyboardButton("👨‍💻 Менеджер", url="https://t.me/ghosstydpbot"),
             InlineKeyboardButton("📢 Канал", url=CHANNEL_URL)
+        ],
+        [
+            InlineKeyboardButton("📜 Угода користувача", callback_data="terms")
         ]
     ])
 
@@ -548,8 +551,7 @@ def back_kb(back: str):
             InlineKeyboardButton("🏠 В головне меню", callback_data="main")
         ]
     ])
-  
-# ===================== START =====================
+# ===================== START ===================== 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     args = context.args
