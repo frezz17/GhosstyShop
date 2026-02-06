@@ -105,11 +105,92 @@ CITY_DISTRICTS = {
 
 # ===================== PRODUCTS =====================
 
+
+def calc_price(item: dict) -> int:
+    """
+    Рахує фінальну ціну з урахуванням знижки.
+    За замовчуванням знижка є завжди.
+    Вимикається якщо discount=False у товарі.
+    """
+    base_price = item["price"]
+
+    if item.get("discount", True):
+        return int(base_price * DISCOUNT_MULTIPLIER)
+
+    return base_price
+    
+    context.user_data["cart"].append({
+    "pid": pid,
+    "name": item["name"],
+    "price": calc_price(item),
+    "base_price": item["price"]
+})
+    
 # 🎁 ПОДАРУНКИ — додаються ДО КОЖНОГО ЗАМОВЛЕННЯ
+🎁 Подарунок (на вибір):
+• Pumpkin Latte
+• Glintwine
+• Christmas Tree
+• Strawberry Jelly
+• Mystery One
+• Fall Tea
+• ...
+
+def get_gift_liquids():
+    return [v["name"] for v in LIQUIDS.values()]
+    
 GIFT_LIQUIDS = {
     9001: {"name": "🎁 Gift Liquid Mix #1", "desc": "Фруктовий мікс 30ml"},
     9002: {"name": "🎁 Gift Liquid Mix #2", "desc": "Ягідний мікс 30ml"},
     9003: {"name": "🎁 Gift Liquid Mix #3", "desc": "Мʼятний мікс 30ml"}
+}
+
+# 💧 РІДИНИ (3 набори, продаються + йдуть у подарунок)
+LIQUIDS = {
+    301: {
+        "name": "🎃 Pumpkin Latte",
+        "series": "Chaser HO HO HO Edition",
+        "price": 269,
+        "discount": False,
+        "img": "https://ibb.co/Y7qn69Ds",
+        "desc": (
+            "☕ Гарбузовий латте з корицею\n"
+            "🎄 Зимовий настрій\n"
+            "😌 Мʼякий та теплий смак"
+        ),
+        "effect": "Затишок, солодкий aftertaste ☕",
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
+    302: {
+        "name": "🍷 Glintwine",
+        "series": "Chaser HO HO HO Edition",
+        "price": 269,
+        "discount": False,
+        "img": "https://ibb.co/wF8r7Nmc",
+        "desc": (
+            "🍇 Пряний глінтвейн\n"
+            "🔥 Теплий винний смак\n"
+            "🎄 Святковий вайб"
+        ),
+        "effect": "Тепло, релакс 🔥",
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
+    303: {
+        "name": "🎄 Christmas Tree",
+        "series": "Chaser HO HO HO Edition",
+        "price": 269,
+        "discount": False,
+        "img": "https://ibb.co/vCPGV8RV",
+        "desc": (
+            "🌲 Хвоя + морозна свіжість\n"
+            "❄️ Дуже свіжа\n"
+            "🎅 Атмосфера зими"
+        ),
+        "effect": "Свіжість, холодок ❄️",
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    }
 }
 
 # 😵‍💫 HHC / ННС ВЕЙПИ (5 шт)
@@ -117,35 +198,83 @@ HHC_VAPES = {
     100: {
         "name": "😵‍💫 Packwoods Purple 1ml",
         "price": 549,
+        "discount": True,
         "img": "https://i.ibb.co/DHXXSh2d/Ghost-Vape-3.jpg",
-        "desc": "90% HHC | Hybrid\n💜 Глибокий релакс + ейфорія"
+        "desc": (
+            "🌿 90% ННС | Гібрид\n"
+            "💜 Глибокий релакс + мʼяка ейфорія\n"
+            "🧠 Розслабляє тіло, заспокоює думки\n"
+            "🎯 Підійде для вечірнього чілу\n\n"
+            "🎁 Рідина у подарунок на вибір"
+        ),
+        "effect": "Релакс, ейфорія, антистрес 😌",
+        "payment_url": "https://heylink.me/ghosstyshop/"
     },
+
     101: {
         "name": "🍊 Packwoods Orange 1ml",
         "price": 629,
+        "discount": True,
         "img": "https://i.ibb.co/V03f2yYF/Ghost-Vape-1.jpg",
-        "desc": "90% HHC | Hybrid\n⚡ Бадьорість та фокус"
+        "desc": (
+            "🌿 90% ННС | Гібрид\n"
+            "⚡ Бадьорість + концентрація\n"
+            "🍊 Яскравий цитрус\n"
+            "🚀 Піднімає настрій та фокус\n\n"
+            "🎁 Рідина у подарунок на вибір"
+        ),
+        "effect": "Енергія, фокус, позитив ⚡",
+        "payment_url": "https://heylink.me/ghosstyshop/"
     },
+
     102: {
         "name": "🌸 Packwoods Pink 1ml",
         "price": 719,
+        "discount": True,
         "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
-        "desc": "90% HHC | Hybrid\n🎉 Мʼякий стоун"
+        "desc": (
+            "🌿 90% ННС | Гібрид\n"
+            "🎉 Мʼякий стоун без перевантаження\n"
+            "🌸 Легкий солодкий аромат\n"
+            "🛋 Комфортний стан тіла\n\n"
+            "🎁 Рідина у подарунок на вибір"
+        ),
+        "effect": "Комфорт, легкий стоун 😇",
+        "payment_url": "https://heylink.me/ghosstyshop/"
     },
+
     103: {
-        "name": "❄️ Whole Melt Mint 2ml",
+        "name": "❄️ Whole Mint 2ml",
         "price": 849,
+        "discount": True,
         "img": "https://i.ibb.co/675LQrNB/Ghost-Vape-4.jpg",
-        "desc": "95% HHC | Sativa\n🧠 Чистий розум"
+        "desc": (
+            "🌿 95% ННС | Сатіва\n"
+            "❄️ Свіжий мʼятний смак\n"
+            "🧠 Чистий розум + мотивація\n"
+            "📈 Підходить для активного дня\n\n"
+            "🎁 Рідина у подарунок на вибір"
+        ),
+        "effect": "Ясність, енергія, мотивація 🧠",
+        "payment_url": "https://heylink.me/ghosstyshop/"
     },
+
     104: {
         "name": "🌴 Jungle Boys White 2ml",
         "price": 999,
+        "discount": True,  # ✅ ЗНИЖКА УВІМКНЕНА
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "95% HHC | Indica\n😴 Глибокий релакс"
+        "desc": (
+            "🌿 95% ННС | Індика\n"
+            "😴 Глибокий релакс, сонливість\n"
+            "🛌 Ідеально для вечора\n"
+            "🔥 Потужний ефект\n\n"
+            "🎁 Рідина у подарунок на вибір"
+        ),
+        "effect": "Глибокий релакс, сон 😴",
+        "payment_url": "https://heylink.me/ghosstyshop/"
     }
 }
-
 # 🔌 POD-СИСТЕМИ (багато, з кольорами)
 PODS = {
     500: {
@@ -166,23 +295,186 @@ PODS = {
             "https://ibb.co/hxjmpHF2",
             "https://ibb.co/DDkgjtV4",
             "https://ibb.co/r2C9JTzz"
+PODS = {
+    500: {
+        "name": "🔌 Vaporesso XROS 3 Mini",
+        "price": 499,
+        "discount": False,
+        "imgs": [
+            "https://ibb.co/yFSQ5QSn",
+            "https://ibb.co/LzgrzZjC",
+            "https://ibb.co/Q3ZNTBvg"
         ],
-        "colors": ["Чорний", "Фіолетовий", "Рожевий"],
-        "desc": "🔋 1200 mAh\n⚡ Fast Charge\n🔥 COREX 2.0"
+        "colors": ["⚫ Чорний", "🔵 Голубий", "🌸 Рожевий"],
+        "desc": (
+            "🔋 Акумулятор: 1000 mAh\n"
+            "💨 Затяжка: MTL / RDL\n"
+            "⚡ Зарядка: Type-C\n"
+            "✨ Компактний та легкий"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
     },
+
+    501: {
+        "name": "🔌 Vaporesso XROS 5 Mini",
+        "price": 579,
+        "discount": False,
+        "imgs": [
+            "https://ibb.co/RkNgt1Qr",
+            "https://ibb.co/KxvJC1bV",
+            "https://ibb.co/WpMYBCH1"
+        ],
+        "colors": ["🌸 Рожевий", "🟣 Фіолетовий", "⚫ Чорний"],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "🔥 COREX 2.0\n"
+            "⚡ Швидка зарядка\n"
+            "💨 Насичений смак"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
     502: {
-        "name": "Voopoo Vmate Mini",
+        "name": "🔌 Vaporesso XROS Pro",
+        "price": 689,
+        "discount": False,
+        "imgs": [
+            "https://ibb.co/ynYwSMt6",
+            "https://ibb.co/3mV7scXr",
+            "https://ibb.co/xSJCgpJ5"
+        ],
+        "colors": ["⚫ Чорний", "🔴 Темно-червоний", "🌺 Рожево-червоний"],
+        "desc": (
+            "🔋 1200 mAh\n"
+            "⚡ Fast Charge\n"
+            "🎚 Регулювання затяжки\n"
+            "🚀 Потужний та стильний"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
+    503: {
+        "name": "🔌 Vaporesso XROS Nano",
+        "price": 519,
+        "discount": False,
+        "imgs": [
+            "https://ibb.co/5XW2yN80",
+            "https://ibb.co/93dJ8wKS",
+            "https://ibb.co/Qj90hyyz"
+        ],
+        "colors": ["🪖 Камуфляж 1", "🪖 Камуфляж 2", "🪖 Камуфляж 3"],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "💨 MTL\n"
+            "🧱 Міцний корпус\n"
+            "🎯 Надійний у дорозі"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
+    504: {
+        "name": "🔌 Vaporesso XROS 4",
+        "price": 599,
+        "discount": False,
+        "imgs": [
+            "https://ibb.co/LDRbQxr1",
+            "https://ibb.co/NPHYSjN",
+            "https://ibb.co/LhbzXD57"
+        ],
+        "colors": ["🌸 Рожевий", "⚫ Чорний", "🔵 Синій"],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "🔥 COREX\n"
+            "🎨 Стильний дизайн\n"
+            "👌 Збалансований"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
+    505: {
+        "name": "🔌 Vaporesso XROS 5",
+        "price": 799,
+        "discount": False,
+        "imgs": [
+            "https://ibb.co/hxjmpHF2",
+            "https://ibb.co/DDkgjtV4",
+            "https://ibb.co/r2C9JTzz"
+        ],
+        "colors": ["⚫ Чорний", "🌸 Рожевий", "🟣 Фіолетовий з полоскою"],
+        "desc": (
+            "🔋 1200 mAh\n"
+            "⚡ Fast Charge\n"
+            "💎 Преміум збірка\n"
+            "🔥 Максимум смаку"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+
+    506: {
+        "name": "🔌 Voopoo Vmate Mini Pod Kit",
         "price": 459,
+        "discount": False,
         "imgs": [
             "https://ibb.co/8L0JNTHz",
             "https://ibb.co/0RZ1VDnG",
             "https://ibb.co/21LPrbbj"
         ],
-        "colors": ["Чорний", "Червоний", "Рожевий"],
-        "desc": "🔋 1000 mAh\n💨 Автозатяжка"
+        "colors": ["🌸 Рожевий", "🔴 Червоний", "⚫ Чорний"],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "💨 Автозатяжка\n"
+            "🧲 Магнітний картридж\n"
+            "🎒 Зручний щодня"
+        ),
+        "payment_url": "https://heylink.me/ghosstyshop/"
     }
 }
+# ===================== SEND TO MANAGER =====================
+async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
+    query = update.callback_query
+    user = update.effective_user
+    profile = context.user_data.get("profile", {})
+    orders = context.user_data.get("orders", [])
 
+    order = next((o for o in orders if o["id"] == order_id), None)
+    if not order:
+        await query.answer("❌ Замовлення не знайдено")
+        return
+
+    text = (
+        f"📥 <b>Нове замовлення</b>\n\n"
+        f"🆔 <b>{order_id}</b>\n"
+        f"👤 {profile.get('full_name', '-')}\n"
+        f"📞 {profile.get('phone', '-')}\n"
+        f"📍 {profile.get('address', '-')}\n"
+        f"👤 @{user.username or '—'}\n\n"
+        f"🛒 <b>Товари:</b>\n"
+    )
+
+    for i in order["items"]:
+        text += f"• {i['name']} — {i['price']} грн\n"
+
+    text += (
+        f"\n🎁 <b>Подарунок:</b> 3 рідини\n"
+        f"💸 <b>Сума:</b> {order['total']} грн\n"
+        f"🏷 <b>Промокод:</b> {PROMO_CODE} (-{DISCOUNT_PERCENT}%)\n"
+        f"📦 <b>Статус:</b> {order['status']}"
+    )
+
+    await context.bot.send_message(
+        chat_id=MANAGER_ID,
+        text=text,
+        parse_mode="HTML"
+    )
+
+    await query.edit_message_text(
+        "✅ <b>Дані надіслано менеджеру</b>\n\nОчікуйте підтвердження.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
+        ])
+)
+    
 # ===================== KEYBOARDS =====================
 def main_menu():
     return InlineKeyboardMarkup([
@@ -568,14 +860,18 @@ async def apply_color(q, context, pid: int, idx: int):
 # ===================== CART =====================
 async def add_to_cart(q, context, pid: int):
     item = HHC_VAPES.get(pid) or LIQUIDS.get(pid) or PODS.get(pid)
+
     if not item:
         await q.answer("❌ Товар не знайдено")
         return
 
-    context.user_data["cart"].append({
+    cart = context.user_data.setdefault("cart", [])
+
+    cart.append({
         "pid": pid,
         "name": item["name"],
-        "price": apply_discount(item["price"])
+        "price": calc_price(item),
+        "base_price": item["price"]
     })
 
     await q.answer("✅ Додано в кошик")
@@ -663,6 +959,24 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
+# ===================== PRICING =====================
+
+DISCOUNT_PERCENT = 45
+DISCOUNT_MULTIPLIER = 0.55
+PROMO_CODE = "GHOSSTY352728"
+
+def calc_price(item: dict) -> int:
+    """
+    Рахує фінальну ціну з урахуванням знижки.
+    За замовчуванням знижка є завжди.
+    Вимикається якщо discount=False у товарі.
+    """
+    base_price = item["price"]
+
+    if item.get("discount", True):
+        return int(base_price * DISCOUNT_MULTIPLIER)
+
+    return base_price
 # ===================== CONFIRM ORDER =====================
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cart = context.user_data.get("cart", [])
@@ -794,8 +1108,13 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     data = q.data
 
+    # ===== MAIN MENU =====
     if data == "main":
-        await start(update, context)
+        await q.edit_message_text(
+            "🏠 <b>Головне меню</b>",
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
 
     elif data == "profile":
         await show_profile(q, context)
@@ -844,9 +1163,11 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await delete_from_cart(q, context, int(data.split("_")[1]))
 
     elif data.startswith("fast_"):
-        pid = int(data.split("_")[1]) if "_" in data else None
+        pid = int(data.split("_")[1])
         await fast_start(q, context, pid)
-        
+
+    else:
+        await q.answer("⚠️ Невідома дія")
 # ===================== MESSAGE HANDLER =====================
 def main():
     persistence = PicklePersistence(filepath="bot_data.pkl")
@@ -863,6 +1184,5 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
 
     app.run_polling()
-
-if __name__ == "__main__":
+    if __name__ == "__main__":
     main()
