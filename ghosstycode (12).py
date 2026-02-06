@@ -16,7 +16,7 @@ from telegram.ext import (
 )
 from telegram.error import BadRequest
 # ===================== CONFIG =====================
-TOKEN = "8351638507:AAG2HP0OmYx7ip8-uZcLQCilPTfoBhtEGq0"
+TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
 
 MANAGER_ID = "7544847872"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
@@ -85,6 +85,7 @@ def build_item_caption(item: dict, user_data: dict) -> str:
 # ===================== HELPERS =====================
 def generate_promo_code(user_id: int) -> str:
     return f"GHOST-{user_id % 10000}{random.randint(100,999)}"
+
 def gen_order_id(uid: int) -> str:
     return f"GHST-{uid}-{random.randint(1000,9999)}"
 
@@ -92,7 +93,7 @@ def vip_until(profile: dict) -> datetime:
     base = profile.get("vip_base", BASE_VIP_DATE)
     refs = profile.get("referrals", 0)
     return base + timedelta(days=7 * refs)
-async def safe_edit_media(message, photo_url: str, caption: str, kb):
+
 async def safe_edit_media(message, photo_url: str, caption: str, kb):
     try:
         await message.edit_media(
@@ -113,7 +114,8 @@ async def safe_edit_media(message, photo_url: str, caption: str, kb):
                 reply_markup=kb
             )
         except Exception:
-    logger.warning("safe_edit_media failed")
+            logger.warning("safe_edit_media failed")
+
 # ===================== CITIES & DISTRICTS =====================
 CITIES = [
 CITIES = [
@@ -1239,12 +1241,7 @@ async def show_item(q, context, pid: int):
         InlineKeyboardButton("🏠 В головне меню", callback_data="main")
     ])
 
-    await safe_edit_media(
-        q.message,
-        photo,
-        caption,
-        InlineKeyboardMarkup(kb_buttons)
-    )
+
     
 # ===================== COLOR SELECT =====================
 async def select_color(q, context, pid: int):
