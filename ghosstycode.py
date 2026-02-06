@@ -23,9 +23,9 @@ from telegram.error import BadRequest
 # ===================== CONFIG =====================
 TOKEN = "8351638507:AAG2HP0OmYx7ip8-uZcLQCilPTfoBhtEGq0"
 
-MANAGER_USERNAME = "ghosstydp"
+MANAGER_ID = "7544847872"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
-PAYMENT_URL = "https://heylink.me/ghosstyshop/"
+PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 DISCOUNT_PERCENT = 35
@@ -392,9 +392,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile["address"] = text
         context.user_data["state"] = None
         await update.message.reply_text(
-            "✅ Адресу збережено",
-            reply_markup=main_menu()
-  )
+    "✅ Адресу збережено",
+    reply_markup=main_menu()
+)
+return
       # ===================== ASSORTMENT =====================
 async def show_assortment(q):
     kb = InlineKeyboardMarkup([
@@ -725,21 +726,77 @@ async def show_orders(q, context):
         ])
     )
 
+async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    data = q.data
 
+    if data == "main":
+        await start(update, context)
+
+    elif data == "profile":
+        await show_profile(q, context)
+
+    elif data == "assortment":
+        await show_assortment(q)
+
+    elif data == "hhc":
+        await show_category(q, HHC_VAPES, "😵‍💫 <b>HHC / ННС</b>", "assortment")
+
+    elif data == "pods":
+        await show_category(q, PODS, "🔌 <b>Pod-системи</b>", "assortment")
+
+    elif data == "liquids":
+        await show_category(q, LIQUIDS, "💧 <b>Рідини</b>", "assortment")
+
+    elif data == "cart":
+        await show_cart(q, context)
+
+    elif data == "orders":
+        await show_orders(q, context)
+
+    elif data == "city":
+        await select_city(q, context)
+
+    elif data.startswith("city_"):
+        await save_city(q, context, data.replace("city_", ""))
+
+    elif data.startswith("district_"):
+        await save_district(q, context, data.replace("district_", ""))
+
+    elif data.startswith("item_"):
+        await show_item(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("color_"):
+        await select_color(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("colorpick_"):
+        _, pid, idx = data.split("_")
+        await apply_color(q, context, int(pid), int(idx))
+
+    elif data.startswith("add_"):
+        await add_to_cart(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("del_"):
+        await delete_from_cart(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("fast_"):
+        pid = int(data.split("_")[1]) if "_" in data else None
+        await fast_start(q, context, pid)
+        
 # ===================== MESSAGE HANDLER =====================
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
 
 def main():
-    app = ApplicationBuilder()\
-        .token(TOKEN)\
-        .persistence(persistence)\
+    persistence = PicklePersistence(filepath="bot_data.pkl")
+
+    app = ApplicationBuilder() \
+        .token(TOKEN) \
+        .persistence(persistence) \
         .build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callbacks))
+    app.add_handler(CallbackQueryHandler(callbacks_router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
 
     app.run_polling()
-
-if __name__ == "__main__":
-    main()
