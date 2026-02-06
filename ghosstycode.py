@@ -1323,43 +1323,95 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["cart"] = []
     context.user_data["active_order_id"] = order_id
 
+# ===================== HANDLE PAYMENT RECEIPT =====================
+async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    orders = context.user_data.get("orders", [])
+    active_order_id = context.user_data.get("active_order_id")
+
+    if not active_order_id:
+        await update.message.reply_text(
+            "ℹ️ Немає активного замовлення.\n"
+            "Будь ласка, оформіть замовлення через кошик.",
+            reply_markup=main_menu()
+        )
+        return
+
+    order = next((o for o in orders if o["id"] == active_order_id), None)
+    if not order:
+        await update.message.reply_text("❌ Замовлення не знайдено")
+        return
+
+    # беремо фото
+    photo = update.message.photo[-1].file_id
+
+    caption = (
+        f"💳 <b>Квитанція про оплату</b>\n\n"
+        f"🆔 {order['id']}\n"
+        f"👤 {user.first_name} (@{user.username or '—'})\n"
+        f"💰 {order['total']} грн\n"
+        f"📦 Статус: Оплачено (очікує підтвердження)"
+    )
+
+    # надсилаємо менеджеру
+    await context.bot.send_photo(
+        chat_id=MANAGER_ID,
+        photo=photo,
+        caption=caption,
+        parse_mode="HTML"
+    )
+
+    # оновлюємо статус
+    order["status"] = "Оплачено (на перевірці)"
+
+    await update.message.reply_text(
+        "✅ <b>Квитанцію надіслано менеджеру</b>\n\n"
+        "Очікуйте підтвердження 💨",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
+        ])
+    )
+
 # ===================== SEND TO MANAGER =====================
 async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
+    query = update.callback_query
     user = update.effective_user
+
     profile = context.user_data.get("profile", {})
     orders = context.user_data.get("orders", [])
-    gift_count = sum(1 for i in order["items"] if i.get("gift_liquid"))
-
-if gift_count:
-    text += f"\n🎁 Подарунок: {gift_count}× рідина 30ml\n"
-
-text += (
-    f"\n🏷 Промокод: {PROMO_CODE}\n"
-    f"🚚 VIP доставка до {VIP_FREE_DELIVERY_UNTIL}\n"
-)
 
     order = next((o for o in orders if o["id"] == order_id), None)
     if not order:
-        await update.callback_query.answer("❌ Замовлення не знайдено")
+        await query.answer("❌ Замовлення не знайдено", show_alert=True)
         return
 
+    gift_count = sum(1 for i in order["items"] if i.get("gift_liquid"))
+
     text = (
-        f"📥 <b>Нове замовлення</b>\n\n"
-        f"🆔 {order_id}\n"
-        f"👤 {profile.get('full_name')}\n"
-        f"📞 {profile.get('phone')}\n"
-        f"📍 {profile.get('address')}\n"
-        f"👤 @{user.username}\n\n"
-        f"🛒 Товари:\n"
+        f"📥 <b>НОВЕ ЗАМОВЛЕННЯ</b>\n\n"
+        f"🆔 <b>{order_id}</b>\n"
+        f"👤 {profile.get('full_name', '—')}\n"
+        f"📞 {profile.get('phone', '—')}\n"
+        f"📍 {profile.get('address', '—')}\n"
+        f"👤 @{user.username or '—'}\n\n"
+        f"🛒 <b>Товари:</b>\n"
     )
 
     for i in order["items"]:
         text += f"• {i['name']} — {i['price']} грн\n"
 
+    if gift_count:
+        text += f"\n🎁 <b>Подарунок:</b> {gift_count * 3} рідини 30ml\n"
+
     text += (
-        f"\n🎁 Подарунок: 3 рідини\n"
-        f"💰 Сума: {order['total']} грн\n"
-        f"📦 Статус: {order['status']}"
+        f"\n🏷 <b>Промокод:</b> {order.get('promo', '—')} "
+        f"(-{order.get('discount', DISCOUNT_PERCENT)}%)\n"
+        f"💰 <b>Сума:</b> {order['total']} грн\n"
+        f"🚚 <b>Доставка:</b> {order.get('delivery', '—')}\n\n"
+        f"💳 <b>Коментар до оплати:</b>\n"
+        f"<code>{order.get('payment_comment', '—')}</code>\n\n"
+        f"📦 <b>Статус:</b> {order['status']}"
     )
 
     await context.bot.send_message(
@@ -1368,14 +1420,14 @@ text += (
         parse_mode="HTML"
     )
 
-    await update.callback_query.edit_message_text(
-        "✅ <b>Дані надіслано менеджеру</b>\n\nОчікуйте підтвердження.",
+    await query.edit_message_text(
+        "✅ <b>Замовлення надіслано менеджеру</b>\n\n"
+        "Очікуйте підтвердження та перевірки оплати 💳",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
         ])
     )
-
 
 # ===================== ORDERS HISTORY =====================
 async def show_orders(q, context):
@@ -1392,82 +1444,30 @@ async def show_orders(q, context):
         return
 
     text = "📦 <b>Мої замовлення:</b>\n\n"
+    buttons = []
+
     for o in orders:
-        text += f"🆔 {o['id']} — {o['status']} — {o['total']} грн\n"
+        text += (
+            f"🆔 <b>{o['id']}</b>\n"
+            f"📦 {o['status']}\n"
+            f"💰 {o['total']} грн\n\n"
+        )
+        buttons.append([
+            InlineKeyboardButton(
+                f"📄 {o['id']}",
+                callback_data=f"order_{o['id']}"
+            )
+        ])
+
+    buttons.append([
+        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+    ])
 
     await q.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
-        ])
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
-
-async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    data = q.data
-
-    # ===== MAIN MENU =====
-    if data == "main":
-        await q.edit_message_text(
-            "🏠 <b>Головне меню</b>",
-            parse_mode="HTML",
-            reply_markup=main_menu()
-        )
-
-    elif data == "profile":
-        await show_profile(q, context)
-
-    elif data == "assortment":
-        await show_assortment(q)
-
-    elif data == "hhc":
-        await show_category(q, HHC_VAPES, "😵‍💫 <b>HHC / ННС</b>", "assortment")
-
-    elif data == "pods":
-        await show_category(q, PODS, "🔌 <b>Pod-системи</b>", "assortment")
-
-    elif data == "liquids":
-        await show_category(q, LIQUIDS, "💧 <b>Рідини</b>", "assortment")
-
-    elif data == "cart":
-        await show_cart(q, context)
-
-    elif data == "orders":
-        await show_orders(q, context)
-
-    elif data == "city":
-        await select_city(q, context)
-
-    elif data.startswith("city_"):
-        await save_city(q, context, data.replace("city_", ""))
-
-    elif data.startswith("district_"):
-        await save_district(q, context, data.replace("district_", ""))
-
-    elif data.startswith("item_"):
-        await show_item(q, context, int(data.split("_")[1]))
-
-    elif data.startswith("color_"):
-        await select_color(q, context, int(data.split("_")[1]))
-
-    elif data.startswith("colorpick_"):
-        _, pid, idx = data.split("_")
-        await apply_color(q, context, int(pid), int(idx))
-
-    elif data.startswith("add_"):
-        await add_to_cart(q, context, int(data.split("_")[1]))
-
-    elif data.startswith("del_"):
-        await delete_from_cart(q, context, int(data.split("_")[1]))
-
-    elif data.startswith("fast_"):
-        pid = int(data.split("_")[1])
-        await fast_start(q, context, pid)
-
-    else:
-        await q.answer("⚠️ Невідома дія")
 # ===================== BOT START =====================
 def main():
     persistence = PicklePersistence(filepath="bot_data.pkl")
