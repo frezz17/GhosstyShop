@@ -157,39 +157,7 @@ def back_menu(back_cb: str):
             InlineKeyboardButton("🏠 В головне меню", callback_data="main")
         ]
     ])
-  HHC_VAPES = {
-    100: {
-        "name": "😵‍💫 Packwoods Purple",
-        "price": 549,
-        "img": "https://i.ibb.co/DHXXSh2d/Ghost-Vape-3.jpg",
-        "desc": "90% HHC | Hybrid\n💨 Релакс + ейфорія"
-    },
-    101: {
-        "name": "🍊 Packwoods Orange",
-        "price": 629,
-        "img": "https://i.ibb.co/V03f2yYF/Ghost-Vape-1.jpg",
-        "desc": "90% HHC | Hybrid\n⚡ Енергія та фокус"
-    },
-    102: {
-        "name": "🌸 Packwoods Pink",
-        "price": 719,
-        "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
-        "desc": "90% HHC | Hybrid\n🎉 Мʼякий стоун"
-    },
-    103: {
-        "name": "❄️ Whole Mint",
-        "price": 849,
-        "img": "https://i.ibb.co/675LQrNB/Ghost-Vape-4.jpg",
-        "desc": "95% HHC | Sativa\n🧠 Чистий розум"
-    },
-    104: {
-        "name": "🌴 Jungle Boys White",
-        "price": 999,
-        "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "95% HHC | Indica\n😴 Глибокий релакс"
-    }
-}
-
+  
 LIQUIDS = {
     301: {"name": "🎃 Pumpkin Latte", "price": 269, "img": "https://ibb.co/Y7qn69Ds"},
     302: {"name": "🍷 Glintwine", "price": 269, "img": "https://ibb.co/wF8r7Nmc"},
