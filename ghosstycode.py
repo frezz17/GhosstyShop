@@ -855,17 +855,16 @@ async def cancel_input(q, context):
 
 
     # ===== ADDRESS =====
-    
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
 
         await update.message.reply_text(
             "✅ <b>Адресу доставки збережено</b>",
-            parse_mode="HTML",
-            reply_markup=main_menu()
+            parse_mode="HTML"
         )
         return
+
 
     # ===== NAME =====
     if state == "name":
@@ -1399,21 +1398,24 @@ async def show_orders(q, context):
     )
 # ===================== BOT START =====================
 def main():
-    persistence = PicklePersistence(filepath="bot_data.pkl")
+    # 1. Спочатку створюємо persistence
+    persistence_obj = PicklePersistence(filepath="bot_data.pkl")
 
+    # 2. Потім будуємо додаток
     app = (
         ApplicationBuilder()
         .token(TOKEN)
-        .persistence(persistence)
+        .persistence(persistence_obj)
         .build()
     )
 
+    # 3. Додаємо всі твої обробники
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callbacks_router))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: None))
+    app.add_handler(CallbackQueryHandler(callbacks_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    print("🚀 Бот Ghosty Shop запущений!")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
