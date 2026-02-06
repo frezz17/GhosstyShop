@@ -27,21 +27,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ===================== CONFIG =====================
-# Отримання токена з змінної середовища або використання за замовчуванням
-TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4")
+# Отримання токена з змінної середовища (без значення за замовчуванням!)
+TOKEN = os.getenv("BOT_TOKEN")
 
-# Перевірка токена
-if not TOKEN or len(TOKEN) < 20:
-    print("❌ Помилка: Некоректний токен бота!")
+# Перевірка наявності токена
+if not TOKEN:
+    logger.error("❌ Помилка: Токен бота не знайдено!")
+    logger.error("Додайте токен у змінну середовища BOT_TOKEN")
+    logger.error("Або створіть файл .env з рядком: BOT_TOKEN=ваш_токен")
     sys.exit(1)
 
-# Інші налаштування...
-MANAGER_ID = 7544847872
+# Інші налаштування
+MANAGER_ID = int(os.getenv("MANAGER_ID", "7544847872"))
 MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
-# ... решта констант
+
+DISCOUNT_MULT = 0.65
+PROMO_DISCOUNT = 45
+DISCOUNT_MULTIPLIER = DISCOUNT_MULT
+
+BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
 
 # Налаштування для Windows
 if sys.platform == 'win32':
