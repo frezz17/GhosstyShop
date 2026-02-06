@@ -532,7 +532,7 @@ def main_menu():
         ],
         [
             InlineKeyboardButton("📦 Замовлення", callback_data="orders"),
-            InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/{CHANNEL_URL.replace('https://t.me/', '')}")
+            InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/ghosstydpbot".)
         ],
         [
             InlineKeyboardButton("📜 Угода", callback_data="terms"),
@@ -733,10 +733,40 @@ async def save_district(q, context, district):
             ]
         ])
     )
+ 
+# ===================== CALLBACKS ROUTER =====================
+async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
+    data = query.data
+
+    # Головне меню
+    if data == "main":
+        await query.edit_message_text(
+            "🏠 <b>Головне меню</b>",
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
+
+    # Надіслати менеджеру
+    elif data.startswith("send_manager_"):
+        order_id = data.replace("send_manager_", "")
+        await send_to_manager(update, context, order_id)
+
+    # Асортимент
+    elif data == "assortment":
+        await show_assortment(query, context)
+
+    # Кошик
+    elif data == "cart":
+        await show_cart(query, context)
+
+    else:
+        await query.answer("⚠️ Невідома дія", show_alert=True)
+        
 
 # ===================== SEND TO MANAGER =====================
-    
 async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
     query = update.callback_query
     user = update.effective_user
@@ -748,37 +778,9 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
     if not order:
         await query.answer("❌ Замовлення не знайдено", show_alert=True)
         return
-
-    text = (
-        f"📥 <b>НОВЕ ЗАМОВЛЕННЯ</b>\n\n"
-        f"🆔 <b>{order_id}</b>\n"
-        f"👤 {profile.get('full_name', '—')}\n"
-        f"📞 {profile.get('phone', '—')}\n"
-        f"📍 {profile.get('address', '—')}\n"
-        f"👤 @{user.username or '—'}\n\n"
-        f"🛒 <b>Товари:</b>\n"
-    )
-
-    for i in order["items"]:
-        text += f"• {i['name']} — {i['price']} грн\n"
-
-    text += f"\n💰 <b>Сума:</b> {order['total']} грн"
-
-    await context.bot.send_message(
-        chat_id=MANAGER_ID,
-        text=text,
-        parse_mode="HTML"
-    )
-
-    await query.edit_message_text(
-        "✅ <b>Замовлення надіслано менеджеру</b>",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
-        ])
-    )
-    
-# ===================== ADDRESS EDIT =====================
+ 
+    text
+# ===================== ADDRESS EDIT ===================== 
 async def edit_address(q, context):
     await q.answer()
 
@@ -794,7 +796,8 @@ async def edit_address(q, context):
             ]
         ])
     )
-# ===================== CANCEL INPUT =====================
+     
+# ===================== CANCEL INPUT ===================== 
     
 async def cancel_input(q, context):
     await q.answer()
@@ -875,46 +878,7 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "✅ <b>Адресу доставки збережено</b>",
             parse_mode="HTML",
-            reply_markup=main_menu()
-        )
-        return
 
-    # ===== NAME =====
-    if state == "name":
-        profile["name"] = text
-        context.user_data["state"] = None
-
-        await update.message.reply_text(
-            f"✅ Імʼя збережено: <b>{text}</b>",
-            parse_mode="HTML",
-            reply_markup=main_menu()
-        )
-        return
-
-    # ===== PHONE =====
-    if state == "phone":
-        if not text.startswith("+380") or len(text) != 13:
-            await update.message.reply_text(
-                "❌ Введіть номер у форматі <b>+380XXXXXXXXX</b>",
-                parse_mode="HTML"
-            )
-            return
-
-        profile["phone"] = text
-        context.user_data["state"] = None
-
-        await update.message.reply_text(
-            f"📞 Телефон збережено: <b>{text}</b>",
-            parse_mode="HTML",
-            reply_markup=main_menu()
-        )
-        return
-
-    # ===== DEFAULT =====
-    await update.message.reply_text(
-        "ℹ️ Скористайтесь кнопками меню 👇",
-        reply_markup=main_menu()
-    )
 
     # ===================== TEXT HANDLER =====================
 async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
