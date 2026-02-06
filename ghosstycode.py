@@ -155,34 +155,23 @@ def calc_price(item: dict) -> int:
 })
     
 # ===================== GIFTS =====================
-# 🎁 Подарунки додаються до КОЖНОГО замовлення
+# 🎁 Подарунки додаються ДО КОЖНОГО замовлення
 
 GIFT_LIQUIDS = {
-    9001: {
-        "name": "🎁 Pumpkin Latte",
-        "desc": "Осінній кавовий мікс з гарбузовими нотами • 30ml"
-    },
-    9002: {
-        "name": "🎁 Glintwine",
-        "desc": "Пряний глінтвейн з теплим післясмаком • 30ml"
-    },
-    9003: {
-        "name": "🎁 Christmas Tree",
-        "desc": "Хвойно-цитрусова різдвяна суміш • 30ml"
-    },
-    9004: {
-        "name": "🎁 Strawberry Jelly",
-        "desc": "Солодке полуничне желе • 30ml"
-    },
-    9005: {
-        "name": "🎁 Mystery One",
-        "desc": "Сюрприз-смак від Ghosty • 30ml"
-    },
-    9006: {
-        "name": "🎁 Fall Tea",
-        "desc": "Теплий чай з осінніми спеціями • 30ml"
-    }
+    9001: {"name": "🎁 Pumpkin Latte", "desc": "30ml"},
+    9002: {"name": "🎁 Glintwine", "desc": "30ml"},
+    9003: {"name": "🎁 Christmas Tree", "desc": "30ml"},
+    9004: {"name": "🎁 Strawberry Jelly", "desc": "30ml"},
+    9005: {"name": "🎁 Mystery One", "desc": "30ml"},
+    9006: {"name": "🎁 Fall Tea", "desc": "30ml"},
 }
+
+
+def get_gift_liquids() -> list[str]:
+    """
+    Повертає список назв подарунків
+    """
+    return [gift["name"] for gift in GIFT_LIQUIDS.values()]
 
 
 def get_gift_liquids() -> list[str]:
@@ -1305,7 +1294,7 @@ text += "\n🎁 <b>Подарунок на вибір:</b>\n"
 for name in get_gift_liquids():
     text += f"• {name}\n"
 
-    text += (
+    
         f"\n🎁 <b>Подарунок:</b> {gift_count * 3 if gift_count else 3} рідини 30ml\n"
         f"🏷 <b>Промокод:</b> {promo} (-{promo_discount}%)\n"
         f"🚚 <b>Доставка:</b> VIP — <b>безкоштовно</b>\n"
@@ -1408,6 +1397,7 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
         await query.answer("❌ Замовлення не знайдено", show_alert=True)
         return
 
+    # рахуємо подарунки (HHC / ННС)
     gift_count = sum(1 for i in order["items"] if i.get("gift_liquid"))
 
     text = (
@@ -1420,10 +1410,17 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
         f"🛒 <b>Товари:</b>\n"
     )
 
+    # 🛒 список товарів
     for i in order["items"]:
-        text += f"\n🎁 Подарунок: {order.get('gift', '—')}\n"
+        text += f"• {i['name']} — {i['price']} грн\n"
+
+    # 🎁 подарунки
     if gift_count:
-        text += f"\n🎁 <b>Подарунок:</b> {gift_count * 3} рідини 30ml\n"
+        text += f"\n🎁 <b>Подарунок:</b> {gift_count * 3}× рідини 30ml\n"
+
+    # 🎁 якщо клієнт обрав конкретний подарунок
+    if order.get("gift"):
+        text += f"🎁 <b>Обраний подарунок:</b> {order['gift']}\n"
 
     text += (
         f"\n🏷 <b>Промокод:</b> {order.get('promo', '—')} "
@@ -1448,8 +1445,7 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
         ])
-    )
-
+)
 # ===================== ORDERS HISTORY =====================
 async def show_orders(q, context):
     orders = context.user_data.get("orders", [])
