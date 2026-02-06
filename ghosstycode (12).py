@@ -112,9 +112,8 @@ async def safe_edit_media(message, photo_url: str, caption: str, kb):
                 parse_mode="HTML",
                 reply_markup=kb
             )
-        except Exception as e:
-            logger.warning(f"safe_edit_media failed: {e}")
-
+        except Exception:
+    logger.warning("safe_edit_media failed")
 # ===================== CITIES & DISTRICTS =====================
 CITIES = [
 CITIES = [
