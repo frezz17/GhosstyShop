@@ -1,4 +1,6 @@
 import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 import random
 from datetime import datetime, timedelta
 from html import escape
@@ -37,19 +39,53 @@ import string
 PROMO_DISCOUNT = 45  # %
 DISCOUNT_MULTIPLIER = 0.55
 
-# ===================== PRICING =====================
-def calc_price(item: dict) -> int:
-    """
-    Рахує фінальну ціну з урахуванням знижки.
-    За замовчуванням знижка є завжди.
-    Вимикається якщо discount=False у товарі.
-    """
-    base_price = item["price"]
+# ===================== PRICE + VIEW ENGINE =====================
 
-    if item.get("discount", True):
-        return int(base_price * DISCOUNT_MULTIPLIER)
+def calc_prices(item: dict, promo_percent: int) -> dict:
+    base = item["price"]
 
-    return base_price
+    discounted = base
+    if item.get("discount", False):
+        discounted = int(base * DISCOUNT_MULTIPLIER)
+
+    final_price = discounted
+    if promo_percent > 0:
+        final_price = int(discounted * (1 - promo_percent / 100))
+
+    return {
+        "base": base,
+        "discounted": discounted,
+        "final": final_price
+    }
+
+
+def build_item_caption(item: dict, user_data: dict) -> str:
+    promo_percent = user_data.get("promo_percent", PROMO_DISCOUNT)
+    is_vip = user_data.get("vip", False)
+
+    prices = calc_prices(item, promo_percent)
+
+    text = f"<b>{escape(item['name'])}</b>\n\n"
+
+    text += f"💰 <s>{prices['base']} грн</s>\n"
+    text += f"🔥 Зі знижкою: <b>{prices['discounted']} грн</b>\n"
+    text += f"🎟 З промо: <b>{prices['final']} грн</b>\n\n"
+
+    text += f"{item['desc']}\n\n"
+
+    if item.get("gift_liquid"):
+        gifts = "\n".join(f"• {g}" for g in get_gift_liquids())
+        text += (
+            "🎁 <b>Рідина у подарунок на вибір:</b>\n"
+            f"{gifts}\n\n"
+        )
+
+    if is_vip:
+        text += "👑 <b>VIP:</b> безкоштовна доставка 🚚\n"
+    else:
+        text += "🚚 Доставка за тарифом\n"
+
+    return text
 
 # ===================== HELPERS =====================
 def generate_promo_code(user_id: int) -> str:
@@ -81,8 +117,10 @@ async def safe_edit_media(message, photo_url: str, caption: str, kb):
                 reply_markup=kb
             )
         except Exception as e:
-            logger.warning(f"safe_edit_media failed: {e}")
-          # ===================== CITIES & DISTRICTS =====================
+    logger.warning(f"safe_edit_media failed: {e}")
+
+# ===================== CITIES & DISTRICTS =====================
+CITIES = [
 CITIES = [
     "Київ",
     "Дніпро",
@@ -194,6 +232,24 @@ LIQUIDS = {
     }
 }
 
+async def show_liquids(q, context: ContextTypes.DEFAULT_TYPE):
+    buttons = []
+
+    for pid, item in LIQUIDS.items():
+        buttons.append(
+            [InlineKeyboardButton(item["name"], callback_data=f"item_{pid}")]
+        )
+
+    buttons.append(
+        [InlineKeyboardButton("⬅ Назад", callback_data="assortment")]
+    )
+
+    await q.message.edit_text(
+        "💧 <b>Рідини</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
 # ===================== HHC / NNS =====================
 HHC_VAPES = {
 
@@ -201,6 +257,7 @@ HHC_VAPES = {
         "name": "🌴 Packwoods Purple 1ml",
         "type": "hhc",
         "gift_liquid": True,
+        if item.get("gift_liquid") is True:
         "price": 549,
         "discount": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
@@ -283,6 +340,24 @@ HHC_VAPES = {
     }
 
 }
+
+async def show_hhc(q, context: ContextTypes.DEFAULT_TYPE):
+    buttons = []
+
+    for pid, item in HHC_VAPES.items():
+        buttons.append(
+            [InlineKeyboardButton(item["name"], callback_data=f"item_{pid}")]
+        )
+
+    buttons.append(
+        [InlineKeyboardButton("⬅ Назад", callback_data="assortment")]
+    )
+
+    await q.message.edit_text(
+        "💨 <b>NNS / HHC Вейпи</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
 
 # ===================== POD SYSTEMS =====================
 PODS = {
@@ -443,6 +518,76 @@ PODS = {
 
 }
 
+async def show_pods(q, context: ContextTypes.DEFAULT_TYPE):
+    buttons = []
+
+    for pid, item in PODS.items():
+        buttons.append(
+            [InlineKeyboardButton(item["name"], callback_data=f"item_{pid}")]
+        )
+
+    buttons.append(
+        [InlineKeyboardButton("⬅ Назад", callback_data="assortment")]
+    )
+
+    await q.message.edit_text(
+        "🔌 <b>POD-системи</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+)
+# ===================== UNIVERSAL ITEM VIEW =====================
+
+async def show_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    # callback_data: item:<group>:<id>
+    try:
+        _, group, pid = query.data.split(":")
+        pid = int(pid)
+    except ValueError:
+        await query.message.reply_text("❌ Невірний формат товару")
+        return
+
+    catalog_map = {
+        "liquid": LIQUIDS,
+        "hhc": HHC_VAPES,
+        "pod": PODS
+    }
+
+    catalog = catalog_map.get(group)
+    if not catalog or pid not in catalog:
+        await query.message.reply_text("❌ Товар не знайдено")
+        return
+
+    item = catalog[pid]
+
+    caption = build_item_caption(item, context.user_data)
+
+    imgs = item.get("imgs") or [item.get("img")]
+    photo = imgs[0]
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🛒 Купити", url=item["payment_url"])],
+        [InlineKeyboardButton("⬅ Назад", callback_data=f"back:{group}")]
+    ])
+
+    try:
+        await query.message.edit_photo(
+            photo=photo,
+            caption=caption,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+    except BadRequest:
+        await query.message.delete()
+        await query.message.chat.send_photo(
+            photo=photo,
+            caption=caption,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        ) 
+        
 # ===================== CALLBACKS ROUTER =====================
 async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -460,6 +605,15 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "assortment":
         await show_assortment(q, context)
+        
+elif data == "liquids":
+    await show_liquids(q, context)
+
+elif data == "pods":
+    await show_pods(q, context)
+
+elif data == "hhc":
+    await show_hhc(q, context)
 
     elif data == "cart":
         await show_cart(q, context)
@@ -502,6 +656,9 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         await q.answer("⚠️ Невідома дія", show_alert=True)
+        
+        elif data.startswith("item_"):
+    await show_item(q, context, int(data.split("_")[1]))
 
 # ===================== KEYBOARDS =====================
 def main_menu():
@@ -533,6 +690,8 @@ def back_kb(back: str):
     ])
 # ===================== START ===================== 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.setdefault("promo_percent", PROMO_DISCOUNT)
+context.user_data.setdefault("vip", False)
     user = update.effective_user
 
     # Перевіряємо та ініціалізуємо профіль (виправлено назву context)
@@ -833,7 +992,7 @@ async def edit_address(q, context):
         ])
     )
      
-# ===================== CANCEL INPUT =====================  
+# ===================== CANCEL INPUT ===================== 
     
 async def cancel_input(q, context):
     await q.answer()
@@ -895,27 +1054,6 @@ async def cancel_input(q, context):
         "ℹ️ Скористайтесь кнопками меню 👇",
         reply_markup=main_menu()
     )
-
-# ===================== TEXT HANDLER =====================
-async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-
-    text = update.message.text.strip()
-    state = context.user_data.get("state")
-
-    profile = context.user_data.setdefault("profile", {})
-
-                # ===== ADDRESS =====
-    if state == "address":
-        profile["address"] = text
-        context.user_data["state"] = None
-
-        await update.message.reply_text(
-            "✅ <b>Адресу доставки збережено</b>",
-            parse_mode="HTML"
-        )
-
 
 
     # ===================== TEXT HANDLER ===================== 
@@ -998,12 +1136,10 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_assortment(q, context):
     kb = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
-            InlineKeyboardButton("🔌 Pod-системи", callback_data="pods")
-        ],
-        [
             InlineKeyboardButton("💧 Рідини", callback_data="liquids"),
-            InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")
+InlineKeyboardButton("🔌 POD-системи", callback_data="pods"),
+InlineKeyboardButton("💨 HHC / NNS", callback_data="hhc"),
+InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")
         ],
         [
             InlineKeyboardButton("🏠 В головне меню", callback_data="main")
@@ -1222,22 +1358,6 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await confirm_order(update, context)
         return
 
-
-# ===================== PRICING =====================
-DISCOUNT_PERCENT = 45
-DISCOUNT_MULTIPLIER = 0.55
-
-def calc_price(item: dict) -> int:
-    """
-    Фінальна ціна з урахуванням знижки.
-    Знижка застосовується завжди, якщо discount != False
-    """
-    base_price = item["price"]
-
-    if item.get("discount", True):
-        return int(base_price * DISCOUNT_MULTIPLIER)
-
-    return base_pric
     
 
 # ===================== CONFIRM ORDER =====================
