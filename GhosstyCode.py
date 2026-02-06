@@ -1,8 +1,12 @@
+import os
+import sys
 import logging
 import random
+import asyncio
 from html import escape
 from datetime import datetime, timedelta
 
+import telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
     Application,
@@ -13,7 +17,35 @@ from telegram.ext import (
     filters,
     PicklePersistence
 )
-from telegram.error import BadRequest
+from telegram.error import BadRequest, NetworkError, TelegramError
+
+# ===================== LOGGING =====================
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# ===================== CONFIG =====================
+# Отримання токена з змінної середовища або використання за замовчуванням
+TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4")
+
+# Перевірка токена
+if not TOKEN or len(TOKEN) < 20:
+    print("❌ Помилка: Некоректний токен бота!")
+    sys.exit(1)
+
+# Інші налаштування...
+MANAGER_ID = 7544847872
+MANAGER_USERNAME = "ghosstydpbot"
+CHANNEL_URL = "https://t.me/GhostyStaffDP"
+PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
+WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
+# ... решта констант
+
+# Налаштування для Windows
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # ===================== LOGGING =====================
 logging.basicConfig(
@@ -1370,30 +1402,113 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===================== MAIN =====================
 def main():
-    # Використовуємо PicklePersistence для збереження даних
-    persistence = PicklePersistence(filepath="ghosty_data")
-    
-    app = Application.builder() \
-        .token(TOKEN) \
-        .persistence(persistence) \
-        .build()
-    
-    # Додаємо обробники
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    
-    print("🤖 Ghosty Shop Bot запущено!")
-    print("🔄 Бот працює... Натисніть Ctrl+C для зупинки.")
-    
-    app.run_polling()
+    try:
+        print("🚀 Запуск Ghosty Shop Bot...")
+        
+        # Створюємо директорію для даних, якщо її немає
+        data_dir = "/app/data" if os.path.exists("/app") else "./data"
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Шлях до файлу з даними
+        persistence_file = os.path.join(data_dir, "ghosty_data.pickle")
+        print(f"📁 Використовується файл даних: {persistence_file}")
+        
+        # Ініціалізація Persistence
+        persistence = PicklePersistence(filepath=persistence_file)
+        
+        # Створення додатку
+        print(f"🤖 Створення бота з токеном: {TOKEN[:10]}...")
+        
+        app = Application.builder() \
+            .token(TOKEN) \
+            .persistence(persistence) \
+            .concurrent_updates(True) \
+            .build()
+        
+        # Додаємо обробники
+        print("🔧 Налаштування обробників...")
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CallbackQueryHandler(handle_callback))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+        
+        # Додатково: обробник для контактів
+        app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+        
+        print("✅ Бот налаштовано!")
+        print("🤖 Ghosty Shop Bot запущено!")
+        print("🔄 Бот працює... Натисніть Ctrl+C для зупинки.")
+        
+        # Запуск бота з обробкою помилок
+        app.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            timeout=30,
+            read_timeout=10,
+            pool_timeout=10
+        )
+        
+    except KeyboardInterrupt:
+        print("\n⚠️ Бот зупинено користувачем")
+        sys.exit(0)
+    except telegram.error.InvalidToken as e:
+        print(f"❌ Невірний токен бота: {e}")
+        sys.exit(1)
+    except telegram.error.NetworkError as e:
+        print(f"❌ Мережева помилка: {e}")
+        sys.exit(1)
+    except telegram.error.TelegramError as e:
+        print(f"❌ Помилка Telegram API: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Критична помилка: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
-if __name__ == "__main__":
-    main()
-```
+# ===================== CONTACT HANDLER =====================
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка надісланих контактів"""
+    contact = update.message.contact
+    user = update.effective_user
+    
+    if contact and contact.user_id == user.id:
+        profile = context.user_data.setdefault("profile", {})
+        profile["phone"] = contact.phone_number
+        
+        await update.message.reply_text(
+            f"✅ Номер телефону збережено: {contact.phone_number}",
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
+    else:
+        await update.message.reply_text(
+            "ℹ️ Будь ласка, надішліть свій власний контакт",
+            reply_markup=main_menu()
+        )
 
+# ===================== ERROR HANDLER =====================
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Глобальний обробник помилок"""
+    logger.error(f"Exception while handling an update: {context.error}")
+    
+    # Логуємо помилку
+    if update and update.effective_message:
+        try:
+            await update.effective_message.reply_text(
+                "⚠️ Сталася помилка. Спробуйте ще раз або /start",
+                reply_markup=main_menu()
+            )
+        except:
+            pass
 
+# ===================== FALLBACK HANDLER =====================
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробник невідомих команд"""
+    await update.message.reply_text(
+        "❌ Невідома команда. Скористайтесь кнопками меню 👇",
+        reply_markup=main_menu()
+            )
 
 
     
