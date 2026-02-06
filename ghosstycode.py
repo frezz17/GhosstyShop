@@ -37,15 +37,6 @@ import string
 PROMO_DISCOUNT = 45  # %
 DISCOUNT_MULTIPLIER = 0.55
 
-
-
-# ===================== PERSISTENCE =====================
-app = (
-    ApplicationBuilder()
-    .token(TOKEN)
-    .persistence(persistence)
-    .build()
-)
 # ===================== PRICING =====================
 def calc_price(item: dict) -> int:
     """
@@ -540,11 +531,11 @@ def back_kb(back: str):
             InlineKeyboardButton("🏠 В головне меню", callback_data="main")
         ]
     ])
-# ===================== START =====================
+# ===================== START ===================== 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
-    # Виправлена ініціалізація
+    # Перевіряємо та ініціалізуємо профіль (виправлено назву context)
     if "profile" not in context.user_data:
         context.user_data["profile"] = {
             "uid": user.id,
@@ -567,7 +558,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         f"👋 <b>{escape(user.first_name)}</b>, вітаємо у <b>Ghosty Shop</b> 💨\n\n"
         f"🎁 Подарунок до кожного замовлення — 3 рідини 30ml\n"
-        f"🎫 Промокод: <code>{profile['promo_code']}</code> (-{profile['promo_discount']}%)\n"
+        f"🎫 Промокод: <code>{profile['promo_code']}</code> (-{profile.get('promo_discount', 45)}%)\n"
         f"👑 VIP до: <b>{vip_date.strftime('%d.%m.%Y')}</b>\n\n"
         f"👇 Оберіть дію:"
     )
@@ -578,6 +569,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         reply_markup=main_menu()
     )
+
 
     # Розрахунок дати VIP (використовуємо твою функцію vip_until)
     vip_date = vip_until(profile)
@@ -824,7 +816,7 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
         return
  
     text
-# ===================== ADDRESS EDIT ===================== 
+# ===================== ADDRESS EDIT =====================  
 async def edit_address(q, context):
     await q.answer()
 
@@ -841,7 +833,7 @@ async def edit_address(q, context):
         ])
     )
      
-# ===================== CANCEL INPUT ===================== 
+# ===================== CANCEL INPUT =====================  
     
 async def cancel_input(q, context):
     await q.answer()
@@ -854,7 +846,7 @@ async def cancel_input(q, context):
     )
 
 
-    # ===== ADDRESS =====
+        # ===== ADDRESS =====
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
@@ -864,6 +856,7 @@ async def cancel_input(q, context):
             parse_mode="HTML"
         )
         return
+
 
 
     # ===== NAME =====
@@ -925,7 +918,7 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-    # ===================== TEXT HANDLER =====================
+    # ===================== TEXT HANDLER ===================== 
 async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
@@ -1031,7 +1024,7 @@ async def show_assortment(q, context):
             parse_mode="HTML",
             reply_markup=kb
     )
-# ===================== CATEGORY LIST =====================
+# ===================== CATEGORY LIST ===================== 
 async def show_category(q, items: dict, title: str, back: str):
     buttons = []
 
@@ -1060,7 +1053,7 @@ async def show_category(q, items: dict, title: str, back: str):
         )
 
 
-# ===================== ITEM VIEW =====================
+# ===================== ITEM VIEW ===================== 
 async def show_item(q, context, pid: int):
     item = (
         HHC_VAPES.get(pid)
@@ -1247,32 +1240,23 @@ def calc_price(item: dict) -> int:
     return base_pric
     
 # ===================== CONFIRM ORDER =====================
-async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE): # Додано двокрапку
+# ===================== CONFIRM ORDER =====================
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cart = context.user_data.get("cart", [])
     profile = context.user_data.get("profile", {})
 
     if not cart:
-        # Якщо викликано через кнопку
-        if update.callback_query:
-            await update.callback_query.answer("❌ Кошик порожній", show_alert=True)
-        else:
-            await update.message.reply_text("❌ Кошик порожній")
+        await update.message.reply_text("❌ Кошик порожній")
         return
 
-
-    # Ініціалізуємо список замовлень, якщо його немає
-    if "orders" not in context.user_data:
-        context.user_data["orders"] = []
-    
-    orders = context.user_data["orders"]
+    orders = context.user_data.setdefault("orders", [])
     order_id = f"GHST-{update.effective_user.id}-{len(orders)+1}"
-
-    total = sum(i["price"] for i in cart)
+    total = sum(i.get("price", 0) for i in cart)
 
     text = (
         f"📦 <b>Замовлення сформовано</b>\n\n"
         f"🆔 <b>{order_id}</b>\n\n"
-        f"👤 {profile.get('name','—')}\n" # Змінено 'full_name' на 'name' (як у вашому профілі)
+        f"👤 {profile.get('full_name','—')}\n"
         f"📞 {profile.get('phone','—')}\n"
         f"📍 {profile.get('address','—')}\n\n"
         f"🛒 <b>Товари:</b>\n"
@@ -1301,8 +1285,8 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE): # �
         "total": total,
         "status": "Очікує оплату"
     })
-
     context.user_data["cart"] = []
+
 
 
 # ===================== HANDLE PAYMENT RECEIPT =====================
@@ -1398,23 +1382,25 @@ async def show_orders(q, context):
     )
 # ===================== BOT START =====================
 def main():
-    # 1. Спочатку створюємо persistence
-    persistence_obj = PicklePersistence(filepath="bot_data.pkl")
+    # Створюємо об'єкт збереження даних ПЕРЕД ініціалізацією додатка
+    my_persistence = PicklePersistence(filepath="bot_data.pkl")
 
-    # 2. Потім будуємо додаток
     app = (
         ApplicationBuilder()
         .token(TOKEN)
-        .persistence(persistence_obj)
+        .persistence(my_persistence)
         .build()
     )
 
-    # 3. Додаємо всі твої обробники
+    # Додаємо всі обробники
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callbacks_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    # Додаємо команду підтвердження (якщо вона потрібна як окрема команда)
+    app.add_handler(CommandHandler("confirm", confirm_order))
 
-    print("🚀 Бот Ghosty Shop запущений!")
+    print("✅ Бот Ghosty Shop успішно запущений!")
     app.run_polling()
 
 if __name__ == "__main__":
