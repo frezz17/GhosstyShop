@@ -1,5 +1,9 @@
+import logging
+import random
+import string
 from html import escape
 from datetime import datetime, timedelta
+
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -7,7 +11,7 @@ from telegram import (
     InputMediaPhoto
 )
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
@@ -15,18 +19,24 @@ from telegram.ext import (
     filters
 )
 from telegram.error import BadRequest
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # ===================== CONFIG =====================
 TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
 
-MANAGER_ID = "7544847872"
+MANAGER_ID = 7544847872
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 DISCOUNT_PERCENT = 45
 DISCOUNT_MULT = 0.55
-PROMO_DISCOUNT = 45 
+PROMO_DISCOUNT = 45
 DISCOUNT_MULTIPLIER = DISCOUNT_MULT
+
 BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
 
 import random
@@ -118,7 +128,6 @@ async def safe_edit_media(message, photo_url: str, caption: str, kb):
 
 # ===================== CITIES & DISTRICTS =====================
 CITIES = [
-CITIES = [
     "Київ",
     "Дніпро",
     "Камʼянське",
@@ -132,16 +141,26 @@ CITIES = [
 ]
 
 CITY_DISTRICTS = {
-    "Київ": ["Шевченківський", "Дарницький", "Оболонський", "Печерський", "Соломʼянський", "Деснянський", "Подільський", "Голосіївський"],
-    "Дніпро": ["Центральний", "Соборний", "Індустріальний", "Амур", "Новокодацький", "Чечелівський", "Самарський", "Шевченківський"],
-    "Камʼянське": ["Центральний", "Південний", "Заводський", "Дніпровський", "Черемушки", "Романкове", "БАМ", "Соцмісто"],
-    "Харків": ["Київський", "Салтівський", "Холодногірський", "Індустріальний", "Основʼянський", "Немишлянський", "Новобаварський", "Слобідський"],
-    "Одеса": ["Приморський", "Київський", "Малиновський", "Суворовський", "Аркадія", "Таїрово", "Черьомушки", "Центр"],
-    "Львів": ["Галицький", "Франківський", "Сихівський", "Личаківський", "Залізничний", "Шевченківський", "Брюховичі", "Рясне"],
-    "Запоріжжя": ["Вознесенівський", "Хортицький", "Дніпровський", "Олександрівський", "Комунарський", "Заводський", "Шевченківський", "Південний"],
-    "Кривий Ріг": ["Металургійний", "Центрально-Міський", "Інгулецький", "Саксаганський", "Покровський", "Тернівський", "Довгинцівський", "Жовтневий"],
-    "Полтава": ["Київський", "Шевченківський", "Подільський", "Алмазний", "Центр", "Левада", "Браїлки", "Огнівка"],
-    "Черкаси": ["Соснівський", "Придніпровський", "Центральний", "Митниця", "Казбет", "Південно-Західний", "Хімселище", "Дахнівка"]
+    "Київ": [
+        "Шевченківський", "Дарницький", "Оболонський",
+        "Печерський", "Соломʼянський", "Деснянський",
+        "Подільський", "Голосіївський"
+    ],
+    "Дніпро": [
+        "Центральний", "Соборний", "Індустріальний",
+        "Амур", "Новокодацький", "Чечелівський",
+        "Самарський", "Шевченківський"
+    ],
+    "Камʼянське": [
+        "Центральний", "Південний", "Заводський",
+        "Дніпровський", "Черемушки", "Романкове",
+        "БАМ", "Соцмісто"
+    ],
+    "Харків": [
+        "Київський", "Салтівський", "Холодногірський",
+        "Індустріальний", "Основʼянський",
+        "Немишлянський", "Новобаварський"
+    ]
 }
 
 # ===================== PRODUCTS =====================
@@ -1494,14 +1513,13 @@ async def show_orders(q, context):
     )
 
 # ===================== BOT START =====================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Бот запущено ✅")
 
-
+def main():
+    app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callbacks_router))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
-
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
