@@ -389,6 +389,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ===================== CALLBACKS =====================
+async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    data = q.data
+    
 elif data == "pods":
     buttons = []
 
@@ -544,9 +549,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("item_"):
     pid = int(data.split("_")[1])
 
-    # 🔑 ТУТ ВАЖЛИВИЙ РЯДОК
     item = HHC_VAPES.get(pid) or LIQUIDS.get(pid) or PODS.get(pid)
-
     if not item:
         await q.message.reply_text("❌ Товар не знайдено")
         return
@@ -577,15 +580,9 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ])
 
-    # 🖼️ Фото (для pod — перше з imgs)
     photo = item["imgs"][0] if "imgs" in item else item["img"]
 
-    await safe_edit_media(
-        q.message,
-        photo,
-        caption,
-        kb
-            )
+    await safe_edit_media(q.message, photo, caption, kb)
 
     # ===== FAST ORDER INIT =====
     elif data.startswith("fast_"):
@@ -628,7 +625,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===================== FINALIZE ORDER =====================
 async def finalize_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pid = context.user_data.get("fast_pid")
-    item = HHC_VAPES.get(pid) or LIQUIDS.get(pid)
+    item = HHC_VAPES.get(pid) or LIQUIDS.get(pid) or PODS.get(pid)
     profile = context.user_data["profile"]
 
     order_id = f"GHST{profile['uid']}{random.randint(100,999)}"
