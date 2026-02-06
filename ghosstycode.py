@@ -544,7 +544,7 @@ def back_kb(back: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
-    # ===== ІНІЦІАЛІЗАЦІЯ ДАНИХ (Виправлено) =====
+    # Виправлена ініціалізація
     if "profile" not in context.user_data:
         context.user_data["profile"] = {
             "uid": user.id,
@@ -553,19 +553,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "phone": None,
             "address": None,
             "promo_code": generate_promo_code(user.id),
-            "promo_discount": DISCOUNT_PERCENT,
+            "promo_discount": PROMO_DISCOUNT,
             "referrals": 0,
             "vip_base": BASE_VIP_DATE,
             "ref_applied": False
         }
-    
-    if "cart" not in context.user_data:
         context.user_data["cart"] = []
-    
-    if "orders" not in context.user_data:
         context.user_data["orders"] = []
 
     profile = context.user_data["profile"]
+    vip_date = vip_until(profile)
+
+    text = (
+        f"👋 <b>{escape(user.first_name)}</b>, вітаємо у <b>Ghosty Shop</b> 💨\n\n"
+        f"🎁 Подарунок до кожного замовлення — 3 рідини 30ml\n"
+        f"🎫 Промокод: <code>{profile['promo_code']}</code> (-{profile['promo_discount']}%)\n"
+        f"👑 VIP до: <b>{vip_date.strftime('%d.%m.%Y')}</b>\n\n"
+        f"👇 Оберіть дію:"
+    )
+
+    await update.message.reply_photo(
+        photo=WELCOME_PHOTO,
+        caption=text,
+        parse_mode="HTML",
+        reply_markup=main_menu()
+    )
 
     # Розрахунок дати VIP (використовуємо твою функцію vip_until)
     vip_date = vip_until(profile)
