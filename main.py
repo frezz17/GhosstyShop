@@ -273,7 +273,6 @@ HHC_VAPES = {
         "name": "🌴 Packwoods Purple 1ml",
         "type": "hhc",
         "gift_liquid": True,
-        if item.get("gift_liquid") is True:
         "price": 549,
         "discount": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
