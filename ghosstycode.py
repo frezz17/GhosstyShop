@@ -36,7 +36,7 @@ import string
 
 PROMO_DISCOUNT = 45  # %
 DISCOUNT_MULTIPLIER = 0.55
-'
+
 
 
 # ===================== PERSISTENCE =====================
