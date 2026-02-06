@@ -789,8 +789,6 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await fast_start(q, context, pid)
         
 # ===================== MESSAGE HANDLER =====================
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
-
 def main():
     persistence = PicklePersistence(filepath="bot_data.pkl")
 
