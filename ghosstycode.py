@@ -154,24 +154,42 @@ def calc_price(item: dict) -> int:
     "base_price": item["price"]
 })
     
-# 🎁 ПОДАРУНКИ — додаються ДО КОЖНОГО ЗАМОВЛЕННЯ
-text += "\n🎁 Подарунок на вибір\n"
-• Pumpkin Latte
-• Glintwine
-• Christmas Tree
-• Strawberry Jelly
-• Mystery One
-• Fall Tea
-• ...
+# ===================== GIFTS =====================
+# 🎁 Подарунки додаються до КОЖНОГО замовлення
 
-def get_gift_liquids():
-    return [v["name"] for v in LIQUIDS.values()]
-    
 GIFT_LIQUIDS = {
-    9001: {"name": "🎁 Gift Liquid Mix #1", "desc": "Фруктовий мікс 30ml"},
-    9002: {"name": "🎁 Gift Liquid Mix #2", "desc": "Ягідний мікс 30ml"},
-    9003: {"name": "🎁 Gift Liquid Mix #3", "desc": "Мʼятний мікс 30ml"}
+    9001: {
+        "name": "🎁 Pumpkin Latte",
+        "desc": "Осінній кавовий мікс з гарбузовими нотами • 30ml"
+    },
+    9002: {
+        "name": "🎁 Glintwine",
+        "desc": "Пряний глінтвейн з теплим післясмаком • 30ml"
+    },
+    9003: {
+        "name": "🎁 Christmas Tree",
+        "desc": "Хвойно-цитрусова різдвяна суміш • 30ml"
+    },
+    9004: {
+        "name": "🎁 Strawberry Jelly",
+        "desc": "Солодке полуничне желе • 30ml"
+    },
+    9005: {
+        "name": "🎁 Mystery One",
+        "desc": "Сюрприз-смак від Ghosty • 30ml"
+    },
+    9006: {
+        "name": "🎁 Fall Tea",
+        "desc": "Теплий чай з осінніми спеціями • 30ml"
+    }
 }
+
+
+def get_gift_liquids() -> list[str]:
+    """
+    Повертає список назв подарункових рідин
+    """
+    return [v["name"] for v in GIFT_LIQUIDS.values()]
 
 # 💧 РІДИНИ (3 набори, продаються + йдуть у подарунок)
 LIQUIDS = {
@@ -1000,7 +1018,7 @@ async def show_category(q, items: dict, title: str, back: str):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
-# ===================== ITEM VIEW =====================
+
 # ===================== ITEM VIEW =====================
 async def show_item(q, context, pid: int):
     item = (
@@ -1280,7 +1298,12 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     for i in cart:
-        text += f"• {i['name']} — {i['price']} грн\n"
+    text += f"• {i['name']} — {i['price']} грн\n"
+
+# 🎁 Подарунок на вибір
+text += "\n🎁 <b>Подарунок на вибір:</b>\n"
+for name in get_gift_liquids():
+    text += f"• {name}\n"
 
     text += (
         f"\n🎁 <b>Подарунок:</b> {gift_count * 3 if gift_count else 3} рідини 30ml\n"
@@ -1307,18 +1330,17 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=kb
     )
 
+gift = random.choice(list(GIFT_LIQUIDS.values()))
+    
     orders.append({
-        "id": order_id,
-        "items": cart.copy(),
-        "total": total,
-        "promo": promo,
-        "discount": promo_discount,
-        "gift_liquid": gift_count > 0,
-        "payment_comment": payment_comment,
-        "status": "Очікує оплату",
-        "delivery": "VIP безкоштовна",
-        "created_at": datetime.now().isoformat()
-    })
+    "id": order_id,
+    "items": cart.copy(),
+    "gift": gift["name"],  # ⬅️ ОЦЕ ВАЖЛИВО
+    "total": total,
+    "promo": promo,
+    "status": "Очікує оплату",
+    "delivery": "VIP безкоштовна"
+})
 
     context.user_data["cart"] = []
     context.user_data["active_order_id"] = order_id
@@ -1399,8 +1421,7 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
     )
 
     for i in order["items"]:
-        text += f"• {i['name']} — {i['price']} грн\n"
-
+        text += f"\n🎁 Подарунок: {order.get('gift', '—')}\n"
     if gift_count:
         text += f"\n🎁 <b>Подарунок:</b> {gift_count * 3} рідини 30ml\n"
 
