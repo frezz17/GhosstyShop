@@ -198,19 +198,38 @@ LIQUIDS = {
     303: {"name": "🎄 Christmas Tree", "price": 269, "img": "https://ibb.co/vCPGV8RV", "desc": "Хвоя та холод 🌲"},
 }
 
-HHC = {
-    100: {"name": "Packwoods Purple", "price": 549, "img": "https://i.ibb.co/DHXXSh2d/Ghost-Vape-3.jpg",
-          "desc": "😵‍💫 Гібрид | 90% HHC\nРелакс + ейфорія"},
-    101: {"name": "Packwoods Orange", "price": 629, "img": "https://i.ibb.co/V03f2yYF/Ghost-Vape-1.jpg",
-          "desc": "🍊 Гібрид | 90% HHC\nЕнергія та фокус"},
-    102: {"name": "Packwoods Pink", "price": 719, "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
-          "desc": "🌸 Гібрид | 90% HHC\nМʼякий стоун"},
-    103: {"name": "Whole Mint", "price": 849, "img": "https://i.ibb.co/675LQrNB/Ghost-Vape-4.jpg",
-          "desc": "❄️ Сатива | 95% HHC\nЧистий розум"},
-    104: {"name": "Jungle Boys White", "price": 999, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-          "desc": "🌴 Індика | 95% HHC\nГлибокий релакс"},
+HHC_VAPES = {
+    100: {
+        "name": "😵‍💫 Packwoods Purple 1ml",
+        "price": 549,
+        "img": "https://i.ibb.co/DHXXSh2d/Ghost-Vape-3.jpg",
+        "desc": "90% HHC | Hybrid\n💜 Релакс + ейфорія"
+    },
+    101: {
+        "name": "🍊 Packwoods Orange 1ml",
+        "price": 629,
+        "img": "https://i.ibb.co/V03f2yYF/Ghost-Vape-1.jpg",
+        "desc": "90% HHC | Hybrid\n⚡ Енергія та фокус"
+    },
+    102: {
+        "name": "🌸 Packwoods Pink 1ml",
+        "price": 719,
+        "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
+        "desc": "90% HHC | Hybrid\n🎉 Мʼякий стоун"
+    },
+    103: {
+        "name": "❄️ Whole Melt Mint 2ml",
+        "price": 849,
+        "img": "https://i.ibb.co/675LQrNB/Ghost-Vape-4.jpg",
+        "desc": "95% HHC | Sativa\n🧠 Чистий розум"
+    },
+    104: {
+        "name": "🌴 Jungle Boys White 2ml",
+        "price": 999,
+        "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
+        "desc": "95% HHC | Indica\n😴 Глибокий релакс"
+    }
 }
-
 # ===================== START =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -322,15 +341,14 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ===== ASSORTMENT =====
     elif data == "assortment":
         kb = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
-                InlineKeyboardButton("💧 Рідини", callback_data="liquids")
-            ],
-            [
-                InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all"),
-                InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-            ]
-        ])
+    [
+        InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
+        InlineKeyboardButton("💧 Рідини", callback_data="liquids")
+    ],
+    [
+        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+    ]
+])
         await q.message.edit_caption(
             caption="🛍️ <b>Асортимент</b>\nОберіть категорію:",
             parse_mode="HTML",
