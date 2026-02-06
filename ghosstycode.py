@@ -544,18 +544,33 @@ def back_kb(back: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
-    profile = context.user_data.setdefault("profile", {
-        "uid": user.id,
-        "full_name": user.first_name,
-        "phone": None,
-        "address": None,
-        "promo_code": generate_promo_code(user.id),
-        "promo_discount": DISCOUNT_PERCENT,
-        "referrals": 0
-    })
+    # ===== ІНІЦІАЛІЗАЦІЯ ДАНИХ (Виправлено) =====
+    if "profile" not in context.user_data:
+        context.user_data["profile"] = {
+            "uid": user.id,
+            "full_name": user.first_name,
+            "username": user.username,
+            "phone": None,
+            "address": None,
+            "promo_code": generate_promo_code(user.id),
+            "promo_discount": DISCOUNT_PERCENT,
+            "referrals": 0,
+            "vip_base": BASE_VIP_DATE,
+            "ref_applied": False
+        }
+    
+    if "cart" not in context.user_data:
+        context.user_data["cart"] = []
+    
+    if "orders" not in context.user_data:
+        context.user_data["orders"] = []
 
+    profile = context.user_data["profile"]
+
+    # Розрахунок дати VIP (використовуємо твою функцію vip_until)
     vip_date = vip_until(profile)
 
+    # ===== ДИЗАЙН ПОВІДОМЛЕННЯ (Збережено) =====
     text = (
         f"👋 <b>{escape(user.first_name)}</b>, вітаємо у <b>Ghosty Shop</b> 💨\n\n"
         f"🎁 Подарунок до кожного замовлення — 3 рідини 30ml\n"
@@ -564,12 +579,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👇 Оберіть дію:"
     )
 
-    await update.message.reply_photo(
-        photo=WELCOME_PHOTO,
-        caption=text,
-        parse_mode="HTML",
-        reply_markup=main_menu()
-    )
+    # ===== ВІДПРАВКА (Виправлено) =====
+    try:
+        await update.message.reply_photo(
+            photo=WELCOME_PHOTO,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
+    except Exception as e:
+        # Якщо фото не завантажиться, відправимо просто текст, щоб бот не стопився
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
+
     # ===== INIT USER DATA =====
     if "profile" not in context.user_data:
         context.user_data["profile"] = {
@@ -877,7 +902,7 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     profile = context.user_data.setdefault("profile", {})
 
-            # ===== ADDRESS =====
+                # ===== ADDRESS =====
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
@@ -886,7 +911,6 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "✅ <b>Адресу доставки збережено</b>",
             parse_mode="HTML"
         )
-
 
 
 
@@ -1212,13 +1236,18 @@ def calc_price(item: dict) -> int:
     return base_pric
     
 # ===================== CONFIRM ORDER =====================
-async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE): # Додано двокрапку тут
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE): # Додано двокрапку
     cart = context.user_data.get("cart", [])
     profile = context.user_data.get("profile", {})
 
     if not cart:
-        await update.message.reply_text("❌ Кошик порожній")
+        # Якщо викликано через кнопку
+        if update.callback_query:
+            await update.callback_query.answer("❌ Кошик порожній", show_alert=True)
+        else:
+            await update.message.reply_text("❌ Кошик порожній")
         return
+
 
     # Ініціалізуємо список замовлень, якщо його немає
     if "orders" not in context.user_data:
