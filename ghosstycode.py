@@ -877,7 +877,7 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     profile = context.user_data.setdefault("profile", {})
 
-        # ===== ADDRESS =====
+            # ===== ADDRESS =====
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
@@ -886,6 +886,7 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "✅ <b>Адресу доставки збережено</b>",
             parse_mode="HTML"
         )
+
 
 
 
