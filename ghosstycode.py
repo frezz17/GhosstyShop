@@ -230,6 +230,111 @@ HHC_VAPES = {
         "desc": "95% HHC | Indica\n😴 Глибокий релакс"
     }
 }
+
+PODS = {
+    500: {
+        "name": "🔌 Vaporesso XROS 3 Mini",
+        "price": 499,
+        "imgs": [
+            "https://ibb.co/yFSQ5QSn",
+            "https://ibb.co/LzgrzZjC",
+            "https://ibb.co/Q3ZNTBvg"
+        ],
+        "desc": (
+            "🔋 Акумулятор: 1000 mAh\n"
+            "💨 Тип затяжки: MTL / RDL\n"
+            "⚡ Зарядка: Type-C\n"
+            "🎨 Кольори: чорний, голубий, рожевий"
+        )
+    },
+    501: {
+        "name": "🔌 Vaporesso XROS 5 Mini",
+        "price": 579,
+        "imgs": [
+            "https://ibb.co/RkNgt1Qr",
+            "https://ibb.co/KxvJC1bV",
+            "https://ibb.co/WpMYBCH1"
+        ],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "🔥 COREX 2.0\n"
+            "⚡ Швидка зарядка\n"
+            "🎨 рожевий / фіолетовий / чорний"
+        )
+    },
+    502: {
+        "name": "🔌 Vaporesso XROS Pro",
+        "price": 689,
+        "imgs": [
+            "https://ibb.co/ynYwSMt6",
+            "https://ibb.co/3mV7scXr",
+            "https://ibb.co/xSJCgpJ5"
+        ],
+        "desc": (
+            "🔋 1200 mAh\n"
+            "⚡ Fast Charge\n"
+            "💨 Регуляція затяжки\n"
+            "🎨 чорний / темно-червоний / рожево-червоний"
+        )
+    },
+    503: {
+        "name": "🔌 Vaporesso XROS Nano",
+        "price": 519,
+        "imgs": [
+            "https://ibb.co/5XW2yN80",
+            "https://ibb.co/93dJ8wKS",
+            "https://ibb.co/Qj90hyyz"
+        ],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "🪖 Камуфляж\n"
+            "💨 MTL\n"
+            "🎨 camo 1 / 2 / 3"
+        )
+    },
+    504: {
+        "name": "🔌 Vaporesso XROS 4",
+        "price": 599,
+        "imgs": [
+            "https://ibb.co/LDRbQxr1",
+            "https://ibb.co/NPHYSjN",
+            "https://ibb.co/LhbzXD57"
+        ],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "🔥 COREX\n"
+            "🎨 рожевий / чорний / синій"
+        )
+    },
+    505: {
+        "name": "🔌 Vaporesso XROS 5",
+        "price": 799,
+        "imgs": [
+            "https://ibb.co/hxjmpHF2",
+            "https://ibb.co/DDkgjtV4",
+            "https://ibb.co/r2C9JTzz"
+        ],
+        "desc": (
+            "🔋 1200 mAh\n"
+            "⚡ Fast Charge\n"
+            "🎨 чорний / рожевий / фіолетовий з полоскою"
+        )
+    },
+    506: {
+        "name": "🔌 Voopoo Vmate Mini Pod Kit",
+        "price": 459,
+        "imgs": [
+            "https://ibb.co/8L0JNTHz",
+            "https://ibb.co/0RZ1VDnG",
+            "https://ibb.co/21LPrbbj"
+        ],
+        "desc": (
+            "🔋 1000 mAh\n"
+            "💨 Автозатяжка\n"
+            "🎨 рожевий / червоний / чорний"
+        )
+    }
+}
 # ===================== START =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -284,6 +389,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ===================== CALLBACKS =====================
+elif data == "pods":
+    buttons = []
+
+    for pid, item in PODS.items():
+        buttons.append([
+            InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
+            InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
+        ])
+
+    buttons.append([
+        InlineKeyboardButton("⬅️ Назад", callback_data="assortment"),
+        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+    ])
+
+    await q.message.edit_caption(
+        caption="🔌 <b>Pod-системи</b>\n\nОбери модель 👇",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+await safe_edit_media(
+    q.message,
+    item["imgs"][0] if "imgs" in item else item["img"],
+    caption,
+    kb
+)
+
+elif data == "fast_all":
+        context.user_data["state"] = "fast_name"
+        context.user_data["fast_pid"] = None
+        await q.message.reply_text(
+            "⚡ <b>Швидке замовлення</b>\n\n✍️ Введіть імʼя та прізвище:",
+            parse_mode="HTML"
+        )
+
 async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -340,34 +480,45 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ===== ASSORTMENT =====
     elif data == "assortment":
-        kb = InlineKeyboardMarkup([
-    [
-        InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
-        InlineKeyboardButton("💧 Рідини", callback_data="liquids")
-    ],
-    [
-        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-    ]
-])
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
+            InlineKeyboardButton("🔌 Pod-системи", callback_data="pods")
+        ],
+        [
+            InlineKeyboardButton("💧 Рідини", callback_data="liquids"),
+            InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")
+        ],
+        [
+            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+        ]
+    ])
+
         await q.message.edit_caption(
             caption="🛍️ <b>Асортимент</b>\nОберіть категорію:",
             parse_mode="HTML",
             reply_markup=kb
         )
 
-    kb = InlineKeyboardMarkup([
-    [
-        InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
-        InlineKeyboardButton("🔌 Pod-системи", callback_data="pods")
-    ],
-    [
-        InlineKeyboardButton("💧 Рідини", callback_data="liquids"),
-        InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")
-    ],
-    [
-        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-    ]
-])
+    # ===== HHC =====
+    elif data == "hhc":
+        buttons = []
+        for pid, item in HHC_VAPES.items():
+            buttons.append([
+                InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
+                InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
+            ])
+
+        buttons.append([
+            InlineKeyboardButton("⬅️ Назад", callback_data="assortment"),
+            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+        ])
+
+        await q.message.edit_caption(
+            caption="😵‍💫 <b>HHC / ННС</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
     # ===== LIQUIDS =====
     elif data == "liquids":
@@ -377,6 +528,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
                 InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
             ])
+
         buttons.append([
             InlineKeyboardButton("⬅️ Назад", callback_data="assortment"),
             InlineKeyboardButton("🏠 В головне меню", callback_data="main")
@@ -386,47 +538,62 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption="💧 <b>Рідини</b>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(buttons)
-        )
-
+                                    )
     # ===== ITEM VIEW =====
     elif data.startswith("item_"):
-        pid = int(data.split("_")[1])
-        item = HHC_VAPES.get(pid) or LIQUIDS.get(pid)
-        base_price = item["price"]
-        final_price = apply_discount(base_price)
+    elif data.startswith("item_"):
+    pid = int(data.split("_")[1])
 
-        caption = (
-            f"<b>{item['name']}</b>\n\n"
-            f"{item.get('desc','')}\n\n"
-            f"❌ {base_price} грн\n"
-            f"✅ <b>{final_price} грн (-35%)</b>\n"
-            f"👑 VIP доставка: 0 грн"
-        )
+    # 🔑 ТУТ ВАЖЛИВИЙ РЯДОК
+    item = HHC_VAPES.get(pid) or LIQUIDS.get(pid) or PODS.get(pid)
 
-        kb = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("⚡ Швидке замовлення", callback_data=f"fast_{pid}"),
-                InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/{MANAGER_USERNAME}")
-            ],
-            [
-                InlineKeyboardButton("⬅️ Назад", callback_data="hhc" if pid < 300 else "liquids"),
-                InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-            ]
-        ])
+    if not item:
+        await q.message.reply_text("❌ Товар не знайдено")
+        return
 
-        await safe_edit_media(
-            q.message,
-            item["img"],
-            caption,
-            kb
-        )
+    base_price = item["price"]
+    final_price = apply_discount(base_price)
+
+    caption = (
+        f"<b>{item['name']}</b>\n\n"
+        f"{item.get('desc','')}\n\n"
+        f"❌ {base_price} грн\n"
+        f"✅ <b>{final_price} грн (-35%)</b>\n"
+        f"🚚 VIP доставка: 0 грн"
+    )
+
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🎨 Обрати колір", callback_data=f"color_{pid}"),
+            InlineKeyboardButton("⚡ Швидке замовлення", callback_data=f"fast_{pid}")
+        ],
+        [
+            InlineKeyboardButton("🛒 В кошик", callback_data=f"add_{pid}"),
+            InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/{MANAGER_USERNAME}")
+        ],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="pods" if pid >= 500 else "assortment"),
+            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+        ]
+    ])
+
+    # 🖼️ Фото (для pod — перше з imgs)
+    photo = item["imgs"][0] if "imgs" in item else item["img"]
+
+    await safe_edit_media(
+        q.message,
+        photo,
+        caption,
+        kb
+            )
 
     # ===== FAST ORDER INIT =====
     elif data.startswith("fast_"):
         pid = int(data.split("_")[1])
         context.user_data["fast_pid"] = pid
         context.user_data["state"] = "fast_name"
-        await q.message.reply_text("✍️ Введіть імʼя та прізвище для замовлення:")
+        await q.message.reply_text("✍️ Введіть імʼя та прізвище для замовлення:"
+                                   
       # ===================== TEXT INPUT HANDLER =====================
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
