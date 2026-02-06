@@ -728,3 +728,18 @@ async def show_orders(q, context):
 
 # ===================== MESSAGE HANDLER =====================
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
+
+def main():
+    app = ApplicationBuilder()\
+        .token(TOKEN)\
+        .persistence(persistence)\
+        .build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(callbacks))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
+
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
