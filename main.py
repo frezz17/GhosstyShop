@@ -3,6 +3,12 @@ import random
 import string
 from html import escape
 from datetime import datetime, timedelta
+from aiogram.types import InputMediaPhoto
+from aiogram.utils.exceptions import BadRequest
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 from telegram import (
     Update,
@@ -70,21 +76,21 @@ def build_item_caption(item: dict, user_data: dict) -> str:
 
     prices = calc_prices(item, promo_percent)
 
+    # Початковий текст
     text = f"<b>{escape(item['name'])}</b>\n\n"
-
     text += f"💰 <s>{prices['base']} грн</s>\n"
     text += f"🔥 Зі знижкою: <b>{prices['discounted']} грн</b>\n"
     text += f"🎟 З промо: <b>{prices['final']} грн</b>\n\n"
 
-    text += f"{item['desc']}\n\n"
+    # Додаємо опис товару, якщо він є
+    text += f"{item.get('desc', '')}\n\n"
 
-    # Ось тут правильний відступ і без зайвого "81"
+    # Додаємо рідини у подарунок
     gifts = "\n".join(f"• {g}" for g in get_gift_liquids())
-    text += (
-        "🎁 <b>Рідина у подарунок на вибір:</b>\n"
-        f"{gifts}\n\n"
-    )
+    if gifts:
+        text += f"🎁 <b>Рідина у подарунок на вибір:</b>\n{gifts}\n\n"
 
+    # Інформація про доставку
     if is_vip:
         text += "👑 <b>VIP:</b> безкоштовна доставка 🚚\n"
     else:
@@ -178,6 +184,7 @@ def calc_price(item: dict) -> int:
         return int(base_price * DISCOUNT_MULTIPLIER)
 
     return base_price
+
     
     context.user_data["cart"].append({
     "pid": pid,
