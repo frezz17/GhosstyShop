@@ -877,14 +877,16 @@ async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     profile = context.user_data.setdefault("profile", {})
 
-    # ===== ADDRESS =====
+        # ===== ADDRESS =====
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
 
         await update.message.reply_text(
             "✅ <b>Адресу доставки збережено</b>",
-            parse_mode="HTML",
+            parse_mode="HTML"
+        )
+
 
 
     # ===================== TEXT HANDLER =====================
