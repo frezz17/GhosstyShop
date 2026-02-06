@@ -40,13 +40,7 @@ DISCOUNT_MULTIPLIER = 0.55
 
 
 # ===================== PRICING =====================
-DISCOUNT_MULTIPLIER = 0.65  # -35%
-
 def calc_price(item: dict) -> int:
-    """
-    Фінальна ціна з урахуванням знижки.
-    Знижка застосовується завжди, якщо discount=True або не вказано.
-    """
     base_price = item["price"]
     if item.get("discount", True):
         return int(base_price * DISCOUNT_MULTIPLIER)
@@ -154,31 +148,19 @@ def calc_price(item: dict) -> int:
     "base_price": item["price"]
 })
     
-# ===================== GIFTS =====================
-# 🎁 Подарунки додаються ДО КОЖНОГО замовлення
-
+# ===================== GIFT LIQUIDS =====================
 GIFT_LIQUIDS = {
-    9001: {"name": "🎁 Pumpkin Latte", "desc": "30ml"},
-    9002: {"name": "🎁 Glintwine", "desc": "30ml"},
-    9003: {"name": "🎁 Christmas Tree", "desc": "30ml"},
-    9004: {"name": "🎁 Strawberry Jelly", "desc": "30ml"},
-    9005: {"name": "🎁 Mystery One", "desc": "30ml"},
-    9006: {"name": "🎁 Fall Tea", "desc": "30ml"},
+    9001: {"name": "🎁 Pumpkin Latte 30ml"},
+    9002: {"name": "🎁 Glintwine 30ml"},
+    9003: {"name": "🎁 Christmas Tree 30ml"},
+    9004: {"name": "🎁 Strawberry Jelly 30ml"},
+    9005: {"name": "🎁 Mystery One 30ml"},
+    9006: {"name": "🎁 Fall Tea 30ml"},
 }
 
-
-def get_gift_liquids() -> list[str]:
-    """
-    Повертає список назв подарунків
-    """
-    return [gift["name"] for gift in GIFT_LIQUIDS.values()]
-
-
-def get_gift_liquids() -> list[str]:
-    """
-    Повертає список назв подарункових рідин
-    """
+def get_gift_liquids():
     return [v["name"] for v in GIFT_LIQUIDS.values()]
+
 
 # 💧 РІДИНИ (3 набори, продаються + йдуть у подарунок)
 LIQUIDS = {
@@ -477,53 +459,65 @@ PODS = {
 
 }
 
-# ===================== SEND TO MANAGER =====================
-async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
-    query = update.callback_query
-    await query.answer()
-
-    user = update.effective_user
-    profile = context.user_data.get("profile", {})
-    orders = context.user_data.get("orders", [])
-
-    order = next((o for o in orders if o["id"] == order_id), None)
-    if not order:
-        await query.answer("❌ Замовлення не знайдено", show_alert=True)
+# ===================== CALLBACKS ROUTER =====================
+async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    if not q:
         return
 
-    text = (
-        f"📥 <b>Нове замовлення</b>\n\n"
-        f"🆔 <b>{order_id}</b>\n"
-        f"👤 {profile.get('full_name', '—')}\n"
-        f"📞 {profile.get('phone', '—')}\n"
-        f"📍 {profile.get('address', '—')}\n"
-        f"👤 @{user.username or '—'}\n\n"
-        f"🛒 <b>Товари:</b>\n"
-    )
+    await q.answer()
+    data = q.data
 
-    for i in order["items"]:
-        text += f"• {i['name']} — {i['price']} грн\n"
+    if data == "main":
+        await start(update, context)
 
-    text += (
-        f"\n🎁 <b>Подарунок:</b> 3 рідини\n"
-        f"🏷 <b>Промокод:</b> {PROMO_CODE} (-{int((1 - DISCOUNT_MULTIPLIER) * 100)}%)\n"
-        f"💸 <b>Сума:</b> {order['total']} грн\n"
-        f"📦 <b>Статус:</b> {order['status']}"
-    )
+    elif data == "profile":
+        await show_profile(q, context)
 
-    await context.bot.send_message(
-        chat_id=int(MANAGER_ID),
-        text=text,
-        parse_mode="HTML"
-    )
+    elif data == "assortment":
+        await show_assortment(q, context)
 
-    await query.edit_message_text(
-        "✅ <b>Замовлення передано менеджеру</b>\n\n"
-        "Очікуйте підтвердження після перевірки оплати 💳",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
-    
+    elif data == "cart":
+        await show_cart(q, context)
+
+    elif data == "orders":
+        await show_orders(q, context)
+
+    elif data == "city":
+        await select_city(q, context)
+
+    elif data.startswith("city_"):
+        await save_city(q, context, data.replace("city_", ""))
+
+    elif data.startswith("district_"):
+        await save_district(q, context, data.replace("district_", ""))
+
+    elif data.startswith("item_"):
+        await show_item(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("color_"):
+        await select_color(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("colorpick_"):
+        _, pid, idx = data.split("_")
+        await apply_color(q, context, int(pid), int(idx))
+
+    elif data.startswith("add_"):
+        await add_to_cart(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("del_"):
+        await delete_from_cart(q, context, int(data.split("_")[1]))
+
+    elif data.startswith("fast_"):
+        pid = int(data.split("_")[1])
+        await fast_start(q, context, pid)
+
+    elif data.startswith("send_manager_"):
+        order_id = data.replace("send_manager_", "")
+        await send_to_manager(update, context, order_id)
+
+    else:
+        await q.answer("⚠️ Невідома дія", show_alert=True)
 
 # ===================== KEYBOARDS =====================
 def main_menu():
@@ -678,6 +672,7 @@ async def show_ref_link(q, context):
     )
 
 # ===================== CITY SELECT =====================
+    
 async def select_city(q, context):
     await q.answer()
 
@@ -697,6 +692,7 @@ async def select_city(q, context):
     )
 
 # ===================== SAVE CITY =====================
+    
 async def save_city(q, context, city):
     await q.answer()
 
@@ -720,6 +716,7 @@ async def save_city(q, context, city):
     )
 
 # ===================== SAVE DISTRICT =====================
+    
 async def save_district(q, context, district):
     await q.answer()
 
@@ -737,6 +734,50 @@ async def save_district(q, context, district):
         ])
     )
 
+
+# ===================== SEND TO MANAGER =====================
+    
+async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
+    query = update.callback_query
+    user = update.effective_user
+
+    profile = context.user_data.get("profile", {})
+    orders = context.user_data.get("orders", [])
+
+    order = next((o for o in orders if o["id"] == order_id), None)
+    if not order:
+        await query.answer("❌ Замовлення не знайдено", show_alert=True)
+        return
+
+    text = (
+        f"📥 <b>НОВЕ ЗАМОВЛЕННЯ</b>\n\n"
+        f"🆔 <b>{order_id}</b>\n"
+        f"👤 {profile.get('full_name', '—')}\n"
+        f"📞 {profile.get('phone', '—')}\n"
+        f"📍 {profile.get('address', '—')}\n"
+        f"👤 @{user.username or '—'}\n\n"
+        f"🛒 <b>Товари:</b>\n"
+    )
+
+    for i in order["items"]:
+        text += f"• {i['name']} — {i['price']} грн\n"
+
+    text += f"\n💰 <b>Сума:</b> {order['total']} грн"
+
+    await context.bot.send_message(
+        chat_id=MANAGER_ID,
+        text=text,
+        parse_mode="HTML"
+    )
+
+    await query.edit_message_text(
+        "✅ <b>Замовлення надіслано менеджеру</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
+        ])
+    )
+    
 # ===================== ADDRESS EDIT =====================
 async def edit_address(q, context):
     await q.answer()
@@ -754,6 +795,7 @@ async def edit_address(q, context):
         ])
     )
 # ===================== CANCEL INPUT =====================
+    
 async def cancel_input(q, context):
     await q.answer()
     context.user_data["state"] = None
@@ -766,6 +808,7 @@ async def cancel_input(q, context):
 
 
     # ===== ADDRESS =====
+    
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
@@ -1103,12 +1146,10 @@ async def select_color(q, context, pid: int):
     )
     
 # ===================== CART =====================
+    
+    
 async def add_to_cart(q, context, pid: int):
-    item = (
-        HHC_VAPES.get(pid)
-        or PODS.get(pid)
-        or LIQUIDS.get(pid)
-    )
+    item = HHC_VAPES.get(pid) or PODS.get(pid) or LIQUIDS.get(pid)
 
     if not item:
         await q.answer("❌ Товар не знайдено")
@@ -1119,70 +1160,12 @@ async def add_to_cart(q, context, pid: int):
     cart.append({
         "pid": pid,
         "name": item["name"],
-        "type": item.get("type", "other"),
-        "gift_liquid": item.get("gift_liquid", False),
+        "price": calc_price(item),
         "base_price": item["price"],
-        "price": calc_price(item)
+        "gift_liquid": item.get("gift_liquid", False)
     })
 
-    await q.answer("✅ Додано в кошик"
-
-async def show_cart(q, context):
-    cart = context.user_data.get("cart", [])
-
-    if not cart:
-        await q.message.edit_text(
-            "🛒 <b>Кошик порожній</b>",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")],
-                [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
-            ])
-        )
-        return
-
-    text = "🛒 <b>Ваш кошик:</b>\n\n"
-    total = 0
-    gift_count = 0
-    buttons = []
-
-    for i, item in enumerate(cart):
-        text += (
-            f"• {item['name']}\n"
-            f"  ❌ {item['base_price']} грн → "
-            f"✅ <b>{item['price']} грн</b>\n"
-        )
-        total += item["price"]
-        if item.get("gift_liquid"):
-            gift_count += 1
-
-        buttons.append([
-            InlineKeyboardButton(f"❌ Видалити {i+1}", callback_data=f"del_{i}")
-        ])
-
-    if gift_count:
-        text += f"\n🎁 <b>Подарунок:</b> {gift_count * 3} рідини 30ml"
-
-    text += f"\n\n💰 <b>Разом:</b> {total} грн"
-
-    buttons.append([
-        InlineKeyboardButton("⚡ Оформити", callback_data="fast_all"),
-        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-    ])
-
-    await q.message.edit_text(
-        text,
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-async def delete_from_cart(q, context, idx: int):
-    try:
-        context.user_data["cart"].pop(idx)
-        await q.answer("🗑 Видалено")
-        await show_cart(q, context)
-    except Exception:
-        await q.answer("❌ Помилка видалення")
+    await q.answer("✅ Додано в кошик")
 
 # ===================== FAST ORDER =====================
 async def fast_start(q, context, pid=None):
@@ -1252,87 +1235,57 @@ def calc_price(item: dict) -> int:
     if item.get("discount", True):
         return int(base_price * DISCOUNT_MULTIPLIER)
 
-    return base_price
-
+    return base_pric
+    
 # ===================== CONFIRM ORDER =====================
-async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE
+                       )
     cart = context.user_data.get("cart", [])
     profile = context.user_data.get("profile", {})
 
     if not cart:
-        if update.message:
-            await update.message.reply_text("❌ Кошик порожній")
-        else:
-            await update.callback_query.answer("❌ Кошик порожній", show_alert=True)
+        await update.message.reply_text("❌ Кошик порожній")
         return
 
     orders = context.user_data.setdefault("orders", [])
-    order_id = f"GHST-{update.effective_user.id}-{len(orders) + 1}"
-
-    promo = profile.get("promo_code", "—")
-    promo_discount = profile.get("promo_discount", DISCOUNT_PERCENT)
+    order_id = f"GHST-{update.effective_user.id}-{len(orders)+1}"
 
     total = sum(i["price"] for i in cart)
-    gift_count = sum(1 for i in cart if i.get("gift_liquid"))
-
-    payment_comment = f"{order_id} | @{update.effective_user.username or 'user'}"
 
     text = (
         f"📦 <b>Замовлення сформовано</b>\n\n"
         f"🆔 <b>{order_id}</b>\n\n"
-        f"👤 {profile.get('full_name', '—')}\n"
-        f"📞 {profile.get('phone', '—')}\n"
-        f"📍 {profile.get('address', '—')}\n\n"
+        f"👤 {profile.get('full_name','—')}\n"
+        f"📞 {profile.get('phone','—')}\n"
+        f"📍 {profile.get('address','—')}\n\n"
         f"🛒 <b>Товари:</b>\n"
     )
 
     for i in cart:
-    text += f"• {i['name']} — {i['price']} грн\n"
+        text += f"• {i['name']} — {i['price']} грн\n"
 
-# 🎁 Подарунок на вибір
-text += "\n🎁 <b>Подарунок на вибір:</b>\n"
-for name in get_gift_liquids():
-    text += f"• {name}\n"
-
-    
-        f"\n🎁 <b>Подарунок:</b> {gift_count * 3 if gift_count else 3} рідини 30ml\n"
-        f"🏷 <b>Промокод:</b> {promo} (-{promo_discount}%)\n"
-        f"🚚 <b>Доставка:</b> VIP — <b>безкоштовно</b>\n"
+    text += (
+        f"\n🎁 <b>Подарунок:</b> 3 рідини 30ml\n"
         f"💰 <b>До оплати:</b> {total} грн\n\n"
-        f"💳 <b>Коментар до оплати:</b>\n"
-        f"<code>{payment_comment}</code>\n\n"
-        f"⬇️ Оплатіть за посиланням нижче"
+        f"💳 Оплата за посиланням ⬇️"
     )
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💳 Оплатити", url=PAYMENT_LINK)],
         [InlineKeyboardButton("📤 Надіслати менеджеру", callback_data=f"send_manager_{order_id}")],
-        [InlineKeyboardButton("💳 Я оплатив / Квитанція", callback_data=f"pay_{order_id}")],
         [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
     ])
 
-    target = update.message if update.message else update.callback_query.message
+    await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
 
-    await target.reply_text(
-        text,
-        parse_mode="HTML",
-        reply_markup=kb
-    )
-
-gift = random.choice(list(GIFT_LIQUIDS.values()))
-    
     orders.append({
-    "id": order_id,
-    "items": cart.copy(),
-    "gift": gift["name"],  # ⬅️ ОЦЕ ВАЖЛИВО
-    "total": total,
-    "promo": promo,
-    "status": "Очікує оплату",
-    "delivery": "VIP безкоштовна"
-})
+        "id": order_id,
+        "items": cart.copy(),
+        "total": total,
+        "status": "Очікує оплату"
+    })
 
     context.user_data["cart"] = []
-    context.user_data["active_order_id"] = order_id
 
 # ===================== HANDLE PAYMENT RECEIPT =====================
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1384,68 +1337,8 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
 
-# ===================== SEND TO MANAGER =====================
-async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
-    query = update.callback_query
-    user = update.effective_user
 
-    profile = context.user_data.get("profile", {})
-    orders = context.user_data.get("orders", [])
 
-    order = next((o for o in orders if o["id"] == order_id), None)
-    if not order:
-        await query.answer("❌ Замовлення не знайдено", show_alert=True)
-        return
-
-    # рахуємо подарунки (HHC / ННС)
-    gift_count = sum(1 for i in order["items"] if i.get("gift_liquid"))
-
-    text = (
-        f"📥 <b>НОВЕ ЗАМОВЛЕННЯ</b>\n\n"
-        f"🆔 <b>{order_id}</b>\n"
-        f"👤 {profile.get('full_name', '—')}\n"
-        f"📞 {profile.get('phone', '—')}\n"
-        f"📍 {profile.get('address', '—')}\n"
-        f"👤 @{user.username or '—'}\n\n"
-        f"🛒 <b>Товари:</b>\n"
-    )
-
-    # 🛒 список товарів
-    for i in order["items"]:
-        text += f"• {i['name']} — {i['price']} грн\n"
-
-    # 🎁 подарунки
-    if gift_count:
-        text += f"\n🎁 <b>Подарунок:</b> {gift_count * 3}× рідини 30ml\n"
-
-    # 🎁 якщо клієнт обрав конкретний подарунок
-    if order.get("gift"):
-        text += f"🎁 <b>Обраний подарунок:</b> {order['gift']}\n"
-
-    text += (
-        f"\n🏷 <b>Промокод:</b> {order.get('promo', '—')} "
-        f"(-{order.get('discount', DISCOUNT_PERCENT)}%)\n"
-        f"💰 <b>Сума:</b> {order['total']} грн\n"
-        f"🚚 <b>Доставка:</b> {order.get('delivery', '—')}\n\n"
-        f"💳 <b>Коментар до оплати:</b>\n"
-        f"<code>{order.get('payment_comment', '—')}</code>\n\n"
-        f"📦 <b>Статус:</b> {order['status']}"
-    )
-
-    await context.bot.send_message(
-        chat_id=MANAGER_ID,
-        text=text,
-        parse_mode="HTML"
-    )
-
-    await query.edit_message_text(
-        "✅ <b>Замовлення надіслано менеджеру</b>\n\n"
-        "Очікуйте підтвердження та перевірки оплати 💳",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
-        ])
-)
 # ===================== ORDERS HISTORY =====================
 async def show_orders(q, context):
     orders = context.user_data.get("orders", [])
