@@ -1212,7 +1212,7 @@ def calc_price(item: dict) -> int:
     return base_pric
     
 # ===================== CONFIRM ORDER =====================
-async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE)
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE): # Додано двокрапку тут
     cart = context.user_data.get("cart", [])
     profile = context.user_data.get("profile", {})
 
@@ -1220,7 +1220,11 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("❌ Кошик порожній")
         return
 
-    orders = context.user_data.setdefault("orders", [])
+    # Ініціалізуємо список замовлень, якщо його немає
+    if "orders" not in context.user_data:
+        context.user_data["orders"] = []
+    
+    orders = context.user_data["orders"]
     order_id = f"GHST-{update.effective_user.id}-{len(orders)+1}"
 
     total = sum(i["price"] for i in cart)
@@ -1228,7 +1232,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE)
     text = (
         f"📦 <b>Замовлення сформовано</b>\n\n"
         f"🆔 <b>{order_id}</b>\n\n"
-        f"👤 {profile.get('full_name','—')}\n"
+        f"👤 {profile.get('name','—')}\n" # Змінено 'full_name' на 'name' (як у вашому профілі)
         f"📞 {profile.get('phone','—')}\n"
         f"📍 {profile.get('address','—')}\n\n"
         f"🛒 <b>Товари:</b>\n"
@@ -1259,6 +1263,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE)
     })
 
     context.user_data["cart"] = []
+
 
 # ===================== HANDLE PAYMENT RECEIPT =====================
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
