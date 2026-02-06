@@ -571,7 +571,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu()
     )
     # ===== INIT USER DATA =====
-    if "profile" not in contex t.user_data:
+    if "profile" not in context.user_data:
         context.user_data["profile"] = {
             "uid": user.id,
             "name": user.first_name,
