@@ -601,59 +601,6 @@ async def show_pods(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(
         "🔌 <b>POD-системи</b>",
-# ===================== ASSORTMENT =====================
-async def show_assortment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💧 Рідини", callback_data="liquids"),
-         InlineKeyboardButton("🔌 POD-системи", callback_data="pods")],
-        [InlineKeyboardButton("💨 HHC / NNS", callback_data="hhc")],
-        [InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")],
-        [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
-    ])
-    
-    await query.edit_message_text(
-        "🛍 <b>Асортимент товарів</b>\n\nОберіть категорію:",
-        parse_mode="HTML",
-        reply_markup=kb
-    )
-
-async def show_liquids(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    buttons = []
-    for pid, item in LIQUIDS.items():
-        buttons.append([
-            InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
-            InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
-        ])
-    
-    buttons.append([InlineKeyboardButton("⬅ Назад", callback_data="assortment")])
-    
-    await query.edit_message_text(
-        "💧 <b>Рідини</b>",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-async def show_pods(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    buttons = []
-    for pid, item in PODS.items():
-        buttons.append([
-            InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
-            InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
-        ])
-    
-    buttons.append([InlineKeyboardButton("⬅ Назад", callback_data="assortment")])
-    
-    await query.edit_message_text(
-        "🔌 <b>POD-системи</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
