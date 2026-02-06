@@ -542,16 +542,8 @@ def main_menu():
             InlineKeyboardButton("📜 Угода користувача", callback_data="terms")
         ]
     ])
-
-
-def back_kb(back: str):
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⬅️ Назад", callback_data=back),
-            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-        ]
-    ])
-# ===================== START ===================== 
+    
+# ===================== START =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     args = context.args
