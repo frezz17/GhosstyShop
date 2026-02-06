@@ -1239,7 +1239,7 @@ def calc_price(item: dict) -> int:
 
     return base_pric
     
-# ===================== CONFIRM ORDER =====================
+
 # ===================== CONFIRM ORDER =====================
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cart = context.user_data.get("cart", [])
@@ -1380,6 +1380,14 @@ async def show_orders(q, context):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
+persistence = PicklePersistence(filepath="bot_data.pkl")
+
+app = (
+    ApplicationBuilder()
+    .token(TOKEN)
+    .persistence(persistence)
+    .build()
+    )
 # ===================== BOT START =====================
 def main():
     # Створюємо об'єкт збереження даних ПЕРЕД ініціалізацією додатка
@@ -1395,8 +1403,7 @@ def main():
     # Додаємо всі обробники
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callbacks_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
     # Додаємо команду підтвердження (якщо вона потрібна як окрема команда)
     app.add_handler(CommandHandler("confirm", confirm_order))
 
