@@ -20,7 +20,6 @@ from telegram.ext import (
     CallbackQueryHandler,
     MessageHandler,
     ContextTypes,
-    PicklePersistence,
     filters
 )
 from telegram.error import BadRequest
@@ -39,15 +38,8 @@ BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
 import random
 import string
 
-PROMO_DISCOUNT = 45  # %
-DISCOUNT_MULTIPLIER = 0.55
 
-.persistence(persistence)
-app = (
-    ApplicationBuilder()
-    .token(TOKEN)
-    .build()
-)
+
 # ===================== PRICE + VIEW ENGINE =====================
 
 def calc_prices(item: dict, promo_percent: int) -> dict:
@@ -1509,35 +1501,16 @@ async def show_orders(q, context):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
-persistence = PicklePersistence(filepath="bot_data.pkl")
 
-app = (
-    ApplicationBuilder()
-    .token(TOKEN)
-    .persistence(persistence)
-    .build()
-    )
 # ===================== BOT START =====================
-def main():
-    # Створюємо об'єкт збереження даних ПЕРЕД ініціалізацією додатка
-    my_persistence = PicklePersistence(filepath="bot_data.pkl")
 
-    app = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .persistence(my_persistence)
-        .build()
-    )
 
-    # Додаємо всі обробники
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callbacks_handler))
+    app.add_handler(CallbackQueryHandler(callbacks_router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
-    # Додаємо команду підтвердження (якщо вона потрібна як окрема команда)
-    app.add_handler(CommandHandler("confirm", confirm_order))
 
-    print("✅ Бот Ghosty Shop успішно запущений!")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
