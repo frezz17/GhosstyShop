@@ -355,24 +355,19 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=kb
         )
 
-    # ===== HHC =====
-    elif data == "hhc":
-        buttons = []
-        for pid, item in HHC_VAPES.items():
-            buttons.append([
-                InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
-                InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
-            ])
-        buttons.append([
-            InlineKeyboardButton("⬅️ Назад", callback_data="assortment"),
-            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
-        ])
-
-        await q.message.edit_caption(
-            caption="😵‍💫 <b>HHC / ННС Вейпи</b>",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+    kb = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("😵‍💫 HHC / ННС", callback_data="hhc"),
+        InlineKeyboardButton("🔌 Pod-системи", callback_data="pods")
+    ],
+    [
+        InlineKeyboardButton("💧 Рідини", callback_data="liquids"),
+        InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")
+    ],
+    [
+        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+    ]
+])
 
     # ===== LIQUIDS =====
     elif data == "liquids":
