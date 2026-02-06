@@ -340,7 +340,7 @@ async def select_city(q, context):
 
 # ===================== SAVE CITY =====================
 async def save_city(q, context, city):
-    profile = context.user_data["profile"]
+    profile = context.user_data.setdefault("profile", {})
     profile["city"] = city
     profile["district"] = None
 
@@ -383,23 +383,74 @@ async def edit_address(q, context):
     )
 
 # ===================== TEXT HANDLER =====================
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get("state")
-    text = update.message.text
-
-    profile = context.user_data.get("profile")
-    if not profile:
+async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
         return
 
+    text = update.message.text.strip()
+    state = context.user_data.get("state")
+
+    # гарантовано існує profile
+    profile = context.user_data.setdefault("profile", {})
+
+    # ===== SAVE ADDRESS =====
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
 
         await update.message.reply_text(
-            text="✅ Адресу збережено",
+            "✅ <b>Адресу доставки збережено</b>\n\n"
+            "Ви можете змінити її у профілі або використати при замовленні.",
+            parse_mode="HTML",
             reply_markup=main_menu()
         )
         return
+
+    # ===== SAVE NAME =====
+    if state == "name":
+        profile["name"] = text
+        context.user_data["state"] = None
+
+        await update.message.reply_text(
+            f"✅ Імʼя збережено: <b>{text}</b>",
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
+        return
+
+    # ===== SAVE PHONE =====
+    if state == "phone":
+        profile["phone"] = text
+        context.user_data["state"] = None
+
+        await update.message.reply_text(
+            f"📞 Телефон збережено: <b>{text}</b>",
+            parse_mode="HTML",
+            reply_markup=main_menu()
+        )
+        return
+
+    # ===== FAST ORDER COMMENT =====
+    if state == "fast_comment":
+        context.user_data["fast_comment"] = text
+        context.user_data["state"] = None
+
+        await update.message.reply_text(
+            "📝 Коментар до замовлення збережено.\n\n"
+            "Натисніть кнопку нижче, щоб надіслати замовлення менеджеру.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Надіслати менеджеру", callback_data="send_manager_fast")],
+                [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
+            ])
+        )
+        return
+
+    # ===== DEFAULT =====
+    await update.message.reply_text(
+        "ℹ️ Я не зрозумів повідомлення.\n"
+        "Будь ласка, скористайтесь меню 👇",
+        reply_markup=main_menu()
+        )
       # ===================== ASSORTMENT =====================
 async def show_assortment(q):
     kb = InlineKeyboardMarkup([
@@ -584,24 +635,32 @@ async def fast_start(q, context, pid=None):
   # ===================== FAST ORDER FLOW =====================
 async def fast_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get("state")
-    text = update.message.text
 
+    if not state:
+        return  # ❗ важливо — інакше ловитиме всі повідомлення
+
+    text = update.message.text.strip()
     profile = context.user_data.setdefault("profile", {})
 
     if state == "fast_name":
         profile["full_name"] = text
         context.user_data["state"] = "fast_phone"
         await update.message.reply_text("📞 Введіть номер телефону:")
+        return
 
-    elif state == "fast_phone":
+    if state == "fast_phone":
         profile["phone"] = text
         context.user_data["state"] = "fast_address"
-        await update.message.reply_text("📍 Введіть адресу доставки (текст або Google Maps):")
+        await update.message.reply_text(
+            "📍 Введіть адресу доставки (текст або Google Maps):"
+        )
+        return
 
-    elif state == "fast_address":
+    if state == "fast_address":
         profile["address"] = text
         context.user_data["state"] = None
         await confirm_order(update, context)
+        return
 
 
 # ===================== CONFIRM ORDER =====================
@@ -792,10 +851,12 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     persistence = PicklePersistence(filepath="bot_data.pkl")
 
-    app = ApplicationBuilder() \
-        .token(TOKEN) \
-        .persistence(persistence) \
+    app = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .persistence(persistence)
         .build()
+    )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callbacks_router))
