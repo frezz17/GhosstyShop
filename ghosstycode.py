@@ -1212,8 +1212,7 @@ def calc_price(item: dict) -> int:
     return base_pric
     
 # ===================== CONFIRM ORDER =====================
-async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE
-                       )
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE)
     cart = context.user_data.get("cart", [])
     profile = context.user_data.get("profile", {})
 
