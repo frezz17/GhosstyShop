@@ -242,7 +242,7 @@ HHC = {
     104: {"name": "Jungle Boys White", "price": 999, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
           "desc": "🌴 Індика | 95% HHC\nГлибокий релакс"},
 }
-# ================== START ==================
+
 # ===================== START =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
