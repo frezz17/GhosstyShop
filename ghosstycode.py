@@ -2,6 +2,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 import random
+from telegram.ext import PicklePersistence
+
+persistence = PicklePersistence(filepath="bot_data.pkl")
 from datetime import datetime, timedelta
 from html import escape
 
@@ -39,6 +42,12 @@ import string
 PROMO_DISCOUNT = 45  # %
 DISCOUNT_MULTIPLIER = 0.55
 
+.persistence(persistence)
+app = (
+    ApplicationBuilder()
+    .token(TOKEN)
+    .build()
+)
 # ===================== PRICE + VIEW ENGINE =====================
 
 def calc_prices(item: dict, promo_percent: int) -> dict:
