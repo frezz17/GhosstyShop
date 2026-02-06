@@ -155,7 +155,7 @@ def calc_price(item: dict) -> int:
 })
     
 # 🎁 ПОДАРУНКИ — додаються ДО КОЖНОГО ЗАМОВЛЕННЯ
-🎁 Подарунок (на вибір):
+text += "\n🎁 Подарунок на вибір\n"
 • Pumpkin Latte
 • Glintwine
 • Christmas Tree
