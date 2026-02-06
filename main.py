@@ -3,7 +3,7 @@ import random
 from html import escape
 from datetime import datetime, timedelta
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 from telegram.error import BadRequest
 
@@ -21,9 +21,9 @@ CHANNEL_URL = "https://t.me/GhostyStaffDP"
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-DISCOUNT_PERCENT = 45
-DISCOUNT_MULT = 0.55
-PROMO_DISCOUNT = 45
+DISCOUNT_PERCENT = 35  # 35% знижка за замовчуванням
+DISCOUNT_MULT = 0.65   # Множник для знижки 35%
+PROMO_DISCOUNT = 45    # Персональна знижка 45%
 DISCOUNT_MULTIPLIER = DISCOUNT_MULT
 
 BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
@@ -35,6 +35,562 @@ GIFT_LIQUIDS = {
     9003: {"name": "🎁 Christmas Tree 30ml"},
     9004: {"name": "🎁 Strawberry Jelly 30ml"},
     9005: {"name": "🎁 Mystery One 30ml"},
+    9006: {"name": "🎁 Fall Tea 30ml"},
+}
+
+def get_gift_liquids():
+    return [v["name"] for v in GIFT_LIQUIDS.values()]
+
+# ===================== PRICE CALCULATION =====================
+def calc_prices(item: dict, promo_percent: int) -> dict:
+    base = item["price"]
+
+    # Загальна знижка -35%
+    discounted = int(base * DISCOUNT_MULTIPLIER)
+
+    # Персональна знижка
+    final_price = discounted
+    if promo_percent > 0:
+        final_price = int(discounted * (1 - promo_percent / 100))
+
+    return {
+        "base": base,
+        "discounted": discounted,
+        "final": final_price
+    }
+
+def build_item_caption(item: dict, user_data: dict) -> str:
+    promo_percent = user_data.get("promo_percent", PROMO_DISCOUNT)
+    is_vip = user_data.get("vip", False)
+
+    prices = calc_prices(item, promo_percent)
+
+    text = f"<b>{escape(item['name'])}</b>\n\n"
+    text += f"💰 <s>{prices['base']} грн</s>\n"
+    text += f"🔥 Зі знижкою -35%: <b>{prices['discounted']} грн</b>\n"
+    text += f"🎟 З персональною знижкою -{promo_percent}%: <b>{prices['final']} грн</b>\n\n"
+
+    text += f"{item.get('desc', '')}\n\n"
+
+    gifts = "\n".join(f"• {g}" for g in get_gift_liquids())
+    if gifts:
+        text += f"🎁 <b>Рідина у подарунок на вибір:</b>\n{gifts}\n\n"
+
+    if is_vip:
+        text += "👑 <b>VIP:</b> безкоштовна доставка 🚚\n"
+    else:
+        text += "🚚 Доставка за тарифом\n"
+
+    return text
+
+# ===================== HELPERS =====================
+def generate_promo_code(user_id: int) -> str:
+    return f"GHOST-{user_id % 10000}{random.randint(100,999)}"
+
+def gen_order_id(uid: int) -> str:
+    return f"GHST-{uid}-{random.randint(1000,9999)}"
+
+def vip_until(profile: dict) -> datetime:
+    base = profile.get("vip_base", BASE_VIP_DATE)
+    refs = profile.get("referrals", 0)
+    return base + timedelta(days=7 * refs)
+
+# ===================== CITIES & DISTRICTS =====================
+CITIES = [
+    "Київ", "Дніпро", "Камʼянське", "Харків", "Одеса",
+    "Львів", "Запоріжжя", "Кривий Ріг", "Полтава", "Черкаси"
+]
+
+CITY_DISTRICTS = {
+    "Київ": [
+        "Шевченківський", "Дарницький", "Оболонський",
+        "Печерський", "Соломʼянський", "Деснянський",
+        "Подільський", "Голосіївський"
+    ],
+    "Дніпро": [
+        "Центральний", "Соборний", "Індустріальний",
+        "Амур", "Новокодацький", "Чечелівський",
+        "Самарський", "Шевченківський"
+    ],
+    "Камʼянське": [
+        "Центральний", "Південний", "Заводський",
+        "Дніпровський", "Черемушки", "Романкове",
+        "БАМ", "Соцмісто"
+    ],
+    "Харків": [
+        "Київський", "Салтівський", "Холодногірський",
+        "Індустріальний", "Основʼянський",
+        "Немишлянський", "Новобаварський"
+    ]
+}
+
+# ===================== PRODUCTS =====================
+LIQUIDS = {
+    301: {
+        "name": "🎃 Pumpkin Latte",
+        "series": "Chaser HO HO HO Edition",
+        "price": 269,
+        "discount": True,
+        "img": "https://i.ibb.co/Y7qn69Ds",
+        "desc": "☕ Гарбузовий латте з корицею\n🎄 Зимовий настрій\n😌 Мʼякий та теплий смак",
+        "effect": "Затишок, солодкий aftertaste ☕",
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+    302: {
+        "name": "🍷 Glintwine",
+        "series": "Chaser HO HO HO Edition",
+        "price": 269,
+        "discount": True,
+        "img": "https://i.ibb.co/wF8r7Nmc",
+        "desc": "🍇 Пряний глінтвейн\n🔥 Теплий винний смак\n🎄 Святковий вайб",
+        "effect": "Тепло, релакс 🔥",
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    },
+    303: {
+        "name": "🎄 Christmas Tree",
+        "series": "Chaser HO HO HO Edition",
+        "price": 269,
+        "discount": True,
+        "img": "https://i.ibb.co/vCPGV8RV",
+        "desc": "🌲 Хвоя + морозна свіжість\n❄️ Дуже свіжа\n🎅 Атмосфера зими",
+        "effect": "Свіжість, холодок ❄️",
+        "payment_url": "https://heylink.me/ghosstyshop/"
+    }
+}
+
+HHC_VAPES = {
+    100: {
+        "name": "🌴 Packwoods Purple 1ml",
+        "type": "hhc",
+        "gift_liquid": True,
+        "price": 549,
+        "discount": True,
+        "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
+        "desc": "🧠 90% ННС | Гібрид\n😌 Розслаблення + легка ейфорія\n🎨 Мʼякий виноградний профіль\n🎁 Рідина у подарунок на вибір\n⚠️ Потужний ефект — починай з малого",
+        "payment_url": PAYMENT_LINK
+    },
+    101: {
+        "name": "🍊 Packwoods Orange 1ml",
+        "type": "hhc",
+        "gift_liquid": True,
+        "price": 629,
+        "discount": True,
+        "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
+        "desc": "🧠 90% ННС | Гібрид\n⚡ Бадьорить та фокусує\n🍊 Соковитий апельсин\n🎁 Рідина у подарунок на вибір\n🔥 Яскравий та швидкий ефект",
+        "payment_url": PAYMENT_LINK
+    },
+    102: {
+        "name": "🌸 Packwoods Pink 1ml",
+        "type": "hhc",
+        "gift_liquid": True,
+        "price": 719,
+        "discount": True,
+        "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
+        "desc": "🧠 90% ННС | Гібрид\n😇 Спокій + підйом настрою\n🍓 Солодко-фруктовий мікс\n🎁 Рідина у подарунок на вибір\n✨ Комфортний та плавний",
+        "payment_url": PAYMENT_LINK
+    }
+}
+
+PODS = {
+    500: {
+        "name": "🔌 Vaporesso XROS 3 Mini",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 499,
+        "discount": True,
+        "imgs": [
+            "https://i.ibb.co/yFSQ5QSn",
+            "https://i.ibb.co/LzgrzZjC",
+            "https://i.ibb.co/Q3ZNTBvg"
+        ],
+        "colors": ["⚫ Чорний", "🔵 Голубий", "🌸 Рожевий"],
+        "desc": "🔋 1000 mAh\n💨 MTL / RDL\n⚡ Type-C зарядка\n✨ Компактний та легкий\n😌 Мʼяка тяга, стабільний смак",
+        "payment_url": PAYMENT_LINK
+    },
+    501: {
+        "name": "🔌 Vaporesso XROS 5 Mini",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 579,
+        "discount": True,
+        "imgs": [
+            "https://i.ibb.co/RkNgt1Qr",
+            "https://i.ibb.co/KxvJC1bV",
+            "https://i.ibb.co/WpMYBCH1"
+        ],
+        "colors": ["🌸 Рожевий", "🟣 Фіолетовий", "⚫ Чорний"],
+        "desc": "🔋 1000 mAh\n🔥 COREX 2.0\n⚡ Швидка зарядка\n🎯 Яскравий смак\n💎 Оновлений дизайн",
+        "payment_url": PAYMENT_LINK
+    }
+}
+
+def calc_price(item: dict) -> int:
+    base_price = item["price"]
+    if item.get("discount", True):
+        return int(base_price * DISCOUNT_MULTIPLIER)
+    return base_price
+
+# ===================== KEYBOARDS =====================
+def main_menu():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("👤 Профіль", callback_data="profile"),
+            InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")
+        ],
+        [
+            InlineKeyboardButton("📍 Місто", callback_data="city"),
+            InlineKeyboardButton("🛒 Кошик", callback_data="cart")
+        ],
+        [
+            InlineKeyboardButton("📦 Замовлення", callback_data="orders"),
+            InlineKeyboardButton("👨‍💻 Менеджер", url="https://t.me/ghosstydpbot")
+        ],
+        [
+            InlineKeyboardButton("📢 Канал", url=CHANNEL_URL)
+        ]
+    ])
+
+def back_kb(back: str):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data=back),
+            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+        ]
+    ])
+
+# ===================== START COMMAND =====================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    args = context.args
+    
+    # Ініціалізація даних користувача
+    if "profile" not in context.user_data:
+        context.user_data["profile"] = {
+            "uid": user.id,
+            "full_name": user.first_name,
+            "username": user.username,
+            "phone": None,
+            "city": None,
+            "district": None,
+            "address": None,
+            "promo_code": generate_promo_code(user.id),
+            "promo_discount": PROMO_DISCOUNT,
+            "referrals": 0,
+            "vip_base": BASE_VIP_DATE,
+            "ref_applied": False
+        }
+        context.user_data["cart"] = []
+        context.user_data["orders"] = []
+        context.user_data["vip"] = False
+    
+    profile = context.user_data["profile"]
+    
+    # Обробка реферальної системи
+    if args and not profile["ref_applied"]:
+        try:
+            ref_id = int(args[0])
+            if ref_id != user.id:
+                profile["ref_applied"] = True
+                profile["referrals"] = profile.get("referrals", 0) + 1
+                # Додаємо 7 днів VIP за реферала
+                profile["vip_base"] = profile.get("vip_base", BASE_VIP_DATE) + timedelta(days=7)
+        except ValueError:
+            pass
+    
+    vip_date = vip_until(profile)
+    
+    # Перевірка VIP статусу
+    if vip_date > datetime.now():
+        context.user_data["vip"] = True
+    else:
+        context.user_data["vip"] = False
+    
+    text = (
+        f"👋 <b>{escape(user.first_name)}</b>, вітаємо у <b>Ghosty Shop</b> 💨\n\n"
+        f"🎁 <b>Подарунок до кожного замовлення:</b>\n"
+        f"• 3 рідини 30ml — <b>безкоштовно</b> 🎉\n\n"
+        f"🎫 <b>Персональний промокод:</b> <code>{profile['promo_code']}</code>\n"
+        f"💸 <b>Ваша знижка:</b> -{profile['promo_discount']}%\n"
+        f"🔥 <b>Загальна знижка:</b> -35%\n\n"
+        f"👑 <b>VIP статус</b> до: <b>{vip_date.strftime('%d.%m.%Y')}</b>\n"
+        f"🚚 Доставка: <b>Безкоштовна для VIP</b>\n\n"
+        f"👇 Оберіть дію:"
+    )
+    
+    try:
+        if update.message:
+            await update.message.reply_photo(
+                photo=WELCOME_PHOTO,
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=main_menu()
+            )
+        else:
+            query = update.callback_query
+            await query.edit_message_caption(
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=main_menu()
+            )
+    except:
+        if update.message:
+            await update.message.reply_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=main_menu()
+            )
+
+# ===================== PROFILE =====================
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    profile = context.user_data.get("profile", {})
+    vip_date = vip_until(profile).strftime("%d.%m.%Y")
+    
+    # Генерація реферального посилання
+    bot_username = (await query.bot.get_me()).username
+    ref_link = f"https://t.me/{bot_username}?start={profile['uid']}"
+    
+    text = (
+        f"👤 <b>Профіль користувача</b>\n\n"
+        f"🧑 <b>Імʼя:</b> {escape(profile.get('full_name', '—'))}\n"
+        f"👤 <b>Username:</b> @{profile.get('username', '—')}\n\n"
+        f"🏙 <b>Місто:</b> {profile.get('city', '—')}\n"
+        f"📍 <b>Район:</b> {profile.get('district', '—')}\n"
+        f"🏠 <b>Адреса:</b> {profile.get('address', '—')}\n\n"
+        f"🏷 <b>Промокод:</b> <code>{profile.get('promo_code', '—')}</code>\n"
+        f"💸 <b>Знижка:</b> -{profile.get('promo_discount', PROMO_DISCOUNT)}%\n\n"
+        f"👥 <b>Рефералів:</b> {profile.get('referrals', 0)}\n"
+        f"💎 <b>VIP:</b> до <b>{vip_date}</b>\n"
+        f"🚚 <b>Доставка:</b> {'безкоштовна' if context.user_data.get('vip') else 'за тарифом'}\n"
+    )
+    
+    await query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✏️ Змінити адресу", callback_data="edit_address"),
+                InlineKeyboardButton("📍 Місто / район", callback_data="city")
+            ],
+            [
+                InlineKeyboardButton("🔗 Реферальне посилання", callback_data="ref_link")
+            ],
+            [
+                InlineKeyboardButton("⬅️ Назад", callback_data="main")
+            ]
+        ])
+    )
+
+# ===================== REFERRAL LINK =====================
+async def show_ref_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    profile = context.user_data.get("profile", {})
+    bot_username = (await query.bot.get_me()).username
+    ref_link = f"https://t.me/{bot_username}?start={profile['uid']}"
+    
+    text = (
+        f"🔗 <b>Ваше реферальне посилання</b>\n\n"
+        f"<code>{ref_link}</code>\n\n"
+        f"➕ <b>За кожного друга отримуєте:</b>\n"
+        f"• +7 днів VIP статусу 👑\n"
+        f"• Безкоштовна доставка 🚚\n"
+        f"• Додаткові бонуси 🎁\n\n"
+        f"Просто надішліть це посилання друзям!"
+    )
+    
+    await query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Назад", callback_data="profile")]
+        ])
+    )
+
+# ===================== ASSORTMENT =====================
+async def show_assortment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("💧 Рідини", callback_data="liquids"),
+            InlineKeyboardButton("🔌 POD-системи", callback_data="pods"),
+            InlineKeyboardButton("💨 HHC / NNS", callback_data="hhc")
+        ],
+        [
+            InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all")
+        ],
+        [
+            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+        ]
+    ])
+    
+    text = "🛍 <b>Асортимент</b>\n\nОберіть категорію:"
+    
+    await query.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
+async def show_liquids(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    buttons = []
+    for pid, item in LIQUIDS.items():
+        buttons.append([
+            InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
+            InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
+        ])
+    
+    buttons.append([InlineKeyboardButton("⬅ Назад", callback_data="assortment")])
+    
+    await query.message.edit_text(
+        "💧 <b>Рідини</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+async def show_pods(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    buttons = []
+    for pid, item in PODS.items():
+        buttons.append([
+            InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
+            InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
+        ])
+    
+    buttons.append([InlineKeyboardButton("⬅ Назад", callback_data="assortment")])
+    
+    await query.message.edit_text(
+        "🔌 <b>POD-системи</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+async def show_hhc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    buttons = []
+    for pid, item in HHC_VAPES.items():
+        buttons.append([
+            InlineKeyboardButton(item["name"], callback_data=f"item_{pid}"),
+            InlineKeyboardButton("⚡", callback_data=f"fast_{pid}")
+        ])
+    
+    buttons.append([InlineKeyboardButton("⬅ Назад", callback_data="assortment")])
+    
+    await query.message.edit_text(
+        "💨 <b>NNS / HHC Вейпи</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+# ===================== ITEM VIEW =====================
+async def show_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    if not data.startswith("item_"):
+        return
+    
+    try:
+        pid = int(data.split("_")[1])
+    except:
+        await query.message.reply_text("❌ Невірний формат товару")
+        return
+    
+    item = None
+    for catalog in [LIQUIDS, HHC_VAPES, PODS]:
+        if pid in catalog:
+            item = catalog[pid]
+            break
+    
+    if not item:
+        await query.message.reply_text("❌ Товар не знайдено")
+        return
+    
+    caption = build_item_caption(item, context.user_data)
+    
+    if "imgs" in item:
+        photo = item["imgs"][0]
+    else:
+        photo = item.get("img", WELCOME_PHOTO)
+    
+    keyboard_buttons = []
+    
+    # Кнопка вибору кольору для POD-систем
+    if "imgs" in item and len(item["imgs"]) > 1:
+        keyboard_buttons.append([
+            InlineKeyboardButton("🎨 Обрати колір", callback_data=f"color_{pid}")
+        ])
+    
+    keyboard_buttons.append([
+        InlineKeyboardButton("⚡ Швидке замовлення", callback_data=f"fast_{pid}"),
+        InlineKeyboardButton("🛒 В кошик", callback_data=f"add_{pid}")
+    ])
+    
+    keyboard_buttons.append([
+        InlineKeyboardButton("👨‍💻 Менеджер", url="https://t.me/ghosstydpbot")
+    ])
+    
+    keyboard_buttons.append([
+        InlineKeyboardButton("⬅️ Назад", callback_data="assortment"),
+        InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+    ])
+    
+    keyboard = InlineKeyboardMarkup(keyboard_buttons)
+    
+    try:
+        await query.edit_message_media(
+            media=InputMediaPhoto(media=photo, caption=caption, parse_mode="HTML"),
+            reply_markup=keyboard
+        )
+    except:
+        try:
+            await query.message.delete()
+            await query.message.chat.send_photo(
+                photo=photo,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception as e:
+            logger.error(f"Failed to show item: {e}")
+
+# ===================== COLOR SELECTION =====================
+async def select_color(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    pid = int(data.split("_")[1])
+    
+    item = None
+    for catalog in [PODS]:
+        if pid in catalog:
+            item = catalog[pid]
+            break
+    
+    if not item or "imgs" not in item or len(item["imgs"]) < 2:
+        await query.answer("❌ Немає варіантів кольору")
+        return
+    
+    buttons = []
+    for i in range(len(item["imgs"])):
+        color_name = item.get("colors", [f"Колір {i+1}"])[i]
+        buttons.append([
+            InlineKeyboardButton(f"🎨 {color_name}", callback_data=f"colorpick_{pid}_{i}")
+        ])
+    
+    buttons.append([
+        InlineKeyboardButton("⬅️ Назад", callback_data=f"item_{pid}"),
+        InlineKeyboardButton("🏠 В головне меню", call    9005: {"name": "🎁 Mystery One 30ml"},
     9006: {"name": "🎁 Fall Tea 30ml"},
 }
 
