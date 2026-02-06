@@ -395,7 +395,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     "✅ Адресу збережено",
     reply_markup=main_menu()
 )
-return
       # ===================== ASSORTMENT =====================
 async def show_assortment(q):
     kb = InlineKeyboardMarkup([
