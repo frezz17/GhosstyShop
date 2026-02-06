@@ -386,15 +386,20 @@ async def edit_address(q, context):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get("state")
     text = update.message.text
-    profile = context.user_data["profile"]
+
+    profile = context.user_data.get("profile")
+    if not profile:
+        return
 
     if state == "address":
         profile["address"] = text
         context.user_data["state"] = None
+
         await update.message.reply_text(
-    "✅ Адресу збережено",
-    reply_markup=main_menu()
-)
+            text="✅ Адресу збережено",
+            reply_markup=main_menu()
+        )
+        return
       # ===================== ASSORTMENT =====================
 async def show_assortment(q):
     kb = InlineKeyboardMarkup([
