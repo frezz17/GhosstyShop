@@ -863,3 +863,6 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
 
     app.run_polling()
+
+if __name__ == "__main__":
+    main()
