@@ -522,7 +522,7 @@ async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===================== KEYBOARDS =====================
 def main_menu():
     return InlineKeyboardMarkup([
-        [
+        
             InlineKeyboardButton("👤 Профіль", callback_data="profile"),
             InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")
         ],
