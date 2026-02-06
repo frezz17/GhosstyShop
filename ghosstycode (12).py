@@ -1,13 +1,5 @@
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-import random
-from telegram.ext import PicklePersistence
-
-persistence = PicklePersistence(filepath="bot_data.pkl")
-from datetime import datetime, timedelta
 from html import escape
-
+from datetime import datetime, timedelta
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -33,6 +25,8 @@ WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 DISCOUNT_PERCENT = 45
 DISCOUNT_MULT = 0.55
+PROMO_DISCOUNT = 45 
+DISCOUNT_MULTIPLIER = DISCOUNT_MULT
 BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
 
 import random
@@ -95,9 +89,10 @@ def gen_order_id(uid: int) -> str:
     return f"GHST-{uid}-{random.randint(1000,9999)}"
 
 def vip_until(profile: dict) -> datetime:
-    base = profile.get("vip_base", VIP_FREE_DELIVERY_UNTIL)
+    base = profile.get("vip_base", BASE_VIP_DATE)
     refs = profile.get("referrals", 0)
     return base + timedelta(days=7 * refs)
+async def safe_edit_media(message, photo_url: str, caption: str, kb):
 async def safe_edit_media(message, photo_url: str, caption: str, kb):
     try:
         await message.edit_media(
@@ -118,7 +113,7 @@ async def safe_edit_media(message, photo_url: str, caption: str, kb):
                 reply_markup=kb
             )
         except Exception as e:
-    logger.warning(f"safe_edit_media failed: {e}")
+            logger.warning(f"safe_edit_media failed: {e}")
 
 # ===================== CITIES & DISTRICTS =====================
 CITIES = [
