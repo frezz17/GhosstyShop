@@ -28,8 +28,8 @@ CHANNEL_URL = "https://t.me/GhostyStaffDP"
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-DISCOUNT_PERCENT = 35
-DISCOUNT_MULT = 0.65
+DISCOUNT_PERCENT = 45
+DISCOUNT_MULT = 0.55
 BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
 
 logging.basicConfig(
