@@ -19,7 +19,6 @@ from telegram.ext import (
     filters
 )
 from telegram.error import BadRequest
-
 # ===================== CONFIG =====================
 TOKEN = "8351638507:AAG2HP0OmYx7ip8-uZcLQCilPTfoBhtEGq0"
 
@@ -37,14 +36,8 @@ import string
 
 PROMO_DISCOUNT = 45  # %
 DISCOUNT_MULTIPLIER = 0.55
+'
 
-
-# ===================== PRICING =====================
-def calc_price(item: dict) -> int:
-    base_price = item["price"]
-    if item.get("discount", True):
-        return int(base_price * DISCOUNT_MULTIPLIER)
-    return base_price
 
 # ===================== PERSISTENCE =====================
 app = (
@@ -527,29 +520,58 @@ def main_menu():
             InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")
         ],
         [
-            InlineKeyboardButton("⚡ Швидке замовлення", callback_data="fast_all"),
+            InlineKeyboardButton("📍 Місто", callback_data="city"),
             InlineKeyboardButton("🛒 Кошик", callback_data="cart")
         ],
         [
-            InlineKeyboardButton("📍 Обрати місто", callback_data="city"),
-            InlineKeyboardButton("📦 Мої замовлення", callback_data="orders")
+            InlineKeyboardButton("📦 Замовлення", callback_data="orders"),
+            InlineKeyboardButton("👨‍💻 Менеджер", url="https://t.me/ghosstydpbot")
         ],
         [
-            InlineKeyboardButton("👨‍💻 Менеджер", url="https://t.me/ghosstydpbot"),
             InlineKeyboardButton("📢 Канал", url=CHANNEL_URL)
-        ],
-        [
-            InlineKeyboardButton("📜 Угода користувача", callback_data="terms")
         ]
     ])
-    
+
+
+def back_kb(back: str):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data=back),
+            InlineKeyboardButton("🏠 В головне меню", callback_data="main")
+        ]
+    ])
 # ===================== START =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    args = context.args
 
+    profile = context.user_data.setdefault("profile", {
+        "uid": user.id,
+        "full_name": user.first_name,
+        "phone": None,
+        "address": None,
+        "promo_code": generate_promo_code(user.id),
+        "promo_discount": DISCOUNT_PERCENT,
+        "referrals": 0
+    })
+
+    vip_date = vip_until(profile)
+
+    text = (
+        f"👋 <b>{escape(user.first_name)}</b>, вітаємо у <b>Ghosty Shop</b> 💨\n\n"
+        f"🎁 Подарунок до кожного замовлення — 3 рідини 30ml\n"
+        f"🎫 Промокод: <code>{profile['promo_code']}</code> (-{profile['promo_discount']}%)\n"
+        f"👑 VIP до: <b>{vip_date.strftime('%d.%m.%Y')}</b>\n\n"
+        f"👇 Оберіть дію:"
+    )
+
+    await update.message.reply_photo(
+        photo=WELCOME_PHOTO,
+        caption=text,
+        parse_mode="HTML",
+        reply_markup=main_menu()
+    )
     # ===== INIT USER DATA =====
-    if "profile" not in context.user_data:
+    if "profile" not in contex t.user_data:
         context.user_data["profile"] = {
             "uid": user.id,
             "name": user.first_name,
@@ -730,34 +752,25 @@ async def save_district(q, context, district):
  
 # ===================== CALLBACKS ROUTER =====================
 async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    q = update.callback_query
+    await q.answer()
+    data = q.data
 
-    data = query.data
-
-    # Головне меню
     if data == "main":
-        await query.edit_message_text(
+        await q.message.edit_text(
             "🏠 <b>Головне меню</b>",
             parse_mode="HTML",
             reply_markup=main_menu()
         )
 
-    # Надіслати менеджеру
-    elif data.startswith("send_manager_"):
-        order_id = data.replace("send_manager_", "")
-        await send_to_manager(update, context, order_id)
+    elif data == "profile":
+        await q.message.edit_text("👤 Профіль", reply_markup=back_kb("main"))
 
-    # Асортимент
     elif data == "assortment":
-        await show_assortment(query, context)
-
-    # Кошик
-    elif data == "cart":
-        await show_cart(query, context)
+        await q.message.edit_text("🛍 Асортимент", reply_markup=back_kb("main"))
 
     else:
-        await query.answer("⚠️ Невідома дія", show_alert=True)
+        await q.answer("⚠️ Невідома дія", show_alert=True)
         
 
 # ===================== SEND TO MANAGER =====================
@@ -1349,8 +1362,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callbacks_router))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fast_input))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_receipt))  # ⬅️ ДЛЯ КВИТАНЦІЙ
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: None))
 
     app.run_polling()
 
