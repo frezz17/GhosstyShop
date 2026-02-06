@@ -623,41 +623,83 @@ async def send_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, or
         "✅ Замовлення передано менеджеру\n⏳ Очікуйте підтвердження",
         parse_mode="HTML"
     )
-
-# ===================== CALLBACK ROUTER ADDITIONS =====================
+# ===================== CALLBACK ROUTER =====================
 async def callbacks_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     data = q.data
+    profile = context.user_data.get("profile", {})
 
-    if data == "assortment":
+    # ===== MAIN / NAV =====
+    if data == "main":
+        await start(update, context)
+
+    elif data == "assortment":
         await show_assortment(q)
+
+    elif data == "profile":
+        await show_profile(q, context)
 
     elif data == "cart":
         await show_cart(q, context)
 
-    elif data.startswith("del_"):
-        await delete_from_cart(q, context, int(data.split("_")[1]))
+    elif data == "orders":
+        await show_orders(q, context)
 
+    elif data == "terms":
+        await show_terms(q)
+
+    # ===== CITY / DISTRICT =====
+    elif data == "city":
+        await select_city(q)
+
+    elif data.startswith("city_"):
+        city = data.replace("city_", "")
+        profile["city"] = city
+        await after_city_selected(q, context, city)
+
+    elif data == "select_district":
+        await select_district(q, context)
+
+    elif data.startswith("district_"):
+        district = data.replace("district_", "")
+        profile["district"] = district
+        await district_saved(q, district)
+
+    # ===== ASSORTMENT =====
     elif data.startswith("item_"):
-        await show_item(q, context, int(data.split("_")[1]))
+        pid = int(data.split("_")[1])
+        await show_item(q, context, pid)
 
     elif data.startswith("color_"):
-        await select_color(q, context, int(data.split("_")[1]))
+        pid = int(data.split("_")[1])
+        await select_color(q, context, pid)
 
     elif data.startswith("colorpick_"):
         _, pid, idx = data.split("_")
         await apply_color(q, context, int(pid), int(idx))
 
+    # ===== CART =====
     elif data.startswith("add_"):
-        await add_to_cart(q, context, int(data.split("_")[1]))
+        pid = int(data.split("_")[1])
+        await add_to_cart(q, context, pid)
 
+    elif data.startswith("del_"):
+        pid = int(data.split("_")[1])
+        await delete_from_cart(q, context, pid)
+
+    # ===== FAST ORDER =====
     elif data.startswith("fast_"):
-        pid = int(data.split("_")[1]) if "_" in data else None
+        pid = int(data.split("_")[1])
         await fast_start(q, context, pid)
 
     elif data.startswith("send_manager_"):
-        await send_to_manager(update, context, data.replace("send_manager_", ""))
+        order_id = data.replace("send_manager_", "")
+        await send_to_manager(update, context, order_id)
+
+    else:
+        await q.answer("⚠️ Невідома дія", show_alert=True)
+        
   # ===================== CART HELPERS =====================
 async def add_to_cart(q, context, pid: int):
     cart = context.user_data.setdefault("cart", [])
