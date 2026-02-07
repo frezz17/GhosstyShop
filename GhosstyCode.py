@@ -1378,19 +1378,26 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     
-    if not query:
+    # Захист: якщо запит порожній або повідомлення вже видалено
+    if not query or not query.message:
         return
     
+    # Завжди відповідаємо на запит, щоб прибрати "годинник" на кнопці
     await query.answer()
     data = query.data
     
     try:
+        # Головне меню та Профіль
         if data == "main":
             await start(update, context)
         elif data == "profile":
             await show_profile(update, context)
         elif data == "ref_link":
             await show_ref_link(update, context)
+        elif data == "orders":
+            await show_orders(update, context)
+
+        # Логіка Міст та Адреси
         elif data == "city":
             await select_city(update, context)
         elif data.startswith("city_"):
@@ -1399,6 +1406,12 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await save_district(update, context)
         elif data == "edit_address":
             await edit_address(update, context)
+        elif data == "enter_address":
+            await enter_address(update, context)
+        elif data == "use_profile_address":
+            await use_profile_address(update, context)
+
+        # Асортимент та Категорії
         elif data == "assortment":
             await show_assortment(update, context)
         elif data == "liquids":
@@ -1409,6 +1422,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_hhc(update, context)
         elif data.startswith("item_"):
             await show_item(update, context)
+
+        # Кошик
         elif data.startswith("add_"):
             await add_to_cart(update, context)
         elif data == "cart":
@@ -1419,27 +1434,31 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await clear_cart(update, context)
         elif data == "checkout":
             await checkout(update, context)
-        elif data == "enter_address":
-            await enter_address(update, context)
-        elif data == "use_profile_address":
-            await use_profile_address(update, context)
+
+        # Швидке замовлення (Fast Order)
+        # Об'єднуємо перевірку, щоб спрацювало і fast_ID, і просто fast_order
         elif data.startswith("fast_"):
             await fast_start(update, context)
-        elif data == "fast_order":
-            await fast_start(update, context)
+
+        # Взаємодія з менеджером
         elif data.startswith("send_manager_"):
             await send_to_manager(update, context)
-        elif data == "orders":
-            await show_orders(update, context)
+
+        # Якщо дія не розпізнана
         else:
-            await query.answer("⚠️ Невідома дія", show_alert=True)
+            logger.warning(f"Unknown callback: {data}")
+            await query.answer("⚠️ Ця функція ще в розробці", show_alert=True)
+
     except Exception as e:
-        logger.error(f"Callback error: {e}")
-        await query.answer("❌ Сталася помилка", show_alert=True)
-        await query.message.reply_text(
-            "⚠️ Сталася помилка. Спробуйте /start",
-            reply_markup=main_menu()
-        )
+        logger.error(f"Помилка в handle_callback: {e}", exc_info=True)
+        # Намагаємося повідомити користувача про проблему
+        try:
+            await query.message.reply_text(
+                "❌ Сталася внутрішня помилка. Спробуйте оновити меню командою /start",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В меню", callback_data="main")]])
+            )
+        except:
+            pass
 
 # ===================== ERROR HANDLER =====================
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
