@@ -978,9 +978,10 @@ async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
         # Швидке замовлення всього кошика
         cart = context.user_data.get("cart", [])
-       async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+       # Рядок 980 (приблизно)
+async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Рядок 980 має бути вирівняний точно так, як і інші:
+    # Видали всі пробіли перед cart і натисни Tab ОДИН раз
     cart = context.user_data.get("cart", [])
     
     if not cart:
