@@ -355,7 +355,7 @@ def build_item_caption(item: dict, user_data: dict) -> str:
     else:
         text += "🚚 <b>Доставка:</b> за тарифами пошти\n"
     
-    return text text
+    return text
 
 # ===================== KEYBOARDS =====================
 def main_menu():
