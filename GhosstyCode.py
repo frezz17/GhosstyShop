@@ -907,6 +907,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===================== FAST ORDER =====================
 async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    # ... (далі без змін)
     await query.answer()
     
     data = query.data
