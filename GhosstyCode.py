@@ -978,10 +978,15 @@ async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
         # Швидке замовлення всього кошика
         cart = context.user_data.get("cart", [])
-        if not cart:
-            await query.answer("❌ Кошик порожній")
-            return
-    elif data.startswith("fast_"):
+       async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    
+    if not cart:
+        await query.edit_message_text(
+            "🛒 Ваш кошик порожній.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 В магазин", callback_data="assortment")]])
+        )
+        return
         # Швидке замовлення конкретного товару
         pid = int(data.split("_")[1])
         
