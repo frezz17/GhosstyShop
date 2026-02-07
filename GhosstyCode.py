@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ===================== CONFIG =====================
 # Отримання токена з змінної середовища
 # ЯКЩО ТИ ЗАПУСКАЄШ ЛОКАЛЬНО БЕЗ .env, МОЖЕШ ТИМЧАСОВО ВСТАВИТИ ТОКЕН СЮДИ ЗАМІСТЬ os.getenv(...)
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4")
 
 # Налаштування менеджера
 MANAGER_ID = os.getenv("MANAGER_ID", "7544847872") # ID менеджера як рядок за замовчуванням
@@ -41,7 +41,7 @@ except ValueError:
 
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
-BOT_TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
+os.getenv("8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4")
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 # Використовуємо надійніше посилання на фото або file_id (якщо є)
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
