@@ -967,16 +967,15 @@ async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Швидке замовлення всього кошика
         cart = context.user_data.get("cart", [])
        # Рядок 980 (приблизно)
-async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Видали всі пробіли перед cart і натисни Tab ОДИН раз
-    cart = context.user_data.get("cart", [])
+    await query.answer()
+    
+    # Цей рядок має бути рівно під словом 'await' (4 пробіли відступу)
+    cart = context.user_data.get("cart", []) 
     
     if not cart:
-        await query.edit_message_text(
-            "🛒 Ваш кошик порожній.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 В магазин", callback_data="assortment")]])
-        )
+        await query.message.reply_text("🛒 Ваш кошик порожній!")
         return
 
     # Далі ваш код формування кошика...
