@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ===================== CONFIG =====================
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4")
 
 # Налаштування менеджера
 try:
