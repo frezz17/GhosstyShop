@@ -902,7 +902,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Очистити кошик та тимчасові дані
     context.user_data["cart"] = []
-    context.user_data.pop("temp_address", None)
+   context.user_data.pop("temp_address", None) 
 
 # ===================== FAST ORDER =====================
 async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
