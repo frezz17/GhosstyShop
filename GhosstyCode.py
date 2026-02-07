@@ -900,15 +900,16 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
     
+    # Формування тексту для підтвердження
+    await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+    
     # Очистити кошик та тимчасові дані
     context.user_data["cart"] = []
     context.user_data.pop("temp_address", None) 
 
 # ===================== FAST ORDER =====================
 async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-# ... далі ваш код без змін
     query = update.callback_query
-    # ... (далі без змін)
     await query.answer()
     
     data = query.data
