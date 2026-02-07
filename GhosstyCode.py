@@ -27,6 +27,32 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ===================== CONFIG =====================
+# На хостингу додайте змінну BOT_TOKEN
+TOKEN = os.getenv("BOT_TOKEN")
+
+try:
+    MANAGER_ID = int(os.getenv("MANAGER_ID", "7544847872"))
+except ValueError:
+    MANAGER_ID = 7544847872
+
+MANAGER_USERNAME = "ghosstydpbot"
+CHANNEL_URL = "https://t.me/GhostyStaffDP"
+PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
+WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
+
+DISCOUNT_MULT = 0.65
+PROMO_DISCOUNT = 45
+DISCOUNT_MULTIPLIER = DISCOUNT_MULT
+BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
+
+# ===================== LOGGING =====================
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# ===================== CONFIG =====================
 TOKEN = os.getenv("8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4")
 
 # Налаштування менеджера
@@ -275,88 +301,39 @@ PODS = {
 }
 
 # ===================== HELPERS =====================
-
 def get_gift_liquids():
-    """Повертає список назв рідин, що йдуть у подарунок"""
-    return [
-        "🎃 Pumpkin Latte 30ml",
-        "🍷 Glintwine 30ml",
-        "🎄 Christmas Tree 30ml",
-        "🍓 Strawberry Jelly 30ml",
-        "🍁 Fall Tea 30ml"
-    ]
+    return ["🎃 Pumpkin Latte", "🍷 Glintwine", "🎄 Christmas Tree"]
 
 def generate_promo_code(user_id: int) -> str:
-    """Генерує унікальний промокод для користувача"""
     return f"GHOST-{user_id % 10000}{random.randint(100, 999)}"
 
-def gen_order_id(uid: int) -> str:
-    """Генерує номер замовлення"""
-    return f"GHST-{uid}-{random.randint(1000, 9999)}"
-
 def vip_until(profile: dict) -> datetime:
-    """Рахує термін дії VIP статусу (база + реферальні дні)"""
     base = profile.get("vip_base", BASE_VIP_DATE)
     if isinstance(base, str):
-        try:
-            base = datetime.strptime(base, "%d.%m.%Y")
-        except:
-            base = BASE_VIP_DATE
+        base = datetime.strptime(base, "%d.%m.%Y")
     refs = profile.get("referrals", 0)
     return base + timedelta(days=7 * refs)
 
 def calc_prices(item: dict, promo_percent: int) -> dict:
-    """Розраховує базову ціну, ціну зі знижкою магазину та фінальну з промокодом"""
     base = item.get("price", 0)
-    
-    # Знижка магазину (наприклад, -35%)
-    discounted = base
-    if item.get("discount", True):
-        discounted = int(base * DISCOUNT_MULTIPLIER)
-    
-    # Персональна знижка за промокодом
-    final_price = discounted
-    if promo_percent > 0:
-        final_price = int(discounted * (1 - promo_percent / 100))
-
-    return {
-        "base": base,
-        "discounted": discounted,
-        "final": final_price
-    }
+    discounted = int(base * DISCOUNT_MULTIPLIER) if item.get("discount") else base
+    final = int(discounted * (1 - promo_percent / 100))
+    return {"base": base, "discounted": discounted, "final": final}
 
 def build_item_caption(item: dict, user_data: dict) -> str:
-    """Створює гарний опис товару для повідомлення"""
     profile = user_data.get("profile", {})
     promo_percent = profile.get("promo_discount", PROMO_DISCOUNT)
-    
-    # Перевіряємо статус VIP через функцію vip_until
     v_date = vip_until(profile)
     is_vip = v_date > datetime.now()
     
-    prices = calc_prices(item, promo_percent)
-
+    p = calc_prices(item, promo_percent)
+    
     text = f"<b>{escape(item['name'])}</b>\n\n"
-    text += f"💰 Ціна: <s>{prices['base']} грн</s>\n"
-    text += f"🔥 Акція: <b>{prices['discounted']} грн</b>\n"
-    text += f"🎟 З промокодом (-{promo_percent}%): <b>{prices['final']} грн</b>\n\n"
-    
-    if item.get("desc"):
-        text += f"📝 <b>Опис:</b>\n{item['desc']}\n\n"
-
-    gifts = get_gift_liquids()
-    text += "🎁 <b>Подарунки до замовлення (3 шт на вибір):</b>\n"
-    for g in gifts:
-        text += f"• {g}\n"
-    
-    text += "\n"
-    if is_vip:
-        text += "👑 <b>Ваш статус: VIP</b> (Доставка 0 грн)\n"
-    else:
-        text += "🚚 <b>Доставка:</b> за тарифами пошти\n"
-    
+    text += f"💰 Ціна: <s>{p['base']} грн</s>\n"
+    text += f"🔥 Акція: <b>{p['discounted']} грн</b>\n"
+    text += f"🎟 З промокодом: <b>{p['final']} грн</b>\n\n"
+    text += f"🚚 Доставка: {'БЕЗКОШТОВНО (VIP)' if is_vip else 'За тарифом'}\n"
     return text
-
 # ===================== KEYBOARDS =====================
 def main_menu():
     return InlineKeyboardMarkup([
@@ -937,9 +914,20 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===================== FAST ORDER =====================
 async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Швидке оформлення замовлення безпосередньо з картки товару"""
     query = update.callback_query
     await query.answer()
+    
+    try:
+        item_id = int(query.data.split("_")[1])
+        all_items = {**LIQUIDS, **HHC_VAPES, **PODS}
+        item = all_items.get(item_id)
+        
+        if item:
+            context.user_data["cart"] = [{"id": item_id, "name": item["name"], "price": item["price"], "qty": 1}]
+            kb = [[InlineKeyboardButton("📍 Вказати дані", callback_data="city")]]
+            await query.message.reply_text(f"⚡️ Швидке замовлення: {item['name']}", reply_markup=InlineKeyboardMarkup(kb))
+    except:
+        await query.message.reply_text("❌ Помилка замовлення")
 
     # Отримуємо ID товару з callback_data (наприклад, fast_301)
     try:
@@ -1245,35 +1233,51 @@ async def confirm_order_from_message(update: Update, context: ContextTypes.DEFAU
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if "profile" not in context.user_data:
-        context.user_data["profile"] = {"uid": user.id, "full_name": user.first_name, "referrals": 0, "promo_code": generate_promo_code(user.id), "promo_discount": PROMO_DISCOUNT}
+        context.user_data["profile"] = {
+            "uid": user.id, 
+            "full_name": user.first_name, 
+            "referrals": 0, 
+            "promo_code": generate_promo_code(user.id), 
+            "promo_discount": PROMO_DISCOUNT,
+            "city": "—",
+            "district": "—",
+            "address": "—",
+            "phone": "—"
+        }
         context.user_data["cart"] = []
         context.user_data["orders"] = []
     
-    await update.message.reply_text(f"Привіт, {user.first_name}! Бот працює.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")]]))
+    # Перевірка чи це повідомлення чи натискання кнопки
+    msg = update.message if update.message else update.callback_query.message
+    
+    await msg.reply_text(
+        f"Привіт, {user.first_name}! Бот працює.", 
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")]])
+    )
 
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Логіка оформлення...
-    await query.edit_message_text("✅ Замовлення оформлено!")
+    await query.answer()
     
-    # ВИПРАВЛЕНО: Правильні відступи тут
-    context.user_data["cart"] = []
-    context.user_data.pop("temp_address", None)
+    # 1. Отримуємо дані ДО очищення
+    cart = context.user_data.get("cart", [])
+    profile = context.user_data.get("profile", {})
     
-    # Створення замовлення
-    orders = context.user_data.setdefault("orders", [])
+    if not cart:
+        await query.edit_message_text("❌ Ваш кошик порожній!")
+        return
+
+    # 2. Розрахунок вартості
     order_id = gen_order_id(update.effective_user.id)
-    
     total = sum(item.get("price", 0) for item in cart)
     
-    # Вартість доставки
-    if context.user_data.get("vip"):
-        delivery_cost = 0
-    else:
-        delivery_cost = 50
-    
+    # Перевірка VIP статусу для доставки
+    v_date = vip_until(profile)
+    is_vip = v_date > datetime.now()
+    delivery_cost = 0 if is_vip else 50
     final_total = total + delivery_cost
     
+    # 3. Створення об'єкта замовлення
     order = {
         "id": order_id,
         "items": cart.copy(),
@@ -1284,10 +1288,13 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "address": f"{profile.get('city', '—')}, {profile.get('district', '—')}, {profile.get('address', '—')}"
     }
     
-    orders.append(order)
+    # Зберігаємо в історію
+    if "orders" not in context.user_data:
+        context.user_data["orders"] = []
+    context.user_data["orders"].append(order)
     
-    # Формування тексту
-    text = f"⚡ <b>Швидке замовлення #{order_id}</b>\n\n"
+    # 4. Формування тексту повідомлення
+    text = f"⚡ <b>Замовлення #{order_id}</b>\n\n"
     text += f"👤 <b>Користувач:</b> {profile.get('full_name', '—')}\n"
     text += f"📞 <b>Телефон:</b> {profile.get('phone', '—')}\n"
     text += f"📍 <b>Адреса:</b> {order['address']}\n\n"
@@ -1296,7 +1303,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for item in cart:
         text += f"• {item['name']} — {item['price']} грн\n"
     
-    text += f"\n🎁 <b>Подарунок:</b> 3 рідини 30ml\n"
+    text += f"\n🎁 <b>Подарунок:</b> 3 рідини 30ml на вибір\n"
     text += f"📦 <b>Доставка:</b> {delivery_cost} грн\n"
     text += f"💰 <b>Загальна сума:</b> {final_total} грн\n\n"
     text += "💳 <b>Оплата за посиланням нижче:</b>"
@@ -1307,10 +1314,18 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
     ])
     
-    await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+    # 5. Надсилаємо фінальне повідомлення
+    await query.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
     
-    # Очистити кошик
+    # 6. ОЧИЩАЄМО КОШИК ТІЛЬКИ ЗАРАЗ (в самому кінці)
     context.user_data["cart"] = []
+    context.user_data.pop("temp_address", None)
+    
+    # Видаляємо старе повідомлення кошика
+    try:
+        await query.delete_message()
+    except:
+        pass
 
 # ===================== PHOTO HANDLER (RECEIPTS) =====================
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1408,7 +1423,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_orders(update, context)
 
         # Логіка Міст та Адреси
-        elif data == "city":
+        elif data == "order_city" or data == "city": # Додав order_city для сумісності
             await select_city(update, context)
         elif data.startswith("city_"):
             await save_city(update, context)
@@ -1444,6 +1459,30 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await clear_cart(update, context)
         elif data == "checkout":
             await checkout(update, context)
+            
+        # ПІДТВЕРДЖЕННЯ ЗАМОВЛЕННЯ (Це те, що ми додавали)
+        elif data == "confirm_order":
+            await confirm_order(update, context)
+
+        # Швидке замовлення (Fast Order)
+        elif data.startswith("fast_"):
+            await fast_start(update, context)
+
+        # Взаємодія з менеджером
+        elif data.startswith("send_manager_"):
+            await send_to_manager(update, context)
+
+        # Якщо дія не розпізнана
+        else:
+            logger.warning(f"Unknown callback: {data}")
+            await query.answer("⚠️ Функція в розробці", show_alert=True)
+
+    except Exception as e:
+        logger.error(f"Callback error: {e}", exc_info=True)
+        try:
+            await query.message.reply_text("❌ Сталася помилка. Натисніть /start")
+        except:
+            pass
 
         # Швидке замовлення (Fast Order)
         # Об'єднуємо перевірку, щоб спрацювало і fast_ID, і просто fast_order
