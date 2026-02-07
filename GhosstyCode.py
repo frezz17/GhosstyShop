@@ -39,8 +39,9 @@ except ValueError:
     logger.error("❌ MANAGER_ID повинен бути числом!")
     sys.exit(1)
 
-MANAGER_USERNAME = "ghosstydpbot"
+MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
+BOT_TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 # Використовуємо надійніше посилання на фото або file_id (якщо є)
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
