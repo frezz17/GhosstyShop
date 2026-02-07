@@ -980,6 +980,8 @@ async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cart = context.user_data.get("cart", [])
        async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    # Рядок 980 має бути вирівняний точно так, як і інші:
+    cart = context.user_data.get("cart", [])
     
     if not cart:
         await query.edit_message_text(
@@ -987,6 +989,8 @@ async def fast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 В магазин", callback_data="assortment")]])
         )
         return
+
+    # Далі ваш код формування кошика...
         # Швидке замовлення конкретного товару
         pid = int(data.split("_")[1])
         
