@@ -4,5 +4,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN mkdir -p /app/data
+
+environment:
+  - BOT_TOKEN=8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc
+  - TZ=Europe/Kiev
+
+
 # Вказуємо назву твого файлу
 CMD ["python", "GhosstyCode.py"]
