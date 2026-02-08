@@ -1,10 +1,7 @@
 # =================================================================
 # 🤖 PROJECT: GHOSTY STAFF PREMIUM E-COMMERCE ENGINE (CORE)
-# 🛠 VERSION: 4.0.0 (STABLE FOR BOTHOST.RU)
+# 🛠 VERSION: 4.1.0 (STABLE FOR BOTHOST.RU)
 # 🛡 DEVELOPER: Gho$$tyyy & Gemini AI
-# =================================================================
-# Цей код розроблений для високих навантажень та тривалої роботи.
-# Всі дані структуровані для швидкого доступу та масштабування.
 # =================================================================
 
 import os
@@ -34,7 +31,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (UPDATED)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION
 # =================================================================
 TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
 MANAGER_ID = 7544847872
@@ -42,13 +39,11 @@ MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# SECTION 1
+# Реквізити оплати (використовуємо єдину назву PAYMENT_LINK як словник)
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
-# Додай цей рядок нижче як "запасний", щоб старі частини коду не видавали помилку:
-PAYMENT_LINK = PAYMENT_LINK["mono"]
 
 # Економіка
 DISCOUNT_MULT = 0.65         # Знижка -35%
@@ -68,6 +63,30 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("GhostyCore")
+
+# =================================================================
+# 🛠 SECTION 2: ERROR HANDLING & LOGGING
+# =================================================================
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Логування помилок та сповіщення адміна."""
+    # Логуємо помилку в файл
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+    
+    # Формуємо повідомлення про помилку для адміна
+    try:
+        error_msg = (
+            f"🆘 <b>CRITICAL ERROR:</b>\n\n"
+            f"❌ <b>Тип:</b> <code>{type(context.error).__name__}</code>\n"
+            f"📝 <b>Опис:</b> <code>{escape(str(context.error))}</code>"
+        )
+        
+        # Відправляємо сповіщення адміну
+        await context.bot.send_message(chat_id=MANAGER_ID, text=error_msg)
+    except Exception as e:
+        logger.error(f"Could not send error message to admin: {e}")
+
+# =================================================================
 
 # =================================================================
 # 📍 SECTION 2: ПОВНА ГЕОГРАФІЯ (11 МІСТ, 8 РАЙОНІВ КОЖНЕ)
