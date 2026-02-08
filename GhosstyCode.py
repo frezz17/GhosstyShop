@@ -30,7 +30,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED & COMPLETE)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
 # =================================================================
 TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
@@ -39,33 +39,36 @@ CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # Економіка
-DISCOUNT_MULT = 0.65
-PROMO_DISCOUNT_MULT = 0.65
+DISCOUNT_MULT = 0.65         
+PROMO_DISCOUNT_MULT = 0.65   
 VIP_EXPIRY = "25.03.2026"
 MIN_ORDER_SUM = 300 
 
-# Реквізити (КОМИ ВИПРАВЛЕНО)
+# Реквізити (ВИПРАВЛЕНО КОМИ ТА ДУЖКИ)
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
 
-# Об'єднаний каталог для пошуку (ВАЖЛИВО)
-def get_combined_catalog():
-    # Об'єднуємо всі твої словники в один для зручності пошуку
-    combined = {}
-    if 'HHC_VAPES' in globals(): combined.update(HHC_VAPES)
-    if 'PODS' in globals(): combined.update(PODS)
-    if 'LIQUIDS' in globals(): combined.update(LIQUIDS)
-    return combined
-
-# Групування для кнопок (Ключі мають бути як у твоїх словниках)
+# Категорії для диспетчера
 CATEGORIES = {
     "cat_list_hhc": [100, 101, 102, 103, 104],
     "cat_list_pods": [500, 501, 502, 503, 504, 505, 506],
     "cat_list_liquids": [301, 302, 303],
     "cat_list_sets": [701, 702]
 }
+
+# Функція для пошуку товарів по всіх твоїх списках
+def get_item_data(item_id):
+    try:
+        iid = int(item_id)
+        # Перевіряємо всі словники, які ти додав раніше
+        for catalog in [HHC_VAPES, PODS, LIQUIDS]:
+            if iid in catalog:
+                return catalog[iid]
+        return None
+    except:
+        return None
 
 
 # Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
@@ -1330,65 +1333,128 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL STABLE)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (STABLE)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Центральний розподільник для всіх натискань кнопок."""
     query = update.callback_query
     data = query.data
     
-    if "profile" not in context.user_data: await get_or_create_user(update, context)
+    # Захист профілю
+    if "profile" not in context.user_data:
+        await get_or_create_user(update, context)
+    if "cart" not in context.user_data:
+        context.user_data["cart"] = []
 
     try:
+        # Відповідаємо відразу, щоб прибрати "годинник" на кнопці
         await query.answer()
 
-        # Навігація
-        if data == "menu_start": await start_command(update, context)
-        elif data == "menu_profile": await show_profile(update, context)
-        elif data == "menu_city": await city_selection_menu(update, context)
-        elif data == "menu_cart": await show_cart(update, context)
+        # 1. Головна навігація
+        if data == "menu_start": 
+            await start_command(update, context)
+        elif data == "menu_profile": 
+            await show_profile(update, context)
+        elif data == "menu_city": 
+            await city_selection_menu(update, context)
+        elif data == "menu_cart": 
+            await show_cart(update, context)
         
-        # КАТАЛОГ (Виправлено розпізнавання категорій вейпів/подів)
+        # 2. КАТАЛОГ (Вейпи, Поди, Рідини)
         elif any(x in data for x in ["cat_main", "cat_list_", "view_item_", "add_", "choose_gift_"]):
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
                 await process_catalog_callbacks(update, context, data)
 
-        # ПРОМОКОД
+        # 3. ГЕОГРАФІЯ (Райони та адреса)
+        elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
+            await process_geo_(update, context, data)
+
+        # 4. ПРОМОКОД
         elif data == "promo_activate":
             context.user_data["state"] = "WAIT_PROMO"
-            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
+            await query.message.reply_text("⌨️ <b>Введіть ваш промокод:</b>", parse_mode='HTML')
 
-        # ОПЛАТА ТА ІНШЕ
-        elif "cart_" in data or "pay_" in data or "confirm_pay_" in data:
-            if "cart_" in data: await cart_action_handler(update, context, data)
-            elif "pay_" in data: await payment_selection_handler(update, context, data.replace("pay_", ""))
-            elif "confirm_pay_" in data: await process_payment_callbacks(update, context, data)
+        # 5. КОШИК ТА ОПЛАТА
+        elif "cart_" in data:
+            if data == "cart_checkout":
+                await checkout_init(update, context)
+            else:
+                await cart_action_handler(update, context, data)
+        
+        elif data in ["pay_mono", "pay_privat"]:
+            await payment_selection_handler(update, context, data.replace("pay_", ""))
+            
+        elif "confirm_pay_" in data:
+            await process_payment_callbacks(update, context, data)
 
     except Exception as e:
-        logger.error(f"Dispatcher Error: {e}")
-        
-        
+        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
+
+# =================================================================
+# 🚀 SECTION 30: FINAL RUNNER (STABLE FOR BOTHOST)
+# =================================================================
+
+import signal # Додай цей імпорт, якщо його немає на початку файлу
+
 def main():
+    """Запуск бота з автоматичним очищенням конфліктів."""
+    
+    # 1. Створюємо папки
     for p in ['data', 'data/logs']:
-        if not os.path.exists(p): os.makedirs(p)
+        if not os.path.exists(p): 
+            os.makedirs(p)
+
+    # 2. Ініціалізація бази
     db_init()
     
+    # 3.Persistence (Збереження даних)
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
-    from telegram import LinkPreviewOptions
-    defaults = Defaults(parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
     
-    app = Application.builder().token(TOKEN).persistence(pers).defaults(defaults).build()
+    # 4. Defaults
+    from telegram import LinkPreviewOptions
+    defaults = Defaults(
+        parse_mode=ParseMode.HTML, 
+        link_preview_options=LinkPreviewOptions(is_disabled=True)
+    )
+    
+    # 5. Створення додатка
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .persistence(pers)
+        .defaults(defaults)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .build()
+    )
 
+    # 6. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    print("\n--- [ GHO$$TY STAFF: ONLINE ] ---")
+    # 7. Обробник помилок (якщо він є в коді)
+    if 'error_handler' in globals():
+        app.add_error_handler(error_handler)
+
+    print("\n" + "="*40)
+    print("✅ GHO$$TY STAFF SYSTEM: ONLINE")
+    print("="*40 + "\n")
     
-    # close_if_open=True — це ліки від Conflict
-    app.run_polling(drop_pending_updates=True, close_if_open=True)
+    # Запуск polling
+    # close_if_open=True — вбиває старі сесії (запобігає Conflict)
+    # drop_pending_updates=True — ігнорує спам, поки бот був офлайн
+    app.run_polling(
+        drop_pending_updates=True, 
+        close_if_open=True,
+        stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
+    )
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"❌ FATAL ERROR: {e}")
