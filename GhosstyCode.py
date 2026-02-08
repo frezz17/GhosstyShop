@@ -1225,28 +1225,44 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👤 Клієнт: {update.effective_user.mention_html()}\n"
             f"💰 Сума: <b>{total_sum}₴</b>"
         )
-        keyboard = [[InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"admin_app_{order_id}"),
-                     InlineKeyboardButton("❌ ВІДХИЛИТИ", callback_data=f"admin_rej_{order_id}")]]
+        keyboard = [[
+            InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"admin_app_{order_id}"),
+            InlineKeyboardButton("❌ ВІДХИЛИТИ", callback_data=f"admin_rej_{order_id}")
+        ]]
         
-        await context.bot.send_photo(chat_id=MANAGER_ID, photo=file_id, caption=admin_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        await context.bot.send_photo(
+            chat_id=MANAGER_ID, 
+            photo=file_id, 
+            caption=admin_text, 
+            reply_markup=InlineKeyboardMarkup(keyboard), 
+            parse_mode='HTML'
+        )
         return
 
     # --- 2. ОБРОБКА ТЕКСТУ ---
     if update.message.text:
         text = update.message.text.strip()
+        
+        # Введення адреси
         if state == "WAITING_ADDRESS":
+            if len(text) < 5:
+                await update.message.reply_text("❌ Адреса занадто коротка. Спробуйте ще раз.")
+                return
             context.user_data["profile"]["address_details"] = text
             context.user_data["state"] = None
-            await update.message.reply_text(f"✅ <b>Адресу збережено:</b>\n{text}", parse_mode='HTML')
+            await update.message.reply_text(f"✅ <b>Адресу збережено:</b>\n<code>{text}</code>", parse_mode='HTML')
             await checkout_init(update, context)
+            
+        # Введення промокоду
         elif state == "WAIT_PROMO":
             if text.upper() == "GHOSTY35":
                 context.user_data["profile"]["discount_active"] = True
-                await update.message.reply_text("🔥 <b>ПРОМОКОД АКТИВОВАНО!</b>", parse_mode='HTML')
+                await update.message.reply_text("🔥 <b>ПРОМОКОД АКТИВОВАНО!</b>\nЗнижка -35% застосована.", parse_mode='HTML')
             else:
                 await update.message.reply_text("❌ Невірний код.")
             context.user_data["state"] = None
             await show_profile(update, context)
+            
             
 
 # =================================================================
@@ -1419,7 +1435,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try:
         await query.answer()
 
-        # АДМІН-ЛОГІКА
+        # АДМІН-ЛОГІКА (Тільки для тебе)
         if data.startswith("admin_app_") or data.startswith("admin_rej_"):
             if user_id != MANAGER_ID: return
             oid = data.replace("admin_app_", "").replace("admin_rej_", "")
@@ -1428,24 +1444,29 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             
             if "admin_app_" in data:
                 cur.execute("UPDATE orders SET status = '✅ Оплачено' WHERE order_id = ?", (oid,))
-                res_text, user_m = "✅ ПІДТВЕРДЖЕНО", f"🎉 Замовлення #{oid} оплачено!"
+                res_text, user_m = "✅ ПІДТВЕРДЖЕНО", f"🎉 Замовлення #{oid} підтверджено! Менеджер готує відправку."
             else:
                 cur.execute("UPDATE orders SET status = '❌ Відхилено' WHERE order_id = ?", (oid,))
-                res_text, user_m = "❌ ВІДХИЛЕНО", f"⚠️ Оплата замовлення #{oid} відхилена."
+                res_text, user_m = "❌ ВІДХИЛЕНО", f"⚠️ Оплата замовлення #{oid} відхилена менеджерoм."
             
             cur.execute("SELECT user_id FROM orders WHERE order_id = ?", (oid,))
-            cust_id = cur.fetchone()
+            cust_res = cur.fetchone()
             conn.commit()
             conn.close()
 
             await query.edit_message_caption(caption=f"{query.message.caption}\n\n<b>СТАТУС: {res_text}</b>", parse_mode='HTML')
-            if cust_id: await context.bot.send_message(chat_id=cust_id[0], text=user_m, parse_mode='HTML')
+            if cust_res:
+                try: await context.bot.send_message(chat_id=cust_res[0], text=user_m, parse_mode='HTML')
+                except: pass
 
-        # НАВІГАЦІЯ
+        # НАВІГАЦІЯ ТА ОПЛАТА
         elif data == "menu_start": await start_command(update, context)
         elif data == "menu_profile": await show_profile(update, context)
         elif data == "menu_cart": await show_cart(update, context)
         elif data == "cart_checkout": await checkout_init(update, context)
+        elif data == "promo_activate":
+            context.user_data["state"] = "WAIT_PROMO"
+            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
         elif data.startswith("confirm_pay_"):
             context.user_data["last_order_id"] = data.replace("confirm_pay_", "")
             context.user_data["state"] = "WAIT_RECEIPT"
@@ -1455,49 +1476,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     except Exception as e:
         logging.error(f"Dispatcher Error: {e}")
-        
-        
 
-# =================================================================
-# 👑 SECTION 28.5: ADMIN & MANAGER PANEL
-# =================================================================
-
-async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
-    """Відображення замовлення для менеджера."""
-    conn = sqlite3.connect('ghosty_v3.db')
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, items, total, status, receipt_url FROM orders WHERE order_id = ?", (order_id,))
-    order = cur.fetchone()
-    conn.close()
-
-    if not order:
-        await update.message.reply_text("❌ Замовлення не знайдено.")
-        return
-
-    user_id, items, total, status, receipt = order
-    text = (
-        f"<b>📦 ЗАМОВЛЕННЯ #{order_id}</b>\n"
-        f"👤 ID Клієнта: <code>{user_id}</code>\n"
-        f"🛍 Товари: {items}\n"
-        f"💰 Сума: <b>{total}₴</b>\n"
-        f"📊 Статус: {status}\n"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton("✅ Підтвердити оплату", callback_data=f"admin_approve_{order_id}")],
-        [InlineKeyboardButton("❌ Відхилити", callback_data=f"admin_reject_{order_id}")]
-    ]
-
-    if receipt:
-        if receipt.startswith("AgAC"): # Це File ID фото в Telegram
-            await context.bot.send_photo(MANAGER_ID, photo=receipt, caption=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-        else:
-            await context.bot.send_message(MANAGER_ID, text=text + f"\n📎 Квитанція: {receipt}", reply_markup=InlineKeyboardMarkup(keyboard))
-    else:
-        await context.bot.send_message(MANAGER_ID, text=text + "\n⚠️ Квитанція ще не завантажена", reply_markup=InlineKeyboardMarkup(keyboard))
-        
-        
-        
 # =================================================================
 # 🚀 SECTION 30: FINAL RUNNER (COMPATIBLE WITH BOTHOST)
 # =================================================================
@@ -1505,10 +1484,12 @@ async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, o
 import signal
 
 def main():
+    # Ініціалізація
+    if not os.path.exists('data'): os.makedirs('data')
     db_init()
+    
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # Видаляємо LinkPreviewOptions для максимальної сумісності
     app = (
         Application.builder()
         .token(TOKEN)
@@ -1518,14 +1499,20 @@ def main():
         .build()
     )
 
+    # Хендлери
     app.add_handler(CommandHandler("start", start_command))
-    # ВИПРАВЛЕНО: дужки навколо фільтрів типів
-    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
+    
+    # ПРАВИЛЬНИЙ ФІЛЬТР: (Текст АБО Фото) ТА НЕ Команда
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
+        handle_user_input
+    ))
+    
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
     print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
     
-    # ВИПРАВЛЕНО: Видалено close_if_open для сумісності з версіями < 20.2
+    # ВИПРАВЛЕНО: Видалено close_if_open для сумісності
     app.run_polling(
         drop_pending_updates=True,
         stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
