@@ -352,6 +352,8 @@ TERMS_TEXT = (
     "9️⃣ Усі переказані кошти вважаються добровільним подарунком.\n"
     "🔟 Грошові операції — подарунок розробнику Gho$$tyyy/"
 )
+
+# =================================================================
 # =================================================================
 # 🧠 SECTION 5: DATABASE ENGINE & PERSISTENCE
 # =================================================================
@@ -362,10 +364,14 @@ def db_init():
     Це гарантує збереження даних користувачів навіть після перезавантаження сервера.
     """
     try:
+        # Переконуємось, що папка data існує (критично для Docker)
+        if not os.path.exists('data'):
+            os.makedirs('data')
+
         conn = sqlite3.connect('data/ghosty_v3.db')
         cursor = conn.cursor()
         
-        # Таблиця користувачів: зберігаємо профіль, рефералів та VIP-статус
+        # Таблиця користувачів
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
@@ -383,7 +389,7 @@ def db_init():
             )
         ''')
         
-        # Таблиця замовлень: для історії та адміністрування
+        # Таблиця замовлень
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS orders (
                 order_id TEXT PRIMARY KEY,
@@ -396,13 +402,24 @@ def db_init():
                 delivery_info TEXT
             )
         ''')
+
+        # ПЕРЕВІРКА: Додаємо колонку для квитанцій, якщо її немає (щоб не було помилок при оплаті)
+        try:
+            cursor.execute("ALTER TABLE orders ADD COLUMN receipt_url TEXT")
+        except sqlite3.OperationalError:
+            pass # Колонка вже існує
         
         conn.commit()
         conn.close()
-        logger.info("Database initialized successfully.")
+        
+        # ВИПРАВЛЕНО: Використовуємо logging замість logger
+        logging.info("Database initialized successfully.")
+        
     except Exception as e:
-        logger.critical(f"Critical error during DB initialization: {e}")
+        # ВИПРАВЛЕНО: Використовуємо logging
+        logging.critical(f"Critical error during DB initialization: {e}")
         sys.exit(1)
+
 
 # =================================================================
 # 👤 SECTION 6: USER PROFILE & REFERRAL SYSTEM (FIXED & SYNCED)
@@ -1443,25 +1460,60 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         logging.error(f"Error: {e}")
 
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (GITHUB & DOCKER READY)
+# 🚀 SECTION 30: FINAL RUNNER (STABLE & DOCKER READY)
 # =================================================================
 
 def main():
-    if not os.path.exists('data'): os.makedirs('data')
-    db_init()
-    pers = PicklePersistence(filepath="data/ghosty_data.pickle")
-    
-    # Використовуємо TOKEN, який ми визначили на початку або взяли з os.getenv
-    app = Application.builder().token(TOKEN).persistence(pers).build()
+    """
+    Точка входу. Забезпечує старт бази, завантаження даних 
+    та запуск опитування (polling).
+    """
+    try:
+        # 1. Створюємо структуру бази (Секція 5)
+        db_init()
+        
+        # 2. Налаштовуємо збереження (Pickle)
+        # Зберігаємо все в папку data, щоб дані не зникали при перезавантаженні
+        persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
+        
+        # 3. Налаштування за замовчуванням (HTML режим)
+        defaults = Defaults(parse_mode=ParseMode.HTML)
 
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
-    app.add_handler(CallbackQueryHandler(global_callback_handler))
+        # 4. Створення Application
+        # Беремо TOKEN, який ми визначили на самому початку
+        app = (
+            Application.builder()
+            .token(TOKEN)
+            .persistence(persistence)
+            .defaults(defaults)
+            .build()
+        )
 
-    print("✅ GHO$$TY STAFF ONLINE")
-    
-    # ТІЛЬКИ ЦЕЙ РЯДОК! Без жодних інших аргументів, якщо вони видають помилку
-    app.run_polling(drop_pending_updates=True)
+        # 5. Реєстрація хендлерів (Команди -> Текст/Фото -> Кнопки)
+        app.add_handler(CommandHandler("start", start_command))
+        
+        # Виправлений фільтр: реагує на текст та фото, ігнорує команди
+        app.add_handler(MessageHandler(
+            (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
+            handle_user_input
+        ))
+        
+        app.add_handler(CallbackQueryHandler(global_callback_handler))
+
+        # 6. Запуск
+        logging.info("GHO$$TY STAFF SYSTEM: ONLINE")
+        print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
+        print("📡 Статус: Очікування замовлень та квитанцій...")
+
+        # run_polling автоматично обробляє сигнали зупинки в Docker (SIGINT/SIGTERM)
+        # drop_pending_updates=True дозволяє боту не "спамити" старими повідомленнями
+        app.run_polling(drop_pending_updates=True)
+
+    except NetworkError:
+        logging.error("Помилка мережі: Перевірте BOT_TOKEN та підключення до інтернету.")
+    except Exception as e:
+        logging.critical(f"Критична помилка при запуску бота: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
