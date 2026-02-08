@@ -1507,7 +1507,7 @@ async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, o
         
         
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (COMPATIBLE FIX)
+# 🚀 SECTION 30: FINAL RUNNER (COMPATIBLE VERSION)
 # =================================================================
 
 import signal
@@ -1525,7 +1525,7 @@ def main():
     # 3. Налаштування
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # Імпорт опцій (із захистом від помилок імпорту)
+    # Імпорт опцій (із захистом від помилок)
     try:
         from telegram import LinkPreviewOptions
         defaults = Defaults(
@@ -1533,7 +1533,6 @@ def main():
             link_preview_options=LinkPreviewOptions(is_disabled=True)
         )
     except ImportError:
-        # Для старих версій
         defaults = Defaults(parse_mode=ParseMode.HTML)
 
     # 4. Створення бота
