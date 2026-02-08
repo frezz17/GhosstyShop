@@ -5,16 +5,35 @@
 # =================================================================
 
 import os
-import os
 import sys
 import logging
 import sqlite3
 import asyncio
+import random
 from datetime import datetime
 
 import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, PicklePersistence
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, PicklePersistence, Defaults
+from telegram.constants import ParseMode
+from telegram.error import NetworkError
+
+# =================================================================
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (CLEANED)
+# =================================================================
+# Пріоритет: спочатку беремо токен з Docker, якщо його нема — з коду
+TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc")
+MANAGER_ID = 7544847872
+MANAGER_USERNAME = "ghosstydpbot"
+CHANNEL_URL = "https://t.me/GhostyStaffDP"
+WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
+
+# Налаштування логів
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
 
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
@@ -420,6 +439,40 @@ def db_init():
         logging.critical(f"Critical error during DB initialization: {e}")
         sys.exit(1)
 
+# =================================================================
+# 🛒 SECTION 6: USER INTERFACE (PROFILE & CART)
+# =================================================================
+
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = update.effective_user.id
+    
+    # Спрощена логіка профілю для стабільності
+    text = (
+        f"👤 <b>Ваш профіль</b>\n"
+        f"🆔 ID: <code>{user_id}</code>\n"
+        f"🏦 Статус: Стандарт\n\n"
+        f"📢 Наш канал: <a href='{CHANNEL_URL}'>Підписатися</a>"
+    )
+    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]
+    
+    if query:
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+    else:
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
+async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    text = "🛒 <b>Ваш кошик порожній</b>\n\nПерейдіть до каталогу, щоб обрати товар."
+    keyboard = [[InlineKeyboardButton("🛍 Каталог", callback_data="cat_all")],
+                [InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
+async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.message.reply_text("📝 <b>Оформлення замовлення</b>\n\nВведіть вашу адресу доставки:")
+    context.user_data["state"] = "WAITING_ADDRESS"
+    
 
 # =================================================================
 # 👤 SECTION 6: USER PROFILE & REFERRAL SYSTEM (FIXED & SYNCED)
@@ -1516,5 +1569,10 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except Exception as e:
+        print(f"Критична помилка: {e}")
+            
