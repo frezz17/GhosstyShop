@@ -5,29 +5,16 @@
 # =================================================================
 
 import os
+import os
 import sys
 import logging
-import random
-import asyncio
-import json
 import sqlite3
-import hashlib
-import signal  # КРИТИЧНО для уникнення Conflict на хостингу
-from uuid import uuid4
-from datetime import datetime, timedelta
-from html import escape
+import asyncio
+from datetime import datetime
 
 import telegram
-from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup, 
-    InputMediaPhoto, ReplyKeyboardMarkup, KeyboardButton
-)
-from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler, 
-    MessageHandler, ContextTypes, filters, PicklePersistence, Defaults
-)
-from telegram.constants import ParseMode
-from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, PicklePersistence
 
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
