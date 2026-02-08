@@ -33,7 +33,7 @@ from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION
 # =================================================================
-TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
+TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
