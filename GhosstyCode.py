@@ -48,6 +48,14 @@ MIN_ORDER_SUM = 300          # Мінімальна сума замовленн�
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
+
+    CATEGORIES = {
+    "cat_list_hhc": list(HHC_VAPES.keys()),
+    "cat_list_pods": list(PODS.keys()),
+    "cat_list_liquids": list(LIQUIDS.keys()),
+    "cat_list_sets": [701, 702] # Твої набори, якщо вони лишилися
+}
+
 }
 
 # Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
@@ -456,11 +464,19 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # =================================================================
 
 def get_item_data(item_id):
+    """Шукає товар за ID у всіх нових словниках товарів."""
     try:
-        return CATALOG_DATA.get(int(item_id))
+        iid = int(item_id)
+        # Шукаємо послідовно в усіх категоріях
+        if iid in HHC_VAPES: return HHC_VAPES[iid]
+        if iid in LIQUIDS: return LIQUIDS[iid]
+        if iid in PODS: return PODS[iid]
+        # Якщо у тебе залишилися LIQUID_SETS в SECTION 1:
+        if 'LIQUID_SETS' in globals() and iid in LIQUID_SETS: return LIQUID_SETS[iid]
+        return None
     except:
         return None
-
+        
 async def send_ghosty_message(update: Update, text: str, reply_markup=None, photo=None):
     try:
         if update.callback_query:
@@ -491,19 +507,38 @@ async def send_ghosty_media(update, text, reply_markup, photo):
 # =================================================================
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    p = context.user_data["profile"]
+    profile = context.user_data.get("profile", {})
+    user = update.effective_user
+    
+    # Формуємо текст локації
+    city = profile.get('city', 'Не обрано')
+    district = profile.get('district', 'Не обрано')
+    location_status = f"📍 {city}, {district}" if profile.get('city') else "❌ Не обрано"
+
     text = (
         f"<b>👤 ВАШ ПРОФІЛЬ Gho$$tyyy</b>\n\n"
-        f"🆔 ID: <code>{p['uid']}</code>\n"
-        f"📍 Місто: {p.get('city') or 'Не вказано'}\n"
-        f"🏘 Район: {p.get('district') or 'Не вказано'}\n"
-        f"🎁 Промо: <code>{p['promo_code']}</code>"
+        f"🆔 ID: <code>{user.id}</code>\n"
+        f"👤 Юзер: @{user.username if user.username else 'NoName'}\n"
+        f"💎 Статус: <b>VIP до {VIP_EXPIRY}</b>\n"
+        f"🎟 Промо: <code>{profile.get('promo_code', '---')}</code>\n\n"
+        f"📮 <b>Дані доставки:</b>\n{location_status}"
     )
+
     keyboard = [
-        [InlineKeyboardButton("📍 Дані доставки (змінити)", callback_data="menu_city")],
+        [InlineKeyboardButton("📍 Дані доставки / Змінити", callback_data="menu_city")],
+        [InlineKeyboardButton("🎟 Застосувати промокод", callback_data="promo_activate")],
         [InlineKeyboardButton("🏠 На головну", callback_data="menu_start")]
     ]
-    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
+    
+    # Намагаємось отримати фото профілю користувача
+    photos = await context.bot.get_user_profile_photos(user.id, limit=1)
+    if photos.total_count > 0:
+        photo = photos.photos[0][-1].file_id
+        await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard), photo)
+    else:
+        # Якщо фото немає — надсилаємо стандартну картинку
+        await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard), WELCOME_PHOTO)
+        
     
     
 # =================================================================
@@ -1236,7 +1271,7 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (STABLE)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL STABLE)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1251,35 +1286,52 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try:
         await query.answer()
 
-        # 1. Основна навігація
-        if data == "menu_start": await start_command(update, context)
-        elif data == "menu_terms": await terms_handler(update, context)
-        elif data == "menu_profile": await show_profile(update, context)
-        elif data == "menu_cart": await show_cart(update, context)
-        elif data == "menu_city": await city_selection_menu(update, context)
-        
-        # 2. Локація
-        elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
-            await process_geo_(update, context, data)
-        
-        # 3. Каталог (Додано cat_list_ для категорій)
-        elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
+        # 1. Головна навігація
+        if data == "menu_start": 
+            await start_command(update, context)
+        elif data == "menu_profile": 
+            await show_profile(update, context)
+        elif data == "menu_cart": 
+            await show_cart(update, context)
+        elif data == "menu_city": 
+            await city_selection_menu(update, context)
+        elif data == "menu_terms": 
+            await terms_handler(update, context)
+
+        # 2. КАТАЛОГ (Виправлено для HHC, PODS та LIQUIDS)
+        elif any(x in data for x in ["cat_main", "cat_list_", "view_item_", "add_", "choose_gift_"]):
+            # Спеціальна перевірка для вейпів та інших списків
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
+                # Переконайся, що функція process_catalog_callbacks існує в коді
                 await process_catalog_callbacks(update, context, data)
-        
-        # 4. Кошик та Оплата
+
+        # 3. ЛОКАЦІЯ / ДОСТАВКА
+        elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
+            await process_geo_(update, context, data)
+
+        # 4. ПРОМОКОД
+        elif data == "promo_activate":
+            context.user_data["state"] = "WAIT_PROMO"
+            await query.message.reply_text("⌨️ <b>Введіть ваш промокод:</b>\n\n<i>(Наприклад: GHOSTY35)</i>", parse_mode='HTML')
+
+        # 5. КОШИК ТА ОПЛАТА
         elif "cart_" in data:
-            if data == "cart_checkout": await checkout_init(update, context)
-            else: await cart_action_handler(update, context, data)
+            if data == "cart_checkout": 
+                await checkout_init(update, context)
+            else: 
+                await cart_action_handler(update, context, data)
+        
         elif data in ["pay_mono", "pay_privat"]:
             await payment_selection_handler(update, context, data.replace("pay_", ""))
+            
         elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
-            
+
     except Exception as e:
-        logger.error(f"Dispatcher Error: {e}")
+        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
+        
         
 # =================================================================
 # 🚀 SECTION 30: FINAL RUNNER (BOTHOST OPTIMIZED)
