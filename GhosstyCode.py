@@ -19,16 +19,14 @@ from telegram.constants import ParseMode
 from telegram.error import NetworkError
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (CLEANED)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (OPTIMIZED)
 # =================================================================
-# Пріоритет: спочатку беремо токен з Docker, якщо його нема — з коду
 TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc")
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# Налаштування логів
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
