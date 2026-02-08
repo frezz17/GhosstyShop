@@ -1205,16 +1205,17 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     data = query.data
     
-    # Ініціалізація даних користувача
+    # Захист від порожніх даних профілю
     if "profile" not in context.user_data:
         await get_or_create_user(update, context)
-    if "cart" not in context.user_data:
+    if context.user_data.get("cart") is None:
         context.user_data["cart"] = []
 
     try:
+        # Відповідаємо відразу, щоб прибрати іконку завантаження
         await query.answer()
 
-        # 1. Головна навігація
+        # 1. Основна навігація
         if data == "menu_start": 
             await start_command(update, context)
         elif data == "menu_terms": 
@@ -1226,11 +1227,11 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         elif data == "menu_city": 
             await city_selection_menu(update, context)
         
-        # 2. Географія (Міста/Райони)
+        # 2. Локації (Міста/Райони)
         elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
             await process_geo_(update, context, data)
         
-        # 3. Каталог (Категорії та Товари)
+        # 3. Каталог (Категорії, товари, подарунки)
         elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
             if data == "cat_main":
                 await catalog_main_menu(update, context)
@@ -1257,50 +1258,55 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 await admin_decision_handler(update, context)
                 
     except Exception as e:
-        logger.error(f"🔴 Callback Error: {e}")
-        
-        
+        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
+
+# =================================================================
+# 🚀 SECTION 30: FINAL RUNNER (ANTI-CONFLICT VERSION)
+# =================================================================
+
 def main():
-    """Запуск бота з оптимізацією під BotHost.ru"""
+    """Запуск бота з примусовим скиданням конфліктів."""
     
-    # Створюємо необхідні папки
+    # 1. Створюємо папки, якщо їх немає
     for path in ['data', 'data/logs']:
         if not os.path.exists(path):
             os.makedirs(path)
 
-    # Ініціалізація бази даних
+    # 2. База даних
     db_init()
     
-    # Налаштування збереження стану (Persistence)
-    persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
+    # 3.Persistence (Збереження стану)
+    pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # Налаштування параметрів за замовчуванням
+    # 4. Налаштування Defaults
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # Побудова додатка з лімітером запитів (щоб уникнути банів)
+    # 5. Створення додатка
     app = Application.builder() \
         .token(TOKEN) \
-        .persistence(persistence) \
+        .persistence(pers) \
         .defaults(defaults) \
         .build()
 
-    # Реєстрація обробників
+    # 6. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # Реєстрація глобального обробника помилок
+    # 7. Обробник помилок
     if 'error_handler' in globals():
         app.add_error_handler(error_handler)
 
     print("--- [ GHO$$TY STAFF: SYSTEM ONLINE ] ---")
+    print("--- [ Спроба підключення до Telegram... ] ---")
     
-    # drop_pending_updates=True допомагає уникнути конфліктів при перезапуску
-    app.run_polling(drop_pending_updates=True)
+    # drop_pending_updates=True — ВИРІШУЄ КОНФЛІКТИ ПРИ СТАРТІ
+    # close_if_open=True — Додатковий захист від подвійного запуску
+    app.run_polling(drop_pending_updates=True, close_if_open=True)
 
 if __name__ == "__main__":
     try:
@@ -1308,4 +1314,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sys.exit(0)
     except Exception as e:
-        print(f"FATAL BOOT ERROR: {e}")
+        print(f"Критична помилка запуску: {e}")
