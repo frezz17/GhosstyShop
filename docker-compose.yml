@@ -4,14 +4,9 @@ services:
   telegram-bot:
     build: .
     container_name: ghosty-shop-bot
-    restart: unless-stopped
+    restart: always
     environment:
       - BOT_TOKEN=8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc
       - TZ=Europe/Kiev
     volumes:
       - ./data:/app/data
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
