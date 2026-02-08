@@ -1,6 +1,6 @@
 # ============================================================
 # 👻 GHOSTY SHOP BOT — FULL PRODUCTION CORE
-# FIXED & OPTIMIZED FOR BOTHOST
+# STABLE VERSION FOR BOTHOST
 # ============================================================
 
 import os
@@ -12,32 +12,43 @@ from datetime import datetime, timedelta
 from html import escape
 from uuid import uuid4
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    InputMediaPhoto
-)
+# ------------------------------------------------------------
+# 🔧 BOTHOST FIX (Fixes "Operation timed out")
+# ------------------------------------------------------------
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    print("⚠️ 'nest_asyncio' not found. Please add it to requirements.txt")
 
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-    PicklePersistence,
-    AIORateLimiter,
-    Defaults
-)
-
-from telegram.constants import ParseMode
+try:
+    from telegram import (
+        Update,
+        InlineKeyboardButton,
+        InlineKeyboardMarkup,
+        InputMediaPhoto
+    )
+    from telegram.ext import (
+        Application,
+        CommandHandler,
+        CallbackQueryHandler,
+        MessageHandler,
+        ContextTypes,
+        filters,
+        PicklePersistence,
+        AIORateLimiter,
+        Defaults
+    )
+    from telegram.constants import ParseMode
+except ImportError:
+    print("❌ CRITICAL: 'python-telegram-bot' not installed.")
+    sys.exit(1)
 
 # ============================================================
 # ⚙️ CONFIG
 # ============================================================
 
-TOKEN = "PUT_TOKEN"  # ⚠️ ВСТАВ СЮДИ ТОКЕН
+TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"  # ⚠️ ВСТАВ СЮДИ ТОКЕН
 MANAGER_ID = 7544847872
 
 DISCOUNT_MULTIPLIER = 0.65
@@ -54,8 +65,9 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # ============================================================
 
 logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
 
@@ -95,7 +107,7 @@ GIFT_LIQUIDS = [
 ]
 
 # ============================================================
-# 📦 PRODUCTS DATA
+# 📦 PRODUCTS DATA (FULL)
 # ============================================================
 
 LIQUIDS = {
@@ -229,6 +241,7 @@ PODS = {
 # ============================================================
 
 def get_item(pid):
+    # Safe logic to find item in any category
     return (
         LIQUIDS.get(pid)
         or HHC_VAPES.get(pid)
@@ -243,24 +256,6 @@ def calc_price(price, promo):
 def generate_promo(uid):
     return f"GHOST{uid % 10000}{random.randint(100, 999)}"
 
-def is_vip(profile):
-    # Якщо є дата і вона ще не минула
-    until = profile.get("vip_until")
-    if until:
-        dt = datetime.fromisoformat(until) if isinstance(until, str) else until
-        if dt > datetime.now():
-            return True
-    return datetime.now() <= VIP_FREE_DELIVERY_UNTIL
-
-def save_profile(profile):
-    path = f"{DATA_DIR}/{profile['uid']}.txt"
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            for k, v in profile.items():
-                f.write(f"{k}:{v}\n")
-    except Exception as e:
-        logger.error(f"Save profile error: {e}")
-
 def create_profile(user):
     return {
         "uid": user.id,
@@ -274,6 +269,10 @@ def create_profile(user):
         "district": None,
         "address": None
     }
+
+def save_profile(profile):
+    # Optional manual save (Persistence handles most of it)
+    pass
 
 def cart_text(cart, profile):
     if not cart:
@@ -358,18 +357,17 @@ def payment_kb():
     ])
 
 # ============================================================
-# 🚀 BASIC HANDLERS
+# 🚀 HANDLERS
 # ============================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    # Initialize profile if not exists
     if "profile" not in context.user_data:
-        profile = create_profile(user)
-        context.user_data["profile"] = profile
+        context.user_data["profile"] = create_profile(user)
+    if "cart" not in context.user_data:
         context.user_data["cart"] = []
-        save_profile(profile)
     
-    # Скидання станів
     context.user_data["state"] = None
     
     await update.message.reply_text(
@@ -380,14 +378,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    await q.message.edit_text(
-        "👻 Головне меню",
-        reply_markup=main_menu()
-    )
+    await q.message.edit_text("👻 Головне меню", reply_markup=main_menu())
 
-# ============================================================
-# 📦 CATALOG LOGIC
-# ============================================================
+# --- CATALOG ---
 
 async def show_catalog(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -411,10 +404,15 @@ async def show_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
 
     try:
+        # Extract ID: item_pod_500 -> 500
         _, _, pid = q.data.split("_")
         pid = int(pid)
         item = get_item(pid)
-        prof = context.user_data.get("profile") or create_profile(update.effective_user)
+        
+        # Ensure profile exists
+        if "profile" not in context.user_data:
+             context.user_data["profile"] = create_profile(update.effective_user)
+        prof = context.user_data["profile"]
         
         if not item:
             return await q.message.reply_text("❌ Товар не знайдено")
@@ -434,8 +432,11 @@ async def show_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb = item_actions_kb(pid, bool(item.get("colors")))
         imgs = item.get("imgs", [])
 
-        # Видаляємо попереднє повідомлення, щоб надіслати фото
-        await q.message.delete()
+        # Try to delete old message to send new one (Photo vs Text)
+        try:
+            await q.message.delete()
+        except Exception:
+            pass 
 
         if imgs:
             await q.message.chat.send_photo(photo=imgs[0], caption=caption, reply_markup=kb)
@@ -444,7 +445,9 @@ async def show_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Error in show_item: {e}")
-        await q.message.reply_text("Помилка відображення товару")
+        await q.message.chat.send_message("❌ Помилка відображення товару", reply_markup=main_menu())
+
+# --- CART & COLORS ---
 
 async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -488,37 +491,41 @@ async def color_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def color_picked(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    # cpick_{pid}_{color}
     parts = q.data.split("_")
     pid = int(parts[1])
     color = parts[2]
     
-    # Додаємо в кошик з кольором
     context.user_data.setdefault("cart", []).append({
         "pid": pid,
         "color": color
     })
     await q.message.reply_text(f"✅ Додано: {color}")
 
-# ============================================================
-# 🛒 CART & CHECKOUT
-# ============================================================
+# --- CART LOGIC ---
 
 async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     
     cart = context.user_data.setdefault("cart", [])
-    profile = context.user_data.get("profile")
+    profile = context.user_data.get("profile") or create_profile(update.effective_user)
     
+    # Check if last message was a photo (to avoid edit errors)
+    try:
+        await q.message.delete()
+    except:
+        pass
+
     text = cart_text(cart, profile)
-    await q.message.reply_text(text, reply_markup=cart_menu())
+    await q.message.chat.send_message(text, reply_markup=cart_menu())
 
 async def cart_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     context.user_data["cart"] = []
     await q.message.edit_text("🗑 Кошик очищено", reply_markup=main_menu())
+
+# --- CHECKOUT FLOW ---
 
 async def checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -529,13 +536,12 @@ async def checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("❌ Кошик порожній")
         return
 
-    # Вибір міста
     rows = []
     for city in CITIES:
         rows.append([InlineKeyboardButton(city, callback_data=f"city_{city}")])
     rows.append([InlineKeyboardButton("❌ Скасувати", callback_data="back_main")])
     
-    await q.message.reply_text("🏙 Обери своє місто:", reply_markup=InlineKeyboardMarkup(rows))
+    await q.message.edit_text("🏙 Обери своє місто:", reply_markup=InlineKeyboardMarkup(rows))
 
 async def select_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -546,17 +552,15 @@ async def select_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     districts = CITY_DISTRICTS.get(city_name, [])
     if not districts:
-        # Якщо районів немає, одразу просимо адресу
         context.user_data["temp_district"] = "Інше"
         context.user_data["state"] = "await_address"
-        await q.message.reply_text(f"✅ Місто: {city_name}\n✍️ Напиши адресу доставки (Вулиця, дім, відділення НП):")
+        await q.message.edit_text(f"✅ Місто: {city_name}\n✍️ Напиши адресу доставки (Вулиця, дім, відділення НП):")
         return
 
-    # Вибір району
     rows = [[InlineKeyboardButton(d, callback_data=f"dist_{d}")] for d in districts]
     rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="checkout")])
     
-    await q.message.reply_text("🏘 Обери район:", reply_markup=InlineKeyboardMarkup(rows))
+    await q.message.edit_text("🏘 Обери район:", reply_markup=InlineKeyboardMarkup(rows))
 
 async def select_district(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -566,7 +570,7 @@ async def select_district(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["temp_district"] = dist_name
     
     context.user_data["state"] = "await_address"
-    await q.message.reply_text(f"✅ Район: {dist_name}\n✍️ Напиши адресу доставки (Вулиця, дім, відділення НП):")
+    await q.message.edit_text(f"✅ Район: {dist_name}\n✍️ Напиши адресу доставки (Вулиця, дім, відділення НП):")
 
 async def address_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("state") != "await_address":
@@ -575,7 +579,7 @@ async def address_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     address = update.message.text
     prof = context.user_data["profile"]
     
-    # Зберігаємо дані в профіль
+    # Update profile info
     prof["city"] = context.user_data.get("temp_city")
     prof["district"] = context.user_data.get("temp_district")
     prof["address"] = address
@@ -583,20 +587,17 @@ async def address_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["state"] = None
     
-    # Створення замовлення
+    # Create Order
     cart = context.user_data.get("cart", [])
     order = {
         "id": str(uuid4())[:8],
         "items": cart.copy(),
-        "total": 0, # Можна порахувати
-        "comment": None,
-        "receipt": None,
         "status": "waiting_payment",
         "created": datetime.now().isoformat()
     }
     prof.setdefault("orders", []).append(order)
     
-    # Сповіщення менеджера
+    # Notify Manager
     cart_txt = cart_text(cart, prof)
     user = update.effective_user
     
@@ -612,15 +613,12 @@ async def address_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Failed to notify manager: {e}")
 
-    # Очистка кошика і запит оплати
     context.user_data["cart"] = []
     
     await update.message.reply_text(
         "✅ Дані збережено!\n💳 <b>Обери спосіб оплати:</b>",
         reply_markup=payment_kb()
     )
-    
-    # Інструкція про чек
     await update.message.reply_text("📎 Після оплати надішли сюди скріншот/фото чеку.")
 
 async def receipt_from_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -628,38 +626,35 @@ async def receipt_from_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     prof = context.user_data.get("profile")
-    if not prof:
-        return
+    if not prof: return
 
     order = get_last_order(prof)
     if not order:
         await update.message.reply_text("ℹ️ У вас немає активних замовлень.")
         return
 
-    # Зберігаємо file_id фото
     order["receipt"] = update.message.photo[-1].file_id
     order["status"] = "waiting_confirm"
     
-    # Сповіщення адміна
-    await context.bot.send_message(
-        MANAGER_ID,
-        f"🧾 <b>ЧЕК ВІД КЛІЄНТА</b>\nUser ID: {prof['uid']}\nOrder: {order['id']}"
-    )
-    await context.bot.send_photo(MANAGER_ID, order["receipt"])
-    
-    # Кнопки для адміна
-    admin_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ Підтвердити оплату", callback_data=f"admin_paid_{prof['uid']}")]
-    ])
-    await context.bot.send_message(MANAGER_ID, "Дії:", reply_markup=admin_kb)
+    try:
+        await context.bot.send_message(
+            MANAGER_ID,
+            f"🧾 <b>ЧЕК ВІД КЛІЄНТА</b>\nUser ID: {prof['uid']}\nOrder: {order['id']}"
+        )
+        await context.bot.send_photo(MANAGER_ID, order["receipt"])
+        
+        admin_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Підтвердити оплату", callback_data=f"admin_paid_{prof['uid']}")]
+        ])
+        await context.bot.send_message(MANAGER_ID, "Дії:", reply_markup=admin_kb)
+    except Exception as e:
+        logger.error(f"Error sending receipt to admin: {e}")
 
     await update.message.reply_text(
         "🧾 Квитанцію отримано!\n⏳ Очікуй підтвердження менеджером."
     )
 
-# ============================================================
-# 👤 PROFILE & FAST ORDER
-# ============================================================
+# --- PROFILE & FAST ORDER ---
 
 async def profile_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -668,21 +663,25 @@ async def profile_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prof = context.user_data["profile"]
     orders_count = len(prof.get("orders", []))
     
+    # Delete photo if exists to show text cleanly
+    try: await q.message.delete()
+    except: pass
+
     txt = (
         f"👤 <b>Твій профіль</b>\n"
         f"ID: {prof['uid']}\n"
         f"Знижка: {prof['promo']}%\n"
-        f"Замовлень: {orders_count}\n\n"
-        f"Ваша знижка активна!"
+        f"Замовлень: {orders_count}\n"
     )
-    await q.message.reply_text(txt, reply_markup=main_menu())
+    await q.message.chat.send_message(txt, reply_markup=main_menu())
 
 async def fast_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-
     context.user_data["state"] = "fast_order"
-    await q.message.reply_text(
+    try: await q.message.delete()
+    except: pass
+    await q.message.chat.send_message(
         "⚡ <b>Швидке замовлення</b>\n\n"
         "Напиши одним повідомленням:\n"
         "• Що хочеш замовити\n"
@@ -696,107 +695,92 @@ async def fast_order_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text
     
-    await context.bot.send_message(
-        MANAGER_ID,
-        f"⚡ <b>FAST ORDER</b>\n\n"
-        f"👤 {user.first_name} (@{user.username})\n"
-        f"📝 {escape(text)}"
-    )
+    try:
+        await context.bot.send_message(
+            MANAGER_ID,
+            f"⚡ <b>FAST ORDER</b>\n\n"
+            f"👤 {user.first_name} (@{user.username})\n"
+            f"📝 {escape(text)}"
+        )
+    except:
+        pass
 
     context.user_data["state"] = None
     await update.message.reply_text("✅ Передано менеджеру! З тобою зв'яжуться.")
 
-# ============================================================
-# 🛠 ADMIN PANEL
-# ============================================================
+# --- ADMIN ---
 
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != MANAGER_ID:
-        return
-
+    if update.effective_user.id != MANAGER_ID: return
     await update.message.reply_text("🛠 <b>ADMIN PANEL ACTIVE</b>")
 
 async def admin_paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-
     uid = int(q.data.replace("admin_paid_", ""))
     
-    # Отримуємо дані користувача через persistence або якщо вони в пам'яті (тут спрощено)
-    # Оскільки persistence може не завантажити дані миттєво, краще повідомляти юзеру вручну,
-    # але спробуємо відправити повідомлення
-    
     try:
-        await context.bot.send_message(
-            uid,
-            "✅ <b>Оплату підтверджено!</b>\n📦 Твоє замовлення готується до відправки."
-        )
+        await context.bot.send_message(uid, "✅ <b>Оплату підтверджено!</b>\n📦 Замовлення готується.")
         await q.message.edit_text(f"💰 Оплату для {uid} підтверджено.")
     except Exception as e:
-        await q.message.edit_text(f"Помилка відправки юзеру: {e}")
+        await q.message.edit_text(f"Помилка: {e}")
 
 # ============================================================
-# 📡 CENTRAL ROUTER (THE ONLY ONE)
+# 📡 ROUTER
 # ============================================================
 
 async def router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # 1. Callback Queries
+    # Callbacks
     if update.callback_query:
         q = update.callback_query
         data = q.data
 
-        # Navigation
         if data == "catalog": return await show_catalog(update, context)
         if data == "back_main": return await back_to_main(update, context)
         
-        # Categories
         if data.startswith("cat_"): return await show_category(update, context)
         
-        # Items
         if data.startswith("item_"): return await show_item(update, context)
         if data.startswith("add_"): return await add_to_cart(update, context)
         if data.startswith("rem_"): return await remove_from_cart(update, context)
         if data.startswith("color_"): return await color_select(update, context)
         if data.startswith("cpick_"): return await color_picked(update, context)
         
-        # Cart & Checkout
         if data == "cart": return await show_cart(update, context)
         if data == "cart_clear": return await cart_clear(update, context)
+        
         if data == "checkout": return await checkout(update, context)
         if data.startswith("city_"): return await select_city(update, context)
         if data.startswith("dist_"): return await select_district(update, context)
         
-        # Misc
         if data == "profile": return await profile_view(update, context)
         if data == "fast": return await fast_order(update, context)
         
-        # Admin
         if data.startswith("admin_paid_"): return await admin_paid(update, context)
+        
+        await q.answer()
 
-        await q.answer() # Fallback
-
-    # 2. Text Messages (States)
+    # Messages
     elif update.message:
         state = context.user_data.get("state")
         
-        if state == "await_address":
-            return await address_input(update, context)
-        if state == "fast_order":
-            return await fast_order_input(update, context)
-            
-        # Якщо фото (чек)
-        if update.message.photo:
-            return await receipt_from_user(update, context)
+        if state == "await_address": return await address_input(update, context)
+        if state == "fast_order": return await fast_order_input(update, context)
+        
+        if update.message.photo: return await receipt_from_user(update, context)
 
 # ============================================================
-# 🏁 MAIN ENTRY POINT
+# 🏁 MAIN
 # ============================================================
 
 def main():
-    persistence = PicklePersistence(
-        filepath="data/bot_data.pickle",
-        update_interval=60
-    )
+    print("🚀 Starting Ghosty Bot...")
+    
+    if TOKEN == "PUT_TOKEN":
+        print("❌ ERROR: You forgot to put the TOKEN in line 45!")
+        return
+
+    persistence = PicklePersistence(filepath="data/bot_data.pickle")
 
     app = (
         Application.builder()
@@ -807,27 +791,14 @@ def main():
         .build()
     )
 
-    # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("admin", admin_panel))
-
-    # Universal Callback Handler
     app.add_handler(CallbackQueryHandler(router))
-
-    # Text Messages Handler (Routered)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router))
-
-    # Photo Handler (Receipts)
     app.add_handler(MessageHandler(filters.PHOTO, router))
 
-    print("👻 GHOSTY BOT STARTED SUCCESSFULLY")
-    
-    app.run_polling(
-        drop_pending_updates=True,
-        allowed_updates=["message", "callback_query"]
-    )
+    print("✅ Bot is running! Press Ctrl+C to stop.")
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     main()
