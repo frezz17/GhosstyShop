@@ -1507,38 +1507,40 @@ async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, o
         
         
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (FIXED FILTERS & TIMEOUTS)
+# 🚀 SECTION 30: FINAL RUNNER (OPTIMIZED FOR BOTHOST.RU)
 # =================================================================
 
+import signal # Імпортуємо тут для надійності
+
 def main():
-    """Запуск бота з виправленими фільтрами для квитанцій."""
+    """Запуск бота з виправленими фільтрами та захистом від Conflict."""
     
     # 1. Створюємо необхідні папки
     for p in ['data', 'data/logs']:
         if not os.path.exists(p): 
             os.makedirs(p)
 
-    # 2. Ініціалізація бази даних (ghosty_v3.db)
+    # 2. Ініціалізація бази даних
     db_init()
     
-    # 3. Налаштування Persistence
+    # 3. Налаштування збереження станів
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # 4. Налаштування стандартів
+    # 4. Налаштування стандартів відображення
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # 5. Побудова додатка (збільшено таймаути для фото)
+    # 5. Побудова додатка з посиленими таймаутами для фото-квитанцій
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(pers)
         .defaults(defaults)
-        .connect_timeout(60) # Максимальний час на підключення
-        .read_timeout(60)    # Максимальний час на обробку фото
+        .connect_timeout(60) 
+        .read_timeout(60)    
         .write_timeout(60)
         .build()
     )
@@ -1546,8 +1548,8 @@ def main():
     # 6. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ
     app.add_handler(CommandHandler("start", start_command))
     
-    # 🔥 ВИПРАВЛЕНО: Дужки навколо (filters.TEXT | filters.PHOTO) 
-    # тепер бот 100% бачить і текст, і квитанції-фото
+    # 🔥 ВИПРАВЛЕНО: Дужки (filters.TEXT | filters.PHOTO) гарантують, 
+    # що бот прийме і текст (адресу), і фото (квитанцію)
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
         handle_user_input
@@ -1560,13 +1562,14 @@ def main():
 
     print("\n" + "="*40)
     print("✅ GHO$$TY STAFF SYSTEM: ONLINE")
-    print("📡 СТАТУС: Listening for Messages & Photos...")
+    print("📡 СТАТУС: Listening for Orders & Receipts...")
     print("="*40 + "\n")
     
-    # 7. ЗАПУСК
+    # 7. ЗАПУСК З АНТИ-КОНФЛІКТОМ
+    # close_if_open=True — вбиває стару сесію при перезапуску
     app.run_polling(
         drop_pending_updates=True, 
-        close_if_open=True, # Вбиває Conflict назавжди
+        close_if_open=True,
         stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
     )
 
@@ -1574,4 +1577,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ КРИТИЧНА ПОМИЛКА ЗАПУСКУ: {e}")
+        print(f"❌ КРИТИЧНА ПОМИЛКА: {e}")
