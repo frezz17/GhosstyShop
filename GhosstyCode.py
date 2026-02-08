@@ -1201,86 +1201,111 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Центральний розподільник для всіх кнопок бота."""
     query = update.callback_query
     data = query.data
     
-    if "profile" not in context.user_data: await get_or_create_user(update, context)
-    if "cart" not in context.user_data: context.user_data["cart"] = []
+    # Ініціалізація даних користувача
+    if "profile" not in context.user_data:
+        await get_or_create_user(update, context)
+    if "cart" not in context.user_data:
+        context.user_data["cart"] = []
 
     try:
         await query.answer()
 
-        # Навігація
-        if data == "menu_start": await start_command(update, context)
-        elif data == "menu_terms": await terms_handler(update, context)
-        elif data == "menu_profile": await show_profile(update, context)
-        elif data == "menu_cart": await show_cart(update, context)
-        elif data == "menu_city": await city_selection_menu(update, context)
+        # 1. Головна навігація
+        if data == "menu_start": 
+            await start_command(update, context)
+        elif data == "menu_terms": 
+            await terms_handler(update, context)
+        elif data == "menu_profile": 
+            await show_profile(update, context)
+        elif data == "menu_cart": 
+            await show_cart(update, context)
+        elif data == "menu_city": 
+            await city_selection_menu(update, context)
         
-        # Локація
+        # 2. Географія (Міста/Райони)
         elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
             await process_geo_(update, context, data)
         
-        # Каталог (Виправлено розпізнавання категорій)
+        # 3. Каталог (Категорії та Товари)
         elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
                 await process_catalog_callbacks(update, context, data)
         
-        # Кошик та оплата
-        elif "cart_" in data:
-            if data == "cart_checkout": await checkout_init(update, context)
-            else: await cart_action_handler(update, context, data)
+        # 4. Кошик та Оформлення
+        elif "cart_" in data: 
+            if data == "cart_checkout": 
+                await checkout_init(update, context)
+            else: 
+                await cart_action_handler(update, context, data)
+        
+        # 5. Оплата
         elif data in ["pay_mono", "pay_privat"]:
-            await payment_selection_handler(update, context, data.replace("pay_", ""))
+            bank = data.replace("pay_", "")
+            await payment_selection_handler(update, context, bank)
         elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
-
-    except Exception as e:
-        logger.error(f"Dispatcher Error: {e}")
         
-# =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (MAIN)
-# =================================================================
-
+        # 6. Адмінка
+        elif data.startswith("adm_"):
+            if update.effective_user.id == MANAGER_ID:
+                await admin_decision_handler(update, context)
+                
+    except Exception as e:
+        logger.error(f"🔴 Callback Error: {e}")
+        
+        
 def main():
-    """Запуск бота з виправленими налаштуваннями під BotHost.ru"""
+    """Запуск бота з оптимізацією під BotHost.ru"""
     
-    # Створюємо папки
-    for p in ['data', 'data/logs']:
-        if not os.path.exists(p): os.makedirs(p)
+    # Створюємо необхідні папки
+    for path in ['data', 'data/logs']:
+        if not os.path.exists(path):
+            os.makedirs(path)
 
+    # Ініціалізація бази даних
     db_init()
     
-    # Збереження стану (Persistence)
-    pers = PicklePersistence(filepath="data/ghosty_data.pickle")
+    # Налаштування збереження стану (Persistence)
+    persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # Налаштування defaults без застарілих параметрів
+    # Налаштування параметрів за замовчуванням
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # Створюємо додаток
-    app = Application.builder().token(TOKEN).persistence(pers).defaults(defaults).build()
+    # Побудова додатка з лімітером запитів (щоб уникнути банів)
+    app = Application.builder() \
+        .token(TOKEN) \
+        .persistence(persistence) \
+        .defaults(defaults) \
+        .build()
 
-    # Реєструємо хендлери
+    # Реєстрація обробників
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # Реєструємо обробник помилок (ТЕПЕР ВІН ВИЗНАЧЕНИЙ)
-    app.add_error_handler(error_handler)
+    # Реєстрація глобального обробника помилок
+    if 'error_handler' in globals():
+        app.add_error_handler(error_handler)
 
-    print("--- [ GHOSTY STAFF: SYSTEM ONLINE ] ---")
+    print("--- [ GHO$$TY STAFF: SYSTEM ONLINE ] ---")
+    
+    # drop_pending_updates=True допомагає уникнути конфліктів при перезапуску
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     try:
         main()
+    except KeyboardInterrupt:
+        sys.exit(0)
     except Exception as e:
-        logger.critical(f"FATAL RESTART: {e}")
-        # Автоматичний перезапуск скрипта при критичному збої
-        os.execv(sys.executable, ['python'] + sys.argv)
+        print(f"FATAL BOOT ERROR: {e}")
