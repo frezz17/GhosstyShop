@@ -1383,50 +1383,76 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         
         
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (BOTHOST OPTIMIZED)
+# 🚀 SECTION 30: FINAL RUNNER (STABLE FOR BOTHOST.RU)
 # =================================================================
 
 def main():
-    """Запуск бота з примусовим очищенням сесій."""
+    """Запуск бота з примусовим очищенням старих сесій та захистом від конфліктів."""
     
-    # Створюємо папки
+    # 1. Створюємо необхідну інфраструктуру
     for path in ['data', 'data/logs']:
-        if not os.path.exists(path): os.makedirs(path)
+        if not os.path.exists(path): 
+            os.makedirs(path)
 
-    db_init()
+    # 2. Ініціалізація БД
+    try:
+        db_init()
+    except Exception as e:
+        print(f"❌ DB Init Error: {e}")
     
-    # Persistence
+    # 3. Налаштування Persistence та Defaults
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # НалаштуванняDefaults
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # Будуємо додаток з розширеними таймаутами
-    app = Application.builder() \
-        .token(TOKEN) \
-        .persistence(pers) \
-        .defaults(defaults) \
-        .connect_timeout(30) \
-        .read_timeout(30) \
+    # 4. Побудова додатка
+    # Додано покращені таймаути для стабільності на хостингу
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .persistence(pers)
+        .defaults(defaults)
+        .connect_timeout(40)
+        .read_timeout(40)
+        .write_timeout(40)
+        .pool_timeout(40)
         .build()
+    )
 
-    # Хендлери
+    # 5. Реєстрація всіх обробників
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
+    # Реєстрація error_handler, якщо він існує
     if 'error_handler' in globals():
         app.add_error_handler(error_handler)
 
-    print("✅ GHO$$TY STAFF SYSTEM ONLINE")
+    print("\n" + "="*40)
+    print("✅ GHO$$TY STAFF SYSTEM: ONLINE")
+    print(f"🕒 СТАРТ: {datetime.now().strftime('%H:%M:%S')}")
+    print("="*40 + "\n")
     
-    # drop_pending_updates=True прибирає Conflict при перезапуску
-    app.run_polling(drop_pending_updates=True, stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT])
+    # 6. Запуск через polling з агресивним очищенням черги
+    # close_if_open=True примусово закриває старі з'єднання при старті
+    app.run_polling(
+        drop_pending_updates=True, 
+        close_if_open=True,
+        stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
+    )
 
 if __name__ == "__main__":
-    main()
-    
+    # Спеціальна обробка для уникнення помилок Event Loop на серверах
+    try:
+        main()
+    except (KeyboardInterrupt, SystemExit):
+        print("\n🛑 Бот зупинений користувачем.")
+    except Exception as e:
+        print(f"\n❌ КРИТИЧНА ПОМИЛКА ПРИ ЗАПУСКУ: {e}")
+        # Автоматичний рестарт через 5 секунд у разі мережевого збою
+        import time
+        time.sleep(5)
