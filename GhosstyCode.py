@@ -1129,19 +1129,19 @@ async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_T
     data = query.data
     
     # Формат: adm_approve_ID_USERID
-    parts = data.split("_")
-    action = parts[1]
-    order_id = parts[2]
-    user_id = int(parts[3])
-
-    if action == "approve":
-        status_text = "✅ <b>Ваше замовлення підтверджено!</b>\nКур'єр вже готує відправку. Очікуйте фото/трек-номер найближчим часом."
-        admin_notif = f"✅ Замовлення #{order_id} підтверджено."
-    else:
-        status_text = "❌ <b>Замовлення відхилено.</b>\nМенеджер не знайшов оплату. Якщо це помилка — напишіть нам."
-        admin_notif = f"❌ Замовлення #{order_id} відхилено."
-
     try:
+        parts = data.split("_")
+        action = parts[1]
+        order_id = parts[2]
+        user_id = int(parts[3])
+
+        if action == "approve":
+            status_text = "✅ <b>Ваше замовлення підтверджено!</b>\nКур'єр вже готує відправку. Очікуйте фото/трек-номер найближчим часом."
+            admin_notif = f"✅ Замовлення #{order_id} підтверджено."
+        else:
+            status_text = "❌ <b>Замовлення відхилено.</b>\nМенеджер не знайшов оплату. Якщо це помилка — напишіть нам."
+            admin_notif = f"❌ Замовлення #{order_id} відхилено."
+
         # Сповіщення користувача
         await context.bot.send_message(chat_id=user_id, text=status_text, parse_mode=ParseMode.HTML)
         # Оновлення повідомлення у менеджера
@@ -1151,66 +1151,79 @@ async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_T
         logger.error(f"Admin action error: {e}")
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL INTEGRATION)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (INTEGRATION)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Центральний вузол розподілу всіх колбеків у боті.
-    Об'єднує логіку з усіх попередніх частин (2-6).
     """
     query = update.callback_query
     data = query.data
-    await query.answer()
+    
+    try:
+        await query.answer()
 
-    # 1. Головне меню та Угода
-    if data == "menu_start": await start_command(update, context)
-    elif data == "menu_terms": await terms_handler(update, context)
-    
-    # 2. Географія (Міста та райони)
-    elif any(data.startswith(x) for x in ["menu_city", "set_city_", "set_dist_", "set_delivery_address"]):
-        await process_geo_callbacks(update, context, data)
+        # 1. Головне меню та Угода
+        if data == "menu_start": await start_command(update, context)
+        elif data == "menu_terms": await terms_handler(update, context)
         
-    # 3. Профіль та Кабінет
-    elif data == "menu_profile": await show_profile(update, context)
-    
-    # 4. Каталог та Подарунки
-    elif any(data.startswith(x) for x in ["cat_", "view_item_", "select_col_", "choose_gift_", "add_"]):
-        await process_catalog_callbacks(update, context, data)
+        # 2. Географія (Міста та райони)
+        elif any(data.startswith(x) for x in ["menu_city", "set_city_", "set_dist_", "set_delivery_address"]):
+            await process_geo_callbacks(update, context, data)
+            
+        # 3. Профіль та Кабінет
+        elif data == "menu_profile": await show_profile(update, context)
         
-    # 5. Кошик та Оплата
-    elif any(data.startswith(x) for x in ["menu_cart", "cart_", "pay_", "confirm_pay_"]):
-        await process_cart_callbacks(update, context, data)
-        await process_payment_callbacks(update, context, data)
-        
-    # 6. Адмін-дії
-    elif data.startswith("adm_"):
-        if update.effective_user.id == MANAGER_ID:
-            await admin_decision_handler(update, context)
+        # 4. Каталог та Подарунки
+        elif any(data.startswith(x) for x in ["cat_", "view_item_", "select_col_", "choose_gift_", "add_"]):
+            await process_catalog_callbacks(update, context, data)
+            
+        # 5. Кошик та Оплата
+        elif any(data.startswith(x) for x in ["menu_cart", "cart_", "pay_", "confirm_pay_"]):
+            # Обробляємо кошик і платежі
+            if "cart" in data: await process_cart_callbacks(update, context, data)
+            else: await process_payment_callbacks(update, context, data)
+            
+        # 6. Адмін-дії
+        elif data.startswith("adm_"):
+            if update.effective_user.id == MANAGER_ID:
+                await admin_decision_handler(update, context)
+    except Exception as e:
+        logger.error(f"Callback error for {data}: {e}")
 
 # =================================================================
-# 🚀 SECTION 30: APPLICATION RUNNER (MAIN)
+# 🚀 SECTION 30: APPLICATION RUNNER (MAIN) - STABLE VERSION
 # =================================================================
 
 def main():
     """
-    Точка запуску бота. Конфігурація Persistence та Handlers.
+    Точка запуску бота. Виправлено для BotHost.ru (без AIORateLimiter).
     """
+    # Створення необхідних папок перед запуском
+    for folder in ['data', 'data/logs']:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
     # Ініціалізація бази даних
     db_init()
     
     # Налаштування збереження даних (Persistence)
-    # Файл ghosty_data.pickle дозволяє не втрачати кошики та профілі при перезавантаженні
     persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # Побудова додатку
-    defaults = Defaults(parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+    # Виправлення PTBDeprecationWarning (link_preview_options)
+    from telegram import LinkPreviewOptions
+    defaults = Defaults(
+        parse_mode=ParseMode.HTML, 
+        link_preview_options=LinkPreviewOptions(is_disabled=True)
+    )
+    
+    # Побудова додатку (Видалено AIORateLimiter для сумісності)
     application = (
         Application.builder()
         .token(TOKEN)
         .persistence(persistence)
         .defaults(defaults)
-        .rate_limiter(AIORateLimiter(overall_max_rate=30, group_max_rate=20))
         .build()
     )
 
@@ -1218,7 +1231,6 @@ def main():
     
     # Команди
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("admin", lambda u, c: u.message.reply_text("👋 Ghosty Staff Admin Panel v4.0")))
     
     # Текстові повідомлення (Адреса, Промокоди)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
@@ -1230,16 +1242,17 @@ def main():
     application.add_error_handler(error_handler)
 
     # Запуск
-    print("--- GHOSTY STAFF SHOP STARTED ---")
-    print(f"Manager ID: {MANAGER_ID}")
-    print(f"Version: 4.0.0 Stable")
+    print("--- GHOSTY STAFF SHOP READY ---")
+    print(f"Status: FIXED & STABLE")
+    print(f"Manager: @{MANAGER_USERNAME}")
     
+    # Запуск бота (drop_pending_updates очищує чергу старих повідомлень)
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     try:
         main()
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot stopped.")
+        print("\nБот зупинений.")
     except Exception as e:
-        logger.critical(f"Fatal error: {e}")
+        logger.critical(f"FATAL RESTART: {e}")
