@@ -1,4 +1,35 @@
 # =================================================================
+# 🤖 PROJECT: GHOSTY STAFF PREMIUM E-COMMERCE ENGINE (STABLE)
+# 🛠 VERSION: 4.2.0 (BOTHOST OPTIMIZED)
+# 🛡 DEVELOPER: Gho$$tyyy & Gemini AI
+# =================================================================
+
+import os
+import sys
+import logging
+import random
+import asyncio
+import json
+import sqlite3
+import hashlib
+import signal  # КРИТИЧНО для уникнення Conflict на хостингу
+from uuid import uuid4
+from datetime import datetime, timedelta
+from html import escape
+
+import telegram
+from telegram import (
+    Update, InlineKeyboardButton, InlineKeyboardMarkup, 
+    InputMediaPhoto, ReplyKeyboardMarkup, KeyboardButton
+)
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler, 
+    MessageHandler, ContextTypes, filters, PicklePersistence, Defaults
+)
+from telegram.constants import ParseMode
+from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
+
+# =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (UPDATED)
 # =================================================================
 TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
@@ -8,40 +39,47 @@ CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # Економіка
-DISCOUNT_MULT = 0.65         # -35%
-PROMO_DISCOUNT_MULT = 0.65   # -35%
+DISCOUNT_MULT = 0.65         # Знижка -35%
+PROMO_DISCOUNT_MULT = 0.65   # Знижка по промокоду -35%
 VIP_EXPIRY = "25.03.2026"
-MIN_ORDER_SUM = 300 
+MIN_ORDER_SUM = 300          # Мінімальна сума замовлення
 
-# Реквізити
+# Реквізити оплати
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
 
-# Повна база товарів
+# Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
 CATALOG_DATA = {
+    # 💨 HHC ВЕЙПИ
     101: {"name": "💨 HHC Vape: Amnesia Haze", "price": 1450, "desc": "95% HHC. Ефект: Енергія.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
     102: {"name": "💨 HHC Vape: Girl Scout Cookies", "price": 1450, "desc": "95% HHC. Ефект: Релакс.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
+    103: {"name": "💨 HHC Vape: Pineapple Express", "price": 1450, "desc": "95% HHC. Тропічний мікс.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
+
+    # 🧪 РІДИНИ (30ml)
     301: {"name": "🧪 Рідина: Apple Ice", "price": 300, "desc": "Зелене яблуко з льодом.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
     302: {"name": "🧪 Рідина: Blueberry Mint", "price": 300, "desc": "Чорниця та м'ята.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
-    501: {"name": "🔌 Vaporesso XROS 3 Mini", "price": 950, "desc": "Надійний девайс.", "colors": ["Black", "Silver"], "img": "https://i.ibb.co/9v3Kz5K/xros3.png"},
-    701: {"name": "📦 Набір 'Classic'", "price": 750, "desc": "3 будь-які рідини на вибір.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True},
-    702: {"name": "📦 Набір 'Party'", "price": 1200, "desc": "5 рідин + стікерпак Gho$$tyyy.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True}
+    303: {"name": "🧪 Рідина: Mango Passion", "price": 300, "desc": "Манго та маракуйя.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
+
+    # 🔌 POD-СИСТЕМИ
+    501: {"name": "🔌 Vaporesso XROS 3 Mini", "price": 950, "desc": "Надійний девайс.", "colors": ["Black", "Space Gray", "Silver"], "img": "https://i.ibb.co/9v3Kz5K/xros3.png"},
+
+    # 📦 НАБОРИ
+    701: {"name": "📦 Набір 'Classic' (3 шт)", "price": 750, "desc": "Будь-які 3 рідини на вибір.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True},
+    702: {"name": "📦 Набір 'Party' (5 шт)", "price": 1200, "desc": "5 рідин + стікерпак Gho$$tyyy.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True}
 }
 
-# Категорії для кнопок каталогу
+# Групування для категорій
 CATEGORIES = {
-    "cat_list_hhc": [101, 102],
+    "cat_list_hhc": [101, 102, 103],
     "cat_list_pods": [501],
-    "cat_list_liquids": [301, 302],
+    "cat_list_liquids": [301, 302, 303],
     "cat_list_sets": [701, 702]
 }
 
-# Логування та файлова система
+# Налаштування логування
 os.makedirs('data/logs', exist_ok=True)
-os.makedirs('data/backups', exist_ok=True)
-
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -51,6 +89,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("GhostyCore")
+
 
 
 # =================================================================
@@ -1197,121 +1236,96 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FIXED)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (STABLE)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Центральний розподільник для всіх кнопок бота."""
     query = update.callback_query
     data = query.data
     
-    # Захист від порожніх даних профілю
-    if "profile" not in context.user_data:
+    if "profile" not in context.user_data: 
         await get_or_create_user(update, context)
-    if context.user_data.get("cart") is None:
+    if "cart" not in context.user_data: 
         context.user_data["cart"] = []
 
     try:
-        # Відповідаємо відразу, щоб прибрати іконку завантаження
         await query.answer()
 
         # 1. Основна навігація
-        if data == "menu_start": 
-            await start_command(update, context)
-        elif data == "menu_terms": 
-            await terms_handler(update, context)
-        elif data == "menu_profile": 
-            await show_profile(update, context)
-        elif data == "menu_cart": 
-            await show_cart(update, context)
-        elif data == "menu_city": 
-            await city_selection_menu(update, context)
+        if data == "menu_start": await start_command(update, context)
+        elif data == "menu_terms": await terms_handler(update, context)
+        elif data == "menu_profile": await show_profile(update, context)
+        elif data == "menu_cart": await show_cart(update, context)
+        elif data == "menu_city": await city_selection_menu(update, context)
         
-        # 2. Локації (Міста/Райони)
+        # 2. Локація
         elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
             await process_geo_(update, context, data)
         
-        # 3. Каталог (Категорії, товари, подарунки)
+        # 3. Каталог (Додано cat_list_ для категорій)
         elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
                 await process_catalog_callbacks(update, context, data)
         
-        # 4. Кошик та Оформлення
-        elif "cart_" in data: 
-            if data == "cart_checkout": 
-                await checkout_init(update, context)
-            else: 
-                await cart_action_handler(update, context, data)
-        
-        # 5. Оплата
+        # 4. Кошик та Оплата
+        elif "cart_" in data:
+            if data == "cart_checkout": await checkout_init(update, context)
+            else: await cart_action_handler(update, context, data)
         elif data in ["pay_mono", "pay_privat"]:
-            bank = data.replace("pay_", "")
-            await payment_selection_handler(update, context, bank)
+            await payment_selection_handler(update, context, data.replace("pay_", ""))
         elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
-        
-        # 6. Адмінка
-        elif data.startswith("adm_"):
-            if update.effective_user.id == MANAGER_ID:
-                await admin_decision_handler(update, context)
-                
+            
     except Exception as e:
-        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
-
+        logger.error(f"Dispatcher Error: {e}")
+        
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (ANTI-CONFLICT VERSION)
+# 🚀 SECTION 30: FINAL RUNNER (BOTHOST OPTIMIZED)
 # =================================================================
 
 def main():
-    """Запуск бота з примусовим скиданням конфліктів."""
+    """Запуск бота з примусовим очищенням сесій."""
     
-    # 1. Створюємо папки, якщо їх немає
+    # Створюємо папки
     for path in ['data', 'data/logs']:
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not os.path.exists(path): os.makedirs(path)
 
-    # 2. База даних
     db_init()
     
-    # 3.Persistence (Збереження стану)
+    # Persistence
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # 4. Налаштування Defaults
+    # НалаштуванняDefaults
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # 5. Створення додатка
+    # Будуємо додаток з розширеними таймаутами
     app = Application.builder() \
         .token(TOKEN) \
         .persistence(pers) \
         .defaults(defaults) \
+        .connect_timeout(30) \
+        .read_timeout(30) \
         .build()
 
-    # 6. Реєстрація хендлерів
+    # Хендлери
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # 7. Обробник помилок
     if 'error_handler' in globals():
         app.add_error_handler(error_handler)
 
-    print("--- [ GHO$$TY STAFF: SYSTEM ONLINE ] ---")
-    print("--- [ Спроба підключення до Telegram... ] ---")
+    print("✅ GHO$$TY STAFF SYSTEM ONLINE")
     
-    # drop_pending_updates=True — ВИРІШУЄ КОНФЛІКТИ ПРИ СТАРТІ
-    # close_if_open=True — Додатковий захист від подвійного запуску
-    app.run_polling(drop_pending_updates=True, close_if_open=True)
+    # drop_pending_updates=True прибирає Conflict при перезапуску
+    app.run_polling(drop_pending_updates=True, stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT])
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        sys.exit(0)
-    except Exception as e:
-        print(f"Критична помилка запуску: {e}")
+    main()
+    
