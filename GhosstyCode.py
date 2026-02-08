@@ -1151,74 +1151,82 @@ async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_T
         logger.error(f"Admin action error: {e}")
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (INTEGRATION)
+# ⚙️ SECTION 29: ГЛОБАЛЬНИЙ ДИСПЕТЧЕР (З ВИПРАВЛЕННЯМ ТИПІВ)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Центральний вузол розподілу всіх колбеків у боті.
+    Центральний обробник кнопок з захистом від NoneType помилок.
     """
     query = update.callback_query
     data = query.data
     
+    # Гарантуємо наявність профілю та кошика перед будь-якою дією
+    if "profile" not in context.user_data:
+        await get_or_create_user(update, context)
+    if "cart" not in context.user_data or context.user_data["cart"] is None:
+        context.user_data["cart"] = []
+
     try:
         await query.answer()
 
-        # 1. Головне меню та Угода
+        # Навігація
         if data == "menu_start": await start_command(update, context)
         elif data == "menu_terms": await terms_handler(update, context)
         
-        # 2. Географія (Міста та райони)
+        # Географія
         elif any(data.startswith(x) for x in ["menu_city", "set_city_", "set_dist_", "set_delivery_address"]):
             await process_geo_callbacks(update, context, data)
             
-        # 3. Профіль та Кабінет
+        # Кабінет
         elif data == "menu_profile": await show_profile(update, context)
         
-        # 4. Каталог та Подарунки
+        # Каталог
         elif any(data.startswith(x) for x in ["cat_", "view_item_", "select_col_", "choose_gift_", "add_"]):
             await process_catalog_callbacks(update, context, data)
             
-        # 5. Кошик та Оплата
-        elif any(data.startswith(x) for x in ["menu_cart", "cart_", "pay_", "confirm_pay_"]):
-            # Обробляємо кошик і платежі
-            if "cart" in data: await process_cart_callbacks(update, context, data)
-            else: await process_payment_callbacks(update, context, data)
+        # Кошик та Оплата (Виправлена логіка виклику)
+        elif "cart" in data:
+            await process_cart_callbacks(update, context, data)
+        elif "pay_" in data or "confirm_pay_" in data:
+            await process_payment_callbacks(update, context, data)
             
-        # 6. Адмін-дії
+        # Адмінка
         elif data.startswith("adm_"):
             if update.effective_user.id == MANAGER_ID:
                 await admin_decision_handler(update, context)
+                
     except Exception as e:
-        logger.error(f"Callback error for {data}: {e}")
+        logger.error(f"Callback error: {e}")
+        # Якщо сталася помилка, повертаємо юзера в старт
+        await start_command(update, context)
 
 # =================================================================
-# 🚀 SECTION 30: APPLICATION RUNNER (MAIN) - STABLE VERSION
+# 🚀 SECTION 30: СТАБІЛЬНИЙ ЗАПУСК (MAIN)
 # =================================================================
 
 def main():
     """
-    Точка запуску бота. Виправлено для BotHost.ru (без AIORateLimiter).
+    Фінальна конфігурація для BotHost.ru
+    Виправлено: AIORateLimiter, LinkPreview, NoneType Handling.
     """
-    # Створення необхідних папок перед запуском
-    for folder in ['data', 'data/logs']:
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+    # Створення структури папок
+    for path in ['data', 'data/logs']:
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-    # Ініціалізація бази даних
     db_init()
     
-    # Налаштування збереження даних (Persistence)
+    # Persistence дозволяє боту "пам'ятати" все після перезавантаження сервера
     persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # Виправлення PTBDeprecationWarning (link_preview_options)
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # Побудова додатку (Видалено AIORateLimiter для сумісності)
+    # Створення додатку без AIORateLimiter для уникнення помилок встановлення
     application = (
         Application.builder()
         .token(TOKEN)
@@ -1227,31 +1235,24 @@ def main():
         .build()
     )
 
-    # Додавання обробників (Handlers)
-    
-    # Команди
+    # Реєстрація обробників
     application.add_handler(CommandHandler("start", start_command))
-    
-    # Текстові повідомлення (Адреса, Промокоди)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
-    
-    # Колбеки (Кнопки)
     application.add_handler(CallbackQueryHandler(global_callback_handler))
-
-    # Глобальний обробник помилок
     application.add_error_handler(error_handler)
 
-    # Запуск
-    print("--- GHOSTY STAFF SHOP READY ---")
-    print(f"Status: FIXED & STABLE")
-    print(f"Manager: @{MANAGER_USERNAME}")
+    print("✅ GHOSTY STAFF СИСТЕМУ ЗАПУЩЕНО")
+    print("🆘 Помилки NoneType та RateLimiter виправлено.")
     
-    # Запуск бота (drop_pending_updates очищує чергу старих повідомлень)
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     try:
         main()
+    except Exception as e:
+        # Автоматичний перезапуск при критичному збої
+        logger.critical(f"Global Crash: {e}")
+        os.execv(sys.executable, ['python'] + sys.argv)
     except (KeyboardInterrupt, SystemExit):
         print("\nБот зупинений.")
     except Exception as e:
