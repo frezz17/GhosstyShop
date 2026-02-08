@@ -32,7 +32,11 @@ from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
 # =================================================================
-TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
+# Читаємо токен з Docker Environment або використовуємо дефолтний
+TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc")
+MANAGER_ID = 7544847872
+MANAGER_USERNAME = "ghosstydp" # Твій основний юзернейм
+
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
@@ -1452,25 +1456,32 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 # 🚀 SECTION 30: RUNNER (FIXED FOR BOTHOST)
 # =================================================================
 
-import signal
-
 def main():
+    # Налаштування логування всередині Docker
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
+    
+    # Створюємо папку в Docker, якщо її нема
+    if not os.path.exists('data'):
+        os.makedirs('data')
+        
     db_init()
+    
+    # Persistence для Docker
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
     app = Application.builder().token(TOKEN).persistence(pers).build()
 
     app.add_handler(CommandHandler("start", start_command))
-    
-    # ФІКС: Дужки навколо фільтрів типів обов'язкові!
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
-    
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
-    print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
+    print("\n🚀 GHO$$TY STAFF: DOCKER CONTAINER STARTED")
     
-    # ФІКС: Видалено close_if_open, бо він ламає запуск на старих версіях
-    app.run_polling(drop_pending_updates=True)
+    # У версії 20.8 close_if_open працює чудово!
+    app.run_polling(drop_pending_updates=True, close_if_open=True)
 
 if __name__ == "__main__":
     main()
