@@ -1507,47 +1507,47 @@ async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, o
         
         
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (OPTIMIZED FOR BOTHOST.RU)
+# 🚀 SECTION 30: FINAL RUNNER (FIXED FILTERS & TIMEOUTS)
 # =================================================================
 
-import signal
-
 def main():
-    """Запуск бота з повним захистом від конфліктів та збоїв мережі."""
+    """Запуск бота з виправленими фільтрами для квитанцій."""
     
-    # 1. Підготовка папок для логів та бази
+    # 1. Створюємо необхідні папки
     for p in ['data', 'data/logs']:
         if not os.path.exists(p): 
             os.makedirs(p)
 
-    # 2. Ініціалізація бази даних
+    # 2. Ініціалізація бази даних (ghosty_v3.db)
     db_init()
     
-    # 3. Налаштування Persistence (збереження станів юзерів)
+    # 3. Налаштування Persistence
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # 4. Налаштування стандартів (HTML та вимкнення прев'ю посилань)
+    # 4. Налаштування стандартів
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # 5. Побудова додатка з посиленими таймаутами для стабільності
+    # 5. Побудова додатка (збільшено таймаути для фото)
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(pers)
         .defaults(defaults)
-        .connect_timeout(40) # Даємо більше часу на підключення
-        .read_timeout(40)    # Даємо більше часу на отримання повідомлень
+        .connect_timeout(60) # Максимальний час на підключення
+        .read_timeout(60)    # Максимальний час на обробку фото
+        .write_timeout(60)
         .build()
     )
 
     # 6. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ
     app.add_handler(CommandHandler("start", start_command))
     
-    # ВИПРАВЛЕНО: дужки гарантують, що і ТЕКСТ, і ФОТО пройдуть обробку
+    # 🔥 ВИПРАВЛЕНО: Дужки навколо (filters.TEXT | filters.PHOTO) 
+    # тепер бот 100% бачить і текст, і квитанції-фото
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
         handle_user_input
@@ -1555,31 +1555,23 @@ def main():
     
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # Додаємо обробник помилок, якщо він визначений
     if 'error_handler' in globals():
         app.add_error_handler(error_handler)
 
     print("\n" + "="*40)
     print("✅ GHO$$TY STAFF SYSTEM: ONLINE")
-    print(f"📡 СТАТУС: Polling started...")
+    print("📡 СТАТУС: Listening for Messages & Photos...")
     print("="*40 + "\n")
     
     # 7. ЗАПУСК
-    # close_if_open=True — вбиває Conflict на старті
-    # drop_pending_updates=True — не відповідає на старі повідомлення після простою
     app.run_polling(
         drop_pending_updates=True, 
-        close_if_open=True,
+        close_if_open=True, # Вбиває Conflict назавжди
         stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
     )
 
 if __name__ == "__main__":
     try:
         main()
-    except (KeyboardInterrupt, SystemExit):
-        print("\n🛑 Бот зупинений.")
     except Exception as e:
-        print(f"❌ КРИТИЧНА ПОМИЛКА: {e}")
-
-if __name__ == "__main__":
-    main()
+        print(f"❌ КРИТИЧНА ПОМИЛКА ЗАПУСКУ: {e}")
