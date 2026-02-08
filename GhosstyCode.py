@@ -30,7 +30,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (UPDATED)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED SYNTAX)
 # =================================================================
 TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
@@ -39,23 +39,23 @@ CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # Економіка
-DISCOUNT_MULT = 0.65         # Знижка -35%
-PROMO_DISCOUNT_MULT = 0.65   # Знижка по промокоду -35%
+DISCOUNT_MULT = 0.65         # -35%
+PROMO_DISCOUNT_MULT = 0.65   # -35%
 VIP_EXPIRY = "25.03.2026"
-MIN_ORDER_SUM = 300          # Мінімальна сума замовлення
+MIN_ORDER_SUM = 300 
 
-# Реквізити оплати
+# Реквізити (ТУТ БУЛА ПОМИЛКА - КОМИ ВИПРАВЛЕНО)
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
-
-    CATEGORIES = {
-    "cat_list_hhc": list(HHC_VAPES.keys()),
-    "cat_list_pods": list(PODS.keys()),
-    "cat_list_liquids": list(LIQUIDS.keys()),
-    "cat_list_sets": [701, 702] # Твої набори, якщо вони лишилися
 }
 
+# Групування для категорій (ВАЖЛИВО: Категорії мають співпадати зі словниками нижче)
+CATEGORIES = {
+    "cat_list_hhc": [100, 101, 102, 103, 104],
+    "cat_list_pods": [500, 501, 502, 503, 504, 505, 506],
+    "cat_list_liquids": [301, 302, 303],
+    "cat_list_sets": [701, 702]
 }
 
 # Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
@@ -503,18 +503,29 @@ async def send_ghosty_media(update, text, reply_markup, photo):
     await send_ghosty_message(update, text, reply_markup, photo)
 
 # =================================================================
-# 🏠 SECTION 8: START & PROFILE (STABLE)
+# 🏠 SECTION 8: START & PROFILE (STABLE & FINAL)
 # =================================================================
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Відображає профіль користувача з фото, даними доставки та кнопками.
+    """
+    # 1. Отримуємо дані
     profile = context.user_data.get("profile", {})
     user = update.effective_user
     
-    # Формуємо текст локації
-    city = profile.get('city', 'Не обрано')
-    district = profile.get('district', 'Не обрано')
-    location_status = f"📍 {city}, {district}" if profile.get('city') else "❌ Не обрано"
+    # 2. Формуємо статус локації
+    city = profile.get('city')
+    district = profile.get('district')
+    
+    if city:
+        location_status = f"📍 <b>{city}</b>"
+        if district:
+            location_status += f", {district}"
+    else:
+        location_status = "❌ <b>Не обрано</b> (натисніть кнопку нижче)"
 
+    # 3. Формуємо текст повідомлення
     text = (
         f"<b>👤 ВАШ ПРОФІЛЬ Gho$$tyyy</b>\n\n"
         f"🆔 ID: <code>{user.id}</code>\n"
@@ -524,21 +535,59 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📮 <b>Дані доставки:</b>\n{location_status}"
     )
 
+    # 4. Клавіатура
     keyboard = [
         [InlineKeyboardButton("📍 Дані доставки / Змінити", callback_data="menu_city")],
         [InlineKeyboardButton("🎟 Застосувати промокод", callback_data="promo_activate")],
         [InlineKeyboardButton("🏠 На головну", callback_data="menu_start")]
     ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    # Намагаємось отримати фото профілю користувача
-    photos = await context.bot.get_user_profile_photos(user.id, limit=1)
-    if photos.total_count > 0:
-        photo = photos.photos[0][-1].file_id
-        await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard), photo)
-    else:
-        # Якщо фото немає — надсилаємо стандартну картинку
-        await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard), WELCOME_PHOTO)
-        
+    # 5. Спроба отримати фото профілю (з захистом від помилок приватності)
+    try:
+        user_photos = await context.bot.get_user_profile_photos(user.id, limit=1)
+        if user_photos.total_count > 0:
+            # Використовуємо останнє фото профілю (найкраща якість)
+            photo = user_photos.photos[0][-1].file_id
+            await send_ghosty_message(update, text, reply_markup, photo)
+        else:
+            # Якщо фото немає
+            await send_ghosty_message(update, text, reply_markup, WELCOME_PHOTO)
+    except Exception as e:
+        # Якщо Telegram забороняє доступ до фото (налаштування приватності юзера)
+        logger.warning(f"Could not fetch profile photo for {user.id}: {e}")
+        await send_ghosty_message(update, text, reply_markup, WELCOME_PHOTO)
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головне меню (Start)"""
+    # Перевірка наявності профілю
+    if "profile" not in context.user_data:
+        await get_or_create_user(update, context)
+    
+    p = context.user_data["profile"]
+    context.user_data["state"] = None
+    cart_count = len(context.user_data.get('cart', []))
+    
+    welcome_text = (
+        f"👋 <b>Вітаємо в Gho$$ty Staff!</b>\n\n"
+        f"🎟 Ваш промокод: <code>{p['promo_code']}</code>\n"
+        f"💎 Статус: <b>VIP до {VIP_EXPIRY}</b>\n"
+        f"🚚 <b>Доставка 0₴</b> активна!\n\n"
+        f"📍 Локація: <b>{p.get('city') or 'Не обрана'}</b>\n"
+        f"🛒 Кошик: <b>{cart_count} шт.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🛍 Каталог товарів", callback_data="cat_main")],
+        [InlineKeyboardButton("👤 Мій профіль", callback_data="menu_profile"), 
+         InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart")],
+        [InlineKeyboardButton("📍 Змінити локацію", callback_data="menu_city")],
+        [InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/{MANAGER_USERNAME}"),
+         InlineKeyboardButton("📢 Канал", url=CHANNEL_URL)],
+        [InlineKeyboardButton("📜 Угода користувача", callback_data="menu_terms")]
+    ]
+    
+    await send_ghosty_message(update, welcome_text, InlineKeyboardMarkup(keyboard), WELCOME_PHOTO)
     
     
 # =================================================================
