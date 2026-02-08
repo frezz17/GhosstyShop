@@ -339,40 +339,45 @@ def db_init():
         sys.exit(1)
 
 # =================================================================
-# 👤 SECTION 6: USER PROFILE & REFERRAL SYSTEM
+# 👤 SECTION 6: USER PROFILE & REFERRAL SYSTEM (FIXED & SYNCED)
 # =================================================================
 
 async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Комплексна ініціалізація користувача.
-    Обробляє: реєстрацію, реферальні посилання, VIP-дати.
+    Обробляє: реєстрацію, реферальні посилання, VIP-дати та адресні дані.
     """
     user = update.effective_user
+    uid = user.id
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     
+    # Ініціалізація профілю в пам'яті (context.user_data)
     if "profile" not in context.user_data:
-        # Ініціалізація в пам'яті (для швидкого доступу)
         context.user_data["profile"] = {
-            "uid": user.id,
+            "uid": uid,
             "name": escape(user.first_name) if user.first_name else "Клієнт",
             "username": f"@{user.username}" if user.username else "Приховано",
             "city": None,
             "district": None,
-            "address": None,
+            "address_details": None,      # ВИПРАВЛЕНО: обов'язкове поле для адресних замовлень
             "promo_applied": False,
-            "promo_code": f"GHST{user.id}",
+            "promo_code": f"GHST{uid}",   # ВИПРАВЛЕНО: персональний промокод GHST + ID
             "referrals": 0,
             "orders_count": 0,
-            "cart": []
+            "vip_status": f"VIP до {VIP_EXPIRY}", # Текстовий статус для відображення
+            "reg_date": current_time
         }
         
         # Обробка реферального посилання
         if context.args and context.args[0].isdigit():
             referrer_id = int(context.args[0])
-            if referrer_id != user.id:
+            if referrer_id != uid:
                 context.user_data["profile"]["referred_by"] = referrer_id
-                # Логіка нарахування бонусу рефереру буде в обробці замовлення
-                logger.info(f"User {user.id} registered via ref-link from {referrer_id}")
+                logger.info(f"User {uid} registered via ref-link from {referrer_id}")
+
+    # Перестраховка: якщо старий профіль не мав поля address_details, додаємо його
+    if "address_details" not in context.user_data["profile"]:
+        context.user_data["profile"]["address_details"] = None
 
     # Синхронізація з фізичною базою даних SQLite
     try:
@@ -381,10 +386,15 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
         c.execute('''
             INSERT OR IGNORE INTO users (user_id, username, first_name, reg_date, last_active)
             VALUES (?, ?, ?, ?, ?)
-        ''', (user.id, user.username, user.first_name, current_time, current_time))
+        ''', (uid, user.username, user.first_name, current_time, current_time))
         
-        # Оновлення часу останньої активності, якщо юзер вже існує
-        c.execute("UPDATE users SET last_active = ? WHERE user_id = ?", (current_time, user.id))
+        # Оновлення часу останньої активності та імені (якщо змінив у ТГ)
+        c.execute('''
+            UPDATE users 
+            SET last_active = ?, username = ?, first_name = ? 
+            WHERE user_id = ?
+        ''', (current_time, user.username, user.first_name, uid))
+        
         conn.commit()
         conn.close()
     except sqlite3.Error as e:
@@ -657,7 +667,7 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =================================================================
 
 # Цей шматок коду додається до основного main_callback_handler у фінальній збірці
-async def process_geo_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str):
+async def process_geo_(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str):
     """
     Обробка географічних колбеків.
     """
@@ -783,27 +793,42 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     await send_ghosty_message(update, caption, InlineKeyboardMarkup(keyboard), photo_url)
 
 # =================================================================
-# 🎁 SECTION 16: GIFT SELECTION LOGIC
+# =================================================================
+# 🎁 SECTION 19: GIFT SELECTION SYSTEM (FOR HHC & OFFERS)
 # =================================================================
 
 async def gift_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
     """
-    Вибір подарункової рідини (8 варіантів).
+    Відображає список доступних подарунків (наприклад, безкоштовні рідини).
     """
+    main_item = get_item_data(item_id)
+    if not main_item:
+        await update.callback_query.answer("❌ Товар не знайдено")
+        return
+
+    # Текст для вибору подарунка
     text = (
-        "<b>🎁 ОБЕРІТЬ ВАШ ПОДАРУНОК</b>\n\n"
-        "До цього товару ви можете безкоштовно додати одну рідину 30мл.\n"
-        "Який смак бажаєте?"
+        f"🎁 <b>АКЦІЯ: ОБЕРІТЬ ПОДАРУНОК</b>\n\n"
+        f"До товару <b>{main_item['name']}</b> ви можете додати одну рідину абсолютно <b>БЕЗКОШТОВНО</b>!\n\n"
+        f"Оберіть смак, який вам до вподоби 👇"
     )
+
+    # Список ID товарів, які можуть бути подарунками (наприклад, рідини)
+    # Ти можеш змінити ці ID на ті, що є у твоєму CATALOG_DATA
+    gift_options = [301, 302, 303, 304] 
     
     keyboard = []
-    for g_id, g_data in GIFT_LIQUIDS.items():
-        keyboard.append([InlineKeyboardButton(g_data['name'], callback_data=f"add_with_gift_{item_id}_{g_id}")])
+    for g_id in gift_options:
+        gift_item = get_item_data(g_id)
+        if gift_item:
+            # Формат callback: add_{ID основного товару}_{ID подарунка}
+            keyboard.append([InlineKeyboardButton(f"🧪 {gift_item['name']}", callback_data=f"add_{item_id}_{g_id}")])
     
-    keyboard.append([InlineKeyboardButton("❌ Скасувати", callback_data=f"view_item_{item_id}")])
-    
-    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
+    keyboard.append([InlineKeyboardButton("⬅️ Скасувати", callback_data=f"view_item_{item_id}")])
 
+    # Якщо у тебе є спеціальне фото для акцій, встав GIFT_PHOTO, інакше фото товару
+    photo = main_item.get('img')
+    await send_ghosty_media(update, text, InlineKeyboardMarkup(keyboard), photo)
 # =================================================================
 # 🛒 SECTION 17: ADD TO CART HANDLERS
 # =================================================================
@@ -841,43 +866,95 @@ async def add_to_cart_final(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     await send_ghosty_message(update, success_text, InlineKeyboardMarkup(keyboard))
 
 # =================================================================
-# ⚙️ SECTION 18: CALLBACK DISPATCHER (CATALOG & GIFTS)
+# ⚙️ SECTION 18: CATALOG SYSTEM (CALLBACKS & ADD TO CART)
 # =================================================================
 
 async def process_catalog_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str):
     """
-    Обробка всіх натискань у розділі магазину.
+    Центральний обробник натискань у каталозі.
     """
+    # 1. Головне меню каталогу
     if data == "cat_main":
-        await show_catalog_main(update, context)
+        await catalog_main_menu(update, context)
         
-    elif data.startswith("cat_list_"):
-        cat = data.replace("cat_list_", "")
-        await list_items_by_category(update, context, cat)
-        
+    # 2. Перегляд детальної картки товару
     elif data.startswith("view_item_"):
-        i_id = int(data.replace("view_item_", ""))
-        await view_item_details(update, context, i_id)
+        item_id = int(data.replace("view_item_", ""))
+        item = get_item_data(item_id)
         
-    elif data.startswith("select_col_"):
-        parts = data.split("_")
-        i_id, color = int(parts[2]), parts[3]
-        # Додавання Pod-системи з кольором
-        await add_to_cart_final(update, context, i_id, color=color)
-        
-    elif data.startswith("choose_gift_"):
-        i_id = int(data.replace("choose_gift_", ""))
-        await gift_selection_menu(update, context, i_id)
-        
-    elif data.startswith("add_with_gift_"):
-        parts = data.split("_")
-        i_id, g_id = int(parts[3]), int(parts[4])
-        await add_to_cart_final(update, context, i_id, gift_id=g_id)
+        if not item:
+            await update.callback_query.answer("❌ Товар не знайдено")
+            return
 
-    elif data.startswith("add_cart_"):
-        i_id = int(data.replace("add_cart_", ""))
-        await add_to_cart_final(update, context, i_id)
-        # =================================================================
+        text = f"<b>{item['name']}</b>\n\n{item['desc']}\n\n💰 Ціна: <b>{item['price']}₴</b>"
+        keyboard = []
+        
+        # Вибір кольору (для ПОД-систем)
+        if "colors" in item:
+            text += "\n\n🌈 <b>Оберіть колір пристрою:</b>"
+            for color in item["colors"]:
+                keyboard.append([InlineKeyboardButton(f"🎨 {color}", callback_data=f"add_{item_id}_{color}")])
+        
+        # Вибір подарунка (для HHC вейпів)
+        elif item.get("has_gift"):
+            keyboard.append([InlineKeyboardButton("🎁 Обрати рідину у подарунок", callback_data=f"choose_gift_{item_id}")])
+        
+        # Звичайний товар (рідини)
+        else:
+            keyboard.append([InlineKeyboardButton("🛒 Додати в кошик", callback_data=f"add_{item_id}_none")])
+            
+        keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="cat_main")])
+        await send_ghosty_media(update, text, InlineKeyboardMarkup(keyboard), item.get('img'))
+
+    # 3. Виклик меню подарунків
+    elif data.startswith("choose_gift_"):
+        item_id = int(data.replace("choose_gift_", ""))
+        await gift_selection_menu(update, context, item_id)
+
+    # 4. ФІНАЛЬНЕ ДОДАВАННЯ В КОШИК (через handler нижче)
+    elif data.startswith("add_"):
+        await add_to_cart_handler(update, context, data)
+
+async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str):
+    """
+    Логіка додавання: обробляє колір, подарунок та застосовує знижку -35%.
+    """
+    parts = data.split("_")
+    item_id = int(parts[1])
+    extra_info = parts[2] if len(parts) > 2 else "none"
+    
+    item = get_item_data(item_id)
+    if not item:
+        await update.callback_query.answer("❌ Помилка товару")
+        return
+
+    # Копіюємо дані товару, щоб не змінити оригінал в базі
+    cart_item = item.copy()
+    
+    # АВТОМАТИЧНА ЗНИЖКА -35% (Ціна = 65% від початкової)
+    cart_item['price'] = int(cart_item['price'] * 0.65)
+
+    # Додаємо інформацію про колір
+    if extra_info != "none" and not extra_info.isdigit():
+        cart_item['name'] = f"{item['name']} (Колір: {extra_info})"
+    
+    # Додаємо інформацію про подарунок (якщо вибрано ID рідини)
+    elif extra_info.isdigit():
+        gift = get_item_data(int(extra_info))
+        if gift:
+            cart_item['name'] = f"{item['name']} + 🎁 {gift['name']}"
+
+    # Ініціалізація кошика, якщо він порожній
+    if "cart" not in context.user_data or context.user_data["cart"] is None:
+        context.user_data["cart"] = []
+    
+    context.user_data["cart"].append(cart_item)
+    
+    await update.callback_query.answer(f"✅ Додано: {cart_item['name']}")
+    
+    # Після додавання відправляємо користувача в кошик для оформлення
+    await show_cart(update, context)
+        
 # 🛒 SECTION 19: THE SHOPPING CART SYSTEM
 # =================================================================
 
@@ -955,37 +1032,43 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await show_cart(update, context)
 
 # =================================================================
-# 💳 SECTION 21: CHECKOUT & PAYMENT SELECTION
+# 💳 SECTION 21: CHECKOUT & PAYMENT SELECTION (UPDATED)
 # =================================================================
 
 async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Початок оформлення: генерація унікальної суми з копійками та вибір банку.
+    Початок оформлення: перевірка даних, генерація суми з копійками та вибір банку.
     """
-    profile = context.user_data.get("profile", {})
+    profile = await get_or_create_user(update, context)
     cart = context.user_data.get("cart", [])
     
-    # 1. Перевірка чи обрана локація (якщо ні — редирект на вибір міста)
+    # 1. Перевірка чи обрана локація
     if not profile.get("city") or not profile.get("district"):
         await update.callback_query.answer("⚠️ Спочатку оберіть місто та район!", show_alert=True)
-        await city_selection_menu(update, context)
+        # Викликаємо меню вибору міста
+        await process_geo_callbacks(update, context, "menu_city")
         return
 
+    # 2. Перевірка кошика
     if not cart:
         await update.callback_query.answer("🛒 Кошик порожній!", show_alert=True)
         return
 
-    # 2. Розрахунок суми
+    # 3. Перевірка телефону (якщо немає, ставимо заглушку або просимо вказати)
+    if "phone" not in profile or not profile["phone"]:
+        profile["phone"] = "Вказано при оплаті"
+
+    # 4. Розрахунок суми
     total_sum = sum(item['price'] for item in cart)
     
-    # Додаємо випадкові копійки від 0.01 до 0.99 для ідентифікації платежу
+    # Генерація копійок (0.01 - 0.99) для ідентифікації платежу
     cents = random.randint(1, 99) / 100
     final_amount = float(total_sum) + cents
     
-    # 3. Генерація ID замовлення (Коментар)
+    # 5. Генерація ID замовлення (Коментар GHSTXXXX)
     order_id = f"GHST{random.randint(1000, 9999)}"
     
-    # Зберігаємо дані замовлення
+    # Зберігаємо дані замовлення в пам'ять
     context.user_data["current_order"] = {
         "amount": final_amount,
         "order_id": order_id,
@@ -995,12 +1078,13 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         f"<b>📦 ОФОРМЛЕННЯ ЗАМОВЛЕННЯ #{order_id}</b>\n\n"
         f"👤 <b>Клієнт:</b> {profile['name']}\n"
+        f"📞 <b>Телефон:</b> {profile['phone']}\n"
         f"📍 <b>Локація:</b> {profile['city']}, {profile['district']}\n"
         f"💎 <b>Статус:</b> VIP (Доставка 0₴)\n"
         f"⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
         f"💰 <b>СУМА ДО СПЛАТИ: {final_amount:.2f}₴</b>\n\n"
         f"⚠️ <b>КОМЕНТАР ОБОВ'ЯЗКОВО:</b> <code>{order_id}</code>\n"
-        f"<i>Без вказаного коментаря оплата не буде зарахована автоматично!</i>\n\n"
+        f"<i>Сума має бути точною до копійок! Це ваш ключ до швидкої видачі.</i>\n\n"
         f"Оберіть банк для оплати:"
     )
     
