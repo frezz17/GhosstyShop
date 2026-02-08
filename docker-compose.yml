@@ -6,7 +6,7 @@ services:
     container_name: ghosty-shop-bot
     restart: unless-stopped
     environment:
-      - BOT_TOKEN=8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4
+      - BOT_TOKEN=8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc
       - TZ=Europe/Kiev
     volumes:
       - ./data:/app/data
