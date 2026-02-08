@@ -58,18 +58,20 @@ CATEGORIES = {
     "cat_list_sets": [701, 702]
 }
 
-# Функція для пошуку товарів по всіх твоїх списках
+# Виправлена функція пошуку (заміни стару версію)
 def get_item_data(item_id):
     try:
         iid = int(item_id)
-        # Перевіряємо всі словники, які ти додав раніше
-        for catalog in [HHC_VAPES, PODS, LIQUIDS]:
-            if iid in catalog:
-                return catalog[iid]
+        # Об'єднуємо всі словники для пошуку
+        all_products = {}
+        if 'HHC_VAPES' in globals(): all_products.update(HHC_VAPES)
+        if 'PODS' in globals(): all_products.update(PODS)
+        if 'LIQUIDS' in globals(): all_products.update(LIQUIDS)
+        
+        return all_products.get(iid)
+    except Exception as e:
+        logger.error(f"Error getting item data: {e}")
         return None
-    except:
-        return None
-
 
 # Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
 CATALOG_DATA = {
@@ -1333,110 +1335,95 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (STABLE)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL FIX)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
     
-    # Авто-створення профілю, якщо його немає
-    if "profile" not in context.user_data:
+    if "profile" not in context.user_data: 
         await get_or_create_user(update, context)
-    if "cart" not in context.user_data:
+    if "cart" not in context.user_data: 
         context.user_data["cart"] = []
 
     try:
         await query.answer()
 
-        # 1. Навігація
-        if data == "menu_start": await start_command(update, context)
-        elif data == "menu_profile": await show_profile(update, context)
-        elif data == "menu_city": await city_selection_menu(update, context)
-        elif data == "menu_cart": await show_cart(update, context)
+        # 1. Основна навігація
+        if data == "menu_start": 
+            await start_command(update, context)
+        elif data == "menu_profile": 
+            await show_profile(update, context)
+        elif data == "menu_city": 
+            await city_selection_menu(update, context)
+        elif data == "menu_cart": 
+            await show_cart(update, context)
         
         # 2. Каталог (Вейпи, Поди, Рідини)
         elif any(x in data for x in ["cat_main", "cat_list_", "view_item_", "add_", "choose_gift_"]):
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
-                await process_catalog_callbacks(update, context, data)
+                # Перевірка наявності функції обробки
+                if 'process_catalog_callbacks' in globals():
+                    await process_catalog_callbacks(update, context, data)
+                else:
+                    logger.error("process_catalog_callbacks not found!")
 
-        # 3. Доставка / Гео
+        # 3. Локація
         elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
             await process_geo_(update, context, data)
 
         # 4. Промокод
         elif data == "promo_activate":
             context.user_data["state"] = "WAIT_PROMO"
-            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
+            await query.message.reply_text("⌨️ <b>Введіть ваш промокод:</b>", parse_mode='HTML')
 
-        # 5. Оформлення та Оплата
+        # 5. Кошик та Оплата
         elif "cart_" in data:
-            if data == "cart_checkout": await checkout_init(update, context)
-            else: await cart_action_handler(update, context, data)
+            if data == "cart_checkout": 
+                await checkout_init(update, context)
+            else: 
+                await cart_action_handler(update, context, data)
         elif data in ["pay_mono", "pay_privat"]:
             await payment_selection_handler(update, context, data.replace("pay_", ""))
         elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
 
     except Exception as e:
-        logger.error(f"🔴 Callback Error: {e}", exc_info=True)
+        logger.error(f"🔴 Critical Callback Error: {e}", exc_info=True)
+        
         
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (STABLE FOR BOTHOST)
+# 🚀 SECTION 30: FINAL RUNNER (STABLE FOREVER)
 # =================================================================
 
-import signal
-
 def main():
-    # 1. Створюємо папки
+    # Папки
     for p in ['data', 'data/logs']:
         if not os.path.exists(p): os.makedirs(p)
-
-    # 2. Ініціалізація бази (той самий ghosty_v3.db)
+    
     db_init()
-    
-    # 3. Persistence
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
-    
-    # 4. Defaults
     from telegram import LinkPreviewOptions
-    defaults = Defaults(
-        parse_mode=ParseMode.HTML, 
-        link_preview_options=LinkPreviewOptions(is_disabled=True)
-    )
+    defaults = Defaults(parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
     
-    # 5. Побудова додатка
-    app = (
-        Application.builder()
-        .token(TOKEN)
-        .persistence(pers)
-        .defaults(defaults)
-        .connect_timeout(30)
-        .read_timeout(30)
-        .build()
-    )
+    app = Application.builder().token(TOKEN).persistence(pers).defaults(defaults).build()
 
-    # 6. Реєстрація хендлерів
+    # Хендлери
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    
-    if 'error_handler' in globals():
-        app.add_error_handler(error_handler)
 
-    print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
+    print("\n--- [ GHO$$TY STAFF: ONLINE ] ---")
     
-    # 7. Посилений запуск (close_if_open вбиває старі сесії)
+    # Агресивний polling для BotHost
     app.run_polling(
         drop_pending_updates=True, 
-        close_if_open=True,
+        close_if_open=True,  # Це ключове!
         stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
     )
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"❌ Помилка: {e}")
+    main()
