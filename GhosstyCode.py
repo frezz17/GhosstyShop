@@ -1507,69 +1507,65 @@ async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, o
         
         
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (OPTIMIZED FOR BOTHOST.RU)
+# 🚀 SECTION 30: FINAL RUNNER (COMPATIBLE FIX)
 # =================================================================
 
-import signal # Імпортуємо тут для надійності
+import signal
 
 def main():
-    """Запуск бота з виправленими фільтрами та захистом від Conflict."""
+    """Запуск бота (версія, сумісна з хостингом)."""
     
-    # 1. Створюємо необхідні папки
+    # 1. Папки
     for p in ['data', 'data/logs']:
-        if not os.path.exists(p): 
-            os.makedirs(p)
+        if not os.path.exists(p): os.makedirs(p)
 
-    # 2. Ініціалізація бази даних
+    # 2. База даних
     db_init()
     
-    # 3. Налаштування збереження станів
+    # 3. Налаштування
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # 4. Налаштування стандартів відображення
-    from telegram import LinkPreviewOptions
-    defaults = Defaults(
-        parse_mode=ParseMode.HTML, 
-        link_preview_options=LinkPreviewOptions(is_disabled=True)
-    )
-    
-    # 5. Побудова додатка з посиленими таймаутами для фото-квитанцій
+    # Імпорт опцій (із захистом від помилок імпорту)
+    try:
+        from telegram import LinkPreviewOptions
+        defaults = Defaults(
+            parse_mode=ParseMode.HTML, 
+            link_preview_options=LinkPreviewOptions(is_disabled=True)
+        )
+    except ImportError:
+        # Для старих версій
+        defaults = Defaults(parse_mode=ParseMode.HTML)
+
+    # 4. Створення бота
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(pers)
         .defaults(defaults)
-        .connect_timeout(60) 
-        .read_timeout(60)    
+        .connect_timeout(60)
+        .read_timeout(60)
         .write_timeout(60)
         .build()
     )
 
-    # 6. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ
+    # 5. Хендлери
     app.add_handler(CommandHandler("start", start_command))
     
-    # 🔥 ВИПРАВЛЕНО: Дужки (filters.TEXT | filters.PHOTO) гарантують, 
-    # що бот прийме і текст (адресу), і фото (квитанцію)
-    app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
-        handle_user_input
-    ))
+    # Фільтр: Текст АБО Фото (без команд)
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
     
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    
+
     if 'error_handler' in globals():
         app.add_error_handler(error_handler)
 
-    print("\n" + "="*40)
-    print("✅ GHO$$TY STAFF SYSTEM: ONLINE")
-    print("📡 СТАТУС: Listening for Orders & Receipts...")
-    print("="*40 + "\n")
-    
-    # 7. ЗАПУСК З АНТИ-КОНФЛІКТОМ
-    # close_if_open=True — вбиває стару сесію при перезапуску
+    print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
+    print("📡 STATUS: Polling started...")
+
+    # 6. ЗАПУСК (БЕЗ close_if_open)
+    # Ми прибрали проблемний параметр, тепер помилки не буде.
     app.run_polling(
         drop_pending_updates=True, 
-        close_if_open=True,
         stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
     )
 
@@ -1577,4 +1573,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ КРИТИЧНА ПОМИЛКА: {e}")
+        print(f"❌ CRITICAL ERROR: {e}")
