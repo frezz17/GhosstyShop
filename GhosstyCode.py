@@ -489,56 +489,59 @@ async def send_ghosty_message(update: Update, text: str, reply_markup=None, phot
 # =================================================================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Обробка команди /start. Точка входу в бота.
-    Оновлено: Промокоди, VIP-статус та нова структура меню.
-    """
     profile = await get_or_create_user(update, context)
-    
-    # Скидання тимчасових станів
     context.user_data["state"] = None
-    
-    # Перевіряємо наявність кошика
     cart_count = len(context.user_data.get('cart', []))
     
     welcome_text = (
-        f"👻 <b>Вітаємо в Ghosty Staff Premium Shop!</b>\n\n"
-        f"🔥 <b>Ваш персональний промокод:</b> <code>{profile['promo_code']}</code>\n"
-        f"🎟 Дає знижку <b>-35%</b> на перше замовлення!\n\n"
-        f"💎 Ваш статус: <b>VIP до {VIP_EXPIRY}</b>\n"
-        f"🚚 <b>БЕЗКОШТОВНА ДОСТАВКА</b> активована для вас!\n\n"
-        f"📍 Місто: <b>{profile['city'] if profile['city'] else '❌ Не обрано'}</b>\n"
-        f"🛒 Кошик: <b>{cart_count} шт.</b>\n\n"
-        f"Оберіть потрібний розділ меню нижче 👇"
+        f"👋 <b>Вітаємо в Gho$$ty Staff!</b>\n\n"
+        f"🎟 Ваш промокод: <code>{profile['promo_code']}</code>\n"
+        f"💎 Статус: <b>VIP до {VIP_EXPIRY}</b>\n"
+        f"🚚 <b>Доставка 0₴</b> активна!\n\n"
+        f"📍 Локація: <b>{profile['city'] if profile['city'] else 'Не обрана'}</b>\n"
+        f"🛒 Кошик: <b>{cart_count} шт.</b>"
     )
     
-    # Нова структура кнопок згідно з вашим запитом
     keyboard = [
-        [InlineKeyboardButton("👤 МІЙ ПРОФІЛЬ", callback_data="menu_profile")], # 1 & 3
-        [InlineKeyboardButton("🛍 КАТАЛОГ ТОВАРІВ", callback_data="cat_main")], # 2
-        [InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],         # 4
-        [InlineKeyboardButton("📍 ЗМІНИТИ ЛОКАЦІЮ", callback_data="menu_city")], # 5
-        [InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", url="https://t.me/ghosstydp")],   # 6
-        [InlineKeyboardButton("📢 КАНАЛ", url="https://t.me/GhostyStaffDP")], # 7
-        [InlineKeyboardButton("📜 УГОДА КОРИСТУВАЧА", callback_data="menu_terms")] # 8
+        [InlineKeyboardButton("🛍 Каталог товарів", callback_data="cat_main")],
+        [InlineKeyboardButton("👤 Мій профіль", callback_data="menu_profile"), 
+         InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart")],
+        [InlineKeyboardButton("📍 Змінити локацію", callback_data="menu_city")],
+        [InlineKeyboardButton("👨‍💻 Менеджер", url="https://t.me/ghosstydp"),
+         InlineKeyboardButton("📢 Канал", url="https://t.me/GhostyStaffDP")],
+        [InlineKeyboardButton("📜 Угода користувача", callback_data="menu_terms")]
     ]
     
     await send_ghosty_message(update, welcome_text, InlineKeyboardMarkup(keyboard), WELCOME_PHOTO)
 
-async def terms_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показ угоди користувача"""
-    # Текст угоди (якщо TERMS_TEXT не визначено раніше, додайте його в константи)
-    terms_txt = (
-        "<b>📜 ПРАВИЛА ТА УГОДА GHOSTY STAFF</b>\n\n"
-        "1. Здійснюючи покупку, ви підтверджуєте своє повноліття.\n"
-        "2. Магазин не несе відповідальності за дії сторонніх осіб.\n"
-        "3. Товар поверненню не підлягає після отримання координат.\n"
-        "4. Претензії щодо замовлення приймаються протягом 24 годин.\n\n"
-        "<i>Натискаючи кнопку нижче, ви погоджуєтесь з усіма пунктами.</i>"
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    p = context.user_data["profile"]
+    text = (
+        f"<b>👤 ВАШ ПРОФІЛЬ Gho$$tyyy</b>\n\n"
+        f"🆔 ID: <code>{p['uid']}</code>\n"
+        f"📍 Місто: {p.get('city') or 'Не вказано'}\n"
+        f"🏘 Район: {p.get('district') or 'Не вказано'}\n"
+        f"🎁 Промокод: <code>{p['promo_code']}</code>\n"
+        f"📦 Замовлень: {p.get('orders_count', 0)}"
     )
-    keyboard = [[InlineKeyboardButton("✅ Я ЗГОДЕН, ДО МЕНЮ", callback_data="menu_start")]]
-    await send_ghosty_message(update, terms_txt, InlineKeyboardMarkup(keyboard))
+    keyboard = [
+        [InlineKeyboardButton("📍 Дані доставки (змінити)", callback_data="menu_city")],
+        [InlineKeyboardButton("🏠 На головну", callback_data="menu_start")]
+    ]
+    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
 
+async def terms_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    terms_txt = (
+        "<b>📜 ПРАВИЛА ТА УГОДА Gho$$tyyy STAFF</b>\n\n"
+        "1. Користуючись ботом, ви підтверджуєте повноліття (18+).\n"
+        "2. Магазин <b>Gho$$tyyy</b> гарантує анонімність доставки.\n"
+        "3. Товар поверненню не підлягає після отримання координат.\n"
+        "4. Претензії розглядаються протягом 24 годин з чеком.\n\n"
+        "<i>Натискаючи кнопку, ви приймаєте умови сервісу Gho$$tyyy.</i>"
+    )
+    keyboard = [[InlineKeyboardButton("✅ Згоден, до меню", callback_data="menu_start")]]
+    await send_ghosty_message(update, terms_txt, InlineKeyboardMarkup(keyboard))
+    
 # =================================================================
 # ⚙️ SECTION 9: GLOBAL CALLBACK DISPATCHER (PARTIAL)
 # =================================================================
@@ -711,59 +714,30 @@ async def process_geo_(update: Update, context: ContextTypes.DEFAULT_TYPE, data:
         
     elif data == "menu_profile":
         await show_profile(update, context)
-        # =================================================================
-# 🛍 SECTION 14: ADVANCED CATALOG ENGINE
+        
+       # =================================================================
+# 🛍 SECTION 14: CATALOG ENGINE (FIXED)
 # =================================================================
 
-async def show_catalog_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Головне меню каталогу: вибір категорій товарів.
-    """
+async def catalog_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головне меню каталогу."""
     text = (
         "<b>🛍 КАТАЛОГ GHOSTY STAFF</b>\n\n"
-        "Оберіть категорію товарів, яка вас цікавить.\n"
-        "🔥 <i>Нагадуємо: при купівлі HHC-вейпів або Наборів — рідина 30мл у подарунок!</i>"
+        "Оберіть категорію товарів 👇\n"
+        "🎁 <i>Подарунок до кожного HHC вейпу!</i>"
     )
-    
     keyboard = [
-        [InlineKeyboardButton("💨 HHC ВЕЙПИ (5 позицій)", callback_data="cat_list_hhc")],
-        [InlineKeyboardButton("🔌 POD-СИСТЕМИ (7 позицій)", callback_data="cat_list_pods")],
-        [InlineKeyboardButton("📦 НАБОРИ РІДИН (3 позиції)", callback_data="cat_list_sets")],
+        [InlineKeyboardButton("💨 HHC Вейпи", callback_data="cat_list_hhc")],
+        [InlineKeyboardButton("🔌 POD-системи", callback_data="cat_list_pods")],
+        [InlineKeyboardButton("📦 Набори рідин", callback_data="cat_list_sets")],
         [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
     ]
-    
     await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
 
-async def list_items_by_category(update: Update, context: ContextTypes.DEFAULT_TYPE, category_code: str):
-    """
-    Виводить список товарів обраної категорії з цінами (враховуючи знижку).
-    """
-    profile = context.user_data["profile"]
-    items = {}
-    title = ""
+# Додай цей аліас, щоб обидві назви функцій працювали
+async def show_catalog_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await catalog_main_menu(update, context)
     
-    if category_code == "hhc":
-        items = HHC_VAPES
-        title = "💨 HHC ВЕЙПИ"
-    elif category_code == "pods":
-        items = PODS
-        title = "🔌 POD-СИСТЕМИ"
-    elif category_code == "sets":
-        items = LIQUID_SETS
-        title = "📦 НАБОРИ РІДИН"
-
-    text = f"<b>{title}</b>\n\nОберіть товар для детального ознайомлення:"
-    keyboard = []
-    
-    for item_id, data in items.items():
-        price = calc_price(data['price'], profile)
-        btn_text = f"{data['name']} — {price}₴"
-        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"view_item_{item_id}")])
-    
-    keyboard.append([InlineKeyboardButton("⬅️ Назад до категорій", callback_data="cat_main")])
-    
-    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
-
 # =================================================================
 # 🔍 SECTION 15: ITEM DETAIL VIEW & ATTRIBUTE SELECTION
 # =================================================================
@@ -976,60 +950,41 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Після додавання відправляємо користувача в кошик для оформлення
     await show_cart(update, context)
         
-# 🛒 SECTION 19: THE SHOPPING CART SYSTEM
+# =================================================================
+# 🛒 SECTION 19: THE SHOPPING CART SYSTEM (FIXED)
 # =================================================================
 
 async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Відображає вміст кошика, рахує загальну суму та перевіряє умови замовлення.
-    """
     profile = context.user_data.get("profile", {})
     cart = context.user_data.get("cart", [])
     
     if not cart:
-        text = (
-            "🛒 <b>Ваш кошик порожній</b>\n\n"
-            "Перейдіть до каталогу, щоб обрати найкращі девайси та рідини."
-        )
-        keyboard = [[InlineKeyboardButton("🛍 В КАТАЛОГ", callback_data="cat_main")]]
+        text = "🛒 <b>Ваш кошик порожній</b>\n\nОберіть щось цікаве в каталозі!"
+        keyboard = [[InlineKeyboardButton("🛍 В каталог", callback_data="cat_main")]]
         await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
         return
 
     total_sum = sum(item['price'] for item in cart)
-    
-    text = "🛒 <b>ВАШ КОШИК</b>\n"
-    text += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+    text = "🛒 <b>ВАШ КОШИК</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
     
     keyboard = []
     for idx, item in enumerate(cart):
-        item_line = f"• {item['name']}"
-        if item.get('color'): item_line += f" ({item['color']})"
-        if item.get('gift'): item_line += f"\n  └ 🎁 + {item['gift']}"
-        
-        text += f"<b>{idx+1}. {item_line}</b>\n   └ Ціна: <code>{item['price']}₴</code>\n\n"
-        
-        # Кнопка видалення для кожного товару
-        keyboard.append([InlineKeyboardButton(f"❌ Видалити {idx+1}", callback_data=f"cart_del_{idx}")])
+        text += f"<b>{idx+1}. {item['name']}</b> — <code>{item['price']}₴</code>\n"
+        keyboard.append([InlineKeyboardButton(f"❌ Видалити {item['name'][:15]}...", callback_data=f"cart_del_{idx}")])
 
-    text += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
-    text += f"💰 Разом до оплати: <b>{total_sum}₴</b>\n"
-    text += f"🏷 Ваша знижка: <b>{'-45%' if profile.get('promo_applied') else '-35%'}</b>\n\n"
+    text += f"⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n💰 Разом: <b>{total_sum}₴</b>"
 
-    # Валідація замовлення
-    if total_sum < MIN_ORDER_SUM:
-        text += f"⚠️ <i>Мінімальна сума замовлення — {MIN_ORDER_SUM}₴. Додайте ще щось!</i>"
-        keyboard.append([InlineKeyboardButton("➕ Додати товари", callback_data="cat_main")])
-    elif not profile.get("city") or not profile.get("district"):
-        text += "⚠️ <i>Для замовлення потрібно обрати місто та район!</i>"
+    if not profile.get("city") or not profile.get("district"):
+        text += "\n\n⚠️ <i>Оберіть локацію для оформлення!</i>"
         keyboard.append([InlineKeyboardButton("📍 Обрати локацію", callback_data="menu_city")])
     else:
         keyboard.append([InlineKeyboardButton("✅ ОФОРМИТИ ЗАМОВЛЕННЯ", callback_data="cart_checkout")])
 
     keyboard.append([InlineKeyboardButton("🗑 Очистити кошик", callback_data="cart_clear")])
-    keyboard.append([InlineKeyboardButton("🏠 В меню", callback_data="menu_start")])
+    keyboard.append([InlineKeyboardButton("🏠 На головну", callback_data="menu_start")])
     
     await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
-
+    
 # =================================================================
 # 🛠 SECTION 20: CART MODIFICATION HANDLERS
 # =================================================================
@@ -1317,7 +1272,7 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FIXED)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1325,7 +1280,6 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     data = query.data
     
-    # Примусова ініціалізація даних, щоб уникнути NoneType Error
     if "profile" not in context.user_data:
         await get_or_create_user(update, context)
     if context.user_data.get("cart") is None:
@@ -1342,26 +1296,26 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         elif data == "menu_profile": 
             await show_profile(update, context)
         
-        # 2. Географія (Міста/Райони)
-        elif any(x in data for x in ["city", "set_dist_", "delivery_address"]):
+        # 2. Географія (Міста/Райони) - ВИПРАВЛЕНО
+        elif any(x in data for x in ["menu_city", "set_dist_", "delivery_address", "city"]):
             await process_geo_callbacks(update, context, data)
         
-        # 3. Каталог та товари
+        # 3. Каталог та товари - ВИПРАВЛЕНО
         elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
             await process_catalog_callbacks(update, context, data)
         
-        # 4. Кошик
-        elif "cart" in data and "checkout" not in data: 
-            await process_cart_callbacks(update, context, data)
+        # 4. Кошик - ВИПРАВЛЕНО
+        elif "cart" in data: 
+            if data == "menu_cart": await show_cart(update, context)
+            elif data == "cart_checkout": await checkout_init(update, context)
+            else: await cart_action_handler(update, context, data)
         
-        # 5. Оплата та Checkout (ОНОВЛЕНО 👇)
-        elif data == "cart_checkout":
-            await checkout_init(update, context)
+        # 5. Оплата
         elif data == "pay_mono":
             await payment_selection_handler(update, context, "mono")
         elif data == "pay_privat":
             await payment_selection_handler(update, context, "privat")
-        elif "pay_" in data or "confirm_pay_" in data:
+        elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
         
         # 6. Адмінка
@@ -1371,7 +1325,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 
     except Exception as e:
         logger.error(f"Callback Dispatcher Error: {e}")
-
+        
 # =================================================================
 # 🚀 SECTION 30: FINAL RUNNER (MAIN)
 # =================================================================
