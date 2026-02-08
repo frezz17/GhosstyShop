@@ -635,63 +635,66 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===================== APP SETUP =====================
 from telegram.ext import AIORateLimiter
+import warnings
+
+# Приховуємо попередження про очищення даних (для чистоти консолі на хості)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 def main():
-    # 1. Створюємо папку для бази даних (важливо для збереження на хостингу)
+    # Створюємо папку для бази даних, якщо її немає
     if not os.path.exists('data'):
         os.makedirs('data', exist_ok=True)
     
-    # 2. Налаштування Persistence (збереження кошиків, VIP тощо)
+    # Налаштування Persistence (збереження кошика, рефералів, VIP)
     persistence = PicklePersistence(filepath="data/bot_data.pickle")
 
-    # 3. Налаштування додатка з розширеними таймаутами
-    # Це допоможе, якщо мережа на хості "тупить"
+    # Створюємо додаток з екстремальними таймаутами для стабільності на хості
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(persistence)
-        .connect_timeout(60.0)  # Збільшено до 60 секунд
-        .read_timeout(60.0)
+        .connect_timeout(60.0)  # Даємо 60 сек на підключення
+        .read_timeout(60.0)     # Даємо 60 сек на читання відповіді
         .write_timeout(60.0)
         .pool_timeout(60.0)
         .get_updates_read_timeout(60.0)
-        .rate_limiter(AIORateLimiter())
+        .rate_limiter(AIORateLimiter()) # Захист від спаму/флуду
         .build()
     )
 
-    # 4. Реєстрація обробників (Handlers)
+    # Реєстрація всіх обробників (Handlers)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback_handler))
-    # Обробка тексту (адреса, телефон)
+    
+    # Обробка тексту (адреса, телефон) через стани context.user_data['state']
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
-    # Обробка фото (чеки)
+    
+    # Обробка фото (квитанції про оплату)
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo_receipt))
 
-    print("🤖 Ghosty Shop Bot запускається...")
-    print("📍 Дані зберігаються у: data/bot_data.pickle")
+    print("-" * 30)
+    print("🚀 GHOSTY SHOP BOT СТАРТУВАВ!")
+    print(f"📍 База даних: {os.path.abspath('data/bot_data.pickle')}")
+    print("🌐 Режим: Long Polling (Оптимізовано для хостингу)")
+    print("-" * 30)
 
-    # 5. Запуск опитування з налаштуваннями для стабільності
-    # drop_pending_updates=True — бот не буде відповідати на старі повідомлення після рестарту
-    # read_timeout та timeout тут контролюють довжину запиту до Telegram API
+    # Запуск бота з ігноруванням старих повідомлень
     app.run_polling(
-        drop_pending_updates=True,
-        timeout=30, 
-        read_timeout=30,
+        drop_pending_updates=True, 
+        timeout=30,             # Telegram триматиме з'єднання відкритим 30с
+        read_timeout=30, 
         connect_timeout=30
     )
 
 if __name__ == "__main__":
-    # Спеціальне налаштування для Windows-серверів, щоб уникнути помилок циклу подій
+    # Фікс для Windows-серверів та деяких Linux-дистрибутивів
     if sys.platform == 'win32':
-        import asyncio
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     try:
-        # Викликаємо головну функцію
         main()
     except KeyboardInterrupt:
-        print("\n🛑 Бот зупинений користувачем (Ctrl+C)")
+        print("\n🛑 Бот зупинений вручну.")
     except Exception as e:
-        # Якщо бот впаде, ми побачимо причину в логах хостингу
-        import logging
-        logging.critical(f"Критична помилка при запуску: {e}")
+        # Записуємо критичну помилку в консоль, щоб ви могли її скопіювати
+        logger.critical(f"Критична помилка при запуску: {e}", exc_info=True)
