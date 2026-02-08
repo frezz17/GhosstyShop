@@ -1,14 +1,19 @@
 FROM python:3.11-slim
+
+# Встановлюємо необхідні системні бібліотеки для SQLite
+RUN apt-get update && apt-get install -y sqlite3 && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
+
+# Спочатку копіюємо залежності, щоб Docker їх закешував
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Копіюємо весь код
 COPY . .
+
+# Створюємо папку для бази даних (це критично для збереження замовлень)
 RUN mkdir -p /app/data
 
-environment:
-  - BOT_TOKEN=8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc
-  - TZ=Europe/Kiev
-
-
-# Вказуємо назву твого файлу
+# Запуск файлу GhosstyCode.py
 CMD ["python", "GhosstyCode.py"]
