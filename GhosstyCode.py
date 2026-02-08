@@ -1460,23 +1460,22 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 # =================================================================
 
 def main():
-    if not os.path.exists('data'):
-        os.makedirs('data')
+    if not os.path.exists('data'): os.makedirs('data')
     db_init()
-    
-    # Зберігаємо дані в папку data, яку ми підключили в Docker
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
+    # Використовуємо TOKEN, який ми визначили на початку або взяли з os.getenv
     app = Application.builder().token(TOKEN).persistence(pers).build()
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
-    print("\n🚀 GHO$$TY STAFF: DOCKER DEPLOY SUCCESS")
+    print("✅ GHO$$TY STAFF ONLINE")
     
-    # Видалено аргументи, що викликали помилку (unexpected argument)
+    # ТІЛЬКИ ЦЕЙ РЯДОК! Без жодних інших аргументів, якщо вони видають помилку
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
+
