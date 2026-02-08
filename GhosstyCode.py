@@ -31,7 +31,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (DATA & ECONOMY)
 # =================================================================
 TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
@@ -39,16 +39,46 @@ MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# Реквізити оплати (використовуємо єдину назву PAYMENT_LINK як словник)
+# Реквізити оплати
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
 
-# Економіка
-DISCOUNT_MULT = 0.65         # Знижка -35%
-PROMO_DISCOUNT_MULT = 0.65   # Перший промокод також -35%
+# Економіка та правила
+DISCOUNT_MULT = 0.65         # Базова ціна (1.0 - 0.35 знижка)
+PROMO_DISCOUNT_MULT = 0.65   # Знижка по промокоду
 VIP_EXPIRY = "25.03.2026"
+MIN_ORDER_SUM = 300          # Мінімальне замовлення
+
+# --- 📦 БАЗА ТОВАРІВ Gho$$tyyy ---
+CATALOG_DATA = {
+    # 💨 HHC ВЕЙПИ (1ml)
+    101: {"name": "💨 HHC Vape: Amnesia Haze", "price": 1450, "desc": "95% HHC. Ефект: Енергія.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
+    102: {"name": "💨 HHC Vape: Girl Scout Cookies", "price": 1450, "desc": "95% HHC. Ефект: Релакс.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
+    103: {"name": "💨 HHC Vape: Pineapple Express", "price": 1450, "desc": "95% HHC. Тропічний мікс.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
+
+    # 🔌 POD-СИСТЕМИ
+    501: {"name": "🔌 Vaporesso XROS 3 Mini", "price": 950, "desc": "Надійний девайс.", "colors": ["Black", "Space Gray", "Rose Pink"], "img": "https://i.ibb.co/9v3Kz5K/xros3.png"},
+    502: {"name": "🔌 Lost Mary PSYPER", "price": 650, "desc": "Змінні картриджі.", "colors": ["Black", "Blue", "Red"], "img": "https://i.ibb.co/9v3Kz5K/xros3.png"},
+
+    # 🧪 РІДИНИ (30ml, 50mg) - Дані з main.py
+    301: {"name": "🧪 Рідина: Apple Ice", "price": 300, "desc": "Зелене яблуко з льодом.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
+    302: {"name": "🧪 Рідина: Blueberry Mint", "price": 300, "desc": "Чорниця та м'ята.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
+    303: {"name": "🧪 Рідина: Mango Passion", "price": 300, "desc": "Манго та маракуйя.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
+
+    # 📦 НАБОРИ РІДИН
+    701: {"name": "📦 Набір 'Classic' (3 шт)", "price": 750, "desc": "Будь-які 3 рідини на вибір.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True},
+    702: {"name": "📦 Набір 'Party' (5 шт)", "price": 1200, "desc": "5 рідин + стікерпак Gho$$tyyy.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True}
+}
+
+# --- 📁 КАТЕГОРІЇ ДЛЯ КАТАЛОГУ ---
+CATEGORIES = {
+    "cat_list_hhc": [101, 102, 103],
+    "cat_list_pods": [501, 502],
+    "cat_list_liquids": [301, 302, 303],
+    "cat_list_sets": [701, 702]
+}
 
 # Логування та файлова система
 os.makedirs('data/logs', exist_ok=True)
@@ -63,6 +93,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("GhostyCore")
+
 
 # =================================================================
 # 🛠 SECTION 2: ERROR HANDLING & LOGGING
@@ -424,74 +455,78 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return context.user_data["profile"]
 
 # =================================================================
-# 🛠 SECTION 7: CORE UTILITIES & CALCULATIONS
+# 🛠 SECTION 7: CORE UTILITIES & CALCULATIONS (FIXED)
 # =================================================================
 
 def get_item_data(item_id):
     """
-    Шукає товар за ID у всіх доступних категоріях.
-    Повертає словник з даними або None.
+    Шукає товар за ID у глобальному словнику CATALOG_DATA.
     """
     try:
-        item_id = int(item_id)
-        for cat in [HHC_VAPES, PODS, LIQUID_SETS, GIFT_LIQUIDS]:
-            if item_id in cat:
-                return cat[item_id]
-        return None
+        return CATALOG_DATA.get(int(item_id))
     except (ValueError, TypeError):
         return None
 
 def calc_price(base_price, profile):
     """
-    Розрахунок ціни з урахуванням знижки.
-    VIP-клієнт (-45%), звичайний покупець (-35%).
+    Розрахунок ціни зі знижкою (-35%).
     """
     mult = PROMO_DISCOUNT_MULT if profile.get("promo_applied") else DISCOUNT_MULT
     return int(base_price * mult)
 
 async def send_ghosty_message(update: Update, text: str, reply_markup=None, photo=None):
     """
-    Універсальна функція відправки повідомлень (текст або фото з кнопками).
-    Автоматично визначає, чи це повідомлення, чи CallbackQuery.
+    Універсальна функція відправки: працює з текстом, фото, командами та кнопками.
     """
     try:
         if update.callback_query:
+            msg = update.callback_query.message
             if photo:
-                await update.callback_query.message.edit_media(
-                    media=InputMediaPhoto(photo, caption=text, parse_mode=ParseMode.HTML),
-                    reply_markup=reply_markup
-                )
+                # Оновлюємо існуюче фото або надсилаємо нове, якщо медіа немає
+                try:
+                    await msg.edit_media(
+                        media=InputMediaPhoto(photo, caption=text, parse_mode='HTML'),
+                        reply_markup=reply_markup
+                    )
+                except:
+                    await msg.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
             else:
-                await update.callback_query.message.edit_caption(
-                    caption=text,
-                    reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML
-                )
+                # Редагуємо текст або підпис до фото
+                try:
+                    if msg.photo:
+                        await msg.edit_caption(caption=text, reply_markup=reply_markup, parse_mode='HTML')
+                    else:
+                        await msg.edit_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
+                except Exception as e:
+                    if "Message is not modified" not in str(e):
+                        await msg.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
         else:
+            # Нове повідомлення (наприклад, після команди /start)
             if photo:
-                await update.message.reply_photo(
-                    photo=photo,
-                    caption=text,
-                    reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML
-                )
+                await update.message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
             else:
-                await update.message.reply_text(
-                    text=text,
-                    reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML
-                )
+                await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
     except Exception as e:
-        logger.error(f"Message delivery failed: {e}")
+        logger.error(f"🔴 Delivery error: {e}")
+
+# Додаємо аліас для сумісності з іншими частинами коду
+async def send_ghosty_media(update, text, reply_markup, photo):
+    await send_ghosty_message(update, text, reply_markup, photo)
 
 # =================================================================
 # 🏠 SECTION 8: START COMMAND & MAIN MENU LOGIC
 # =================================================================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Точка входу: ініціалізація профілю та показ головного меню."""
     profile = await get_or_create_user(update, context)
+    
+    # Очищуємо стан користувача при поверненні в меню
     context.user_data["state"] = None
-    cart_count = len(context.user_data.get('cart', []))
+    if "cart" not in context.user_data:
+        context.user_data["cart"] = []
+    
+    cart_count = len(context.user_data["cart"])
     
     welcome_text = (
         f"👋 <b>Вітаємо в Gho$$ty Staff!</b>\n\n"
@@ -1272,59 +1307,87 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FIXED)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL STABLE)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Центральний розподільник для кнопок."""
+    """Центральний розподільник для всіх кнопок бота."""
     query = update.callback_query
     data = query.data
     
+    # 🛡️ Примусова перевірка профілю та кошика
     if "profile" not in context.user_data:
         await get_or_create_user(update, context)
     if context.user_data.get("cart") is None:
         context.user_data["cart"] = []
 
     try:
+        # Відповідаємо на запит, щоб прибрати «годинник» на кнопці
         await query.answer()
 
-        # 1. Основна навігація
+        # 1. Основна навігація (Головне меню, Профіль, Угода)
         if data == "menu_start": 
             await start_command(update, context)
         elif data == "menu_terms": 
             await terms_handler(update, context)
         elif data == "menu_profile": 
             await show_profile(update, context)
+        elif data == "menu_cart": 
+            await show_cart(update, context)
+        elif data == "menu_city": 
+            # Виклик меню вибору міста (Section 13)
+            if 'city_selection_menu' in globals():
+                await city_selection_menu(update, context)
+            else:
+                await process_geo_callbacks(update, context, data)
         
-        # 2. Географія (Міста/Райони) - ВИПРАВЛЕНО
-        elif any(x in data for x in ["menu_city", "set_dist_", "delivery_address", "city"]):
-            await process_geo_callbacks(update, context, data)
+        # 2. Географія (Міста/Райони)
+        elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address", "city"]):
+            # Підтримка обох назв функцій для надійності
+            if 'process_geo_callbacks' in globals():
+                await process_geo_callbacks(update, context, data)
+            elif 'process_geo_' in globals():
+                await process_geo_(update, context, data)
         
-        # 3. Каталог та товари - ВИПРАВЛЕНО
-        elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
-            await process_catalog_callbacks(update, context, data)
+        # 3. Каталог та товари (Категорії, перегляд, додавання, подарунки)
+        elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_", "cat_list_"]):
+            if data == "cat_main":
+                # Перевіряємо яку функцію викликати для головного меню каталогу
+                if 'catalog_main_menu' in globals(): await catalog_main_menu(update, context)
+                else: await show_catalog_main(update, context)
+            else:
+                await process_catalog_callbacks(update, context, data)
         
-        # 4. Кошик - ВИПРАВЛЕНО
-        elif "cart" in data: 
-            if data == "menu_cart": await show_cart(update, context)
-            elif data == "cart_checkout": await checkout_init(update, context)
-            else: await cart_action_handler(update, context, data)
+        # 4. Кошик та Оформлення
+        elif "cart_" in data: 
+            if data == "cart_checkout": 
+                await checkout_init(update, context)
+            else: 
+                await cart_action_handler(update, context, data)
         
-        # 5. Оплата
-        elif data == "pay_mono":
-            await payment_selection_handler(update, context, "mono")
-        elif data == "pay_privat":
-            await payment_selection_handler(update, context, "privat")
+        # 5. Оплата (Вибір банку та підтвердження)
+        elif data in ["pay_mono", "pay_privat"]:
+            bank = data.replace("pay_", "")
+            await payment_selection_handler(update, context, bank)
         elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
         
-        # 6. Адмінка
+        # 6. Адмінка (Керування замовленнями)
         elif data.startswith("adm_"):
             if update.effective_user.id == MANAGER_ID:
-                await admin_decision_handler(update, context)
+                if 'admin_decision_handler' in globals():
+                    await admin_decision_handler(update, context)
                 
     except Exception as e:
-        logger.error(f"Callback Dispatcher Error: {e}")
+        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
+        # Сповіщення адміна про помилку в диспетчері
+        try:
+            await context.bot.send_message(
+                chat_id=MANAGER_ID, 
+                text=f"⚠️ <b>Помилка Callback:</b>\n<code>{escape(str(e))}</code>\nData: <code>{data}</code>"
+            )
+        except:
+            pass
         
 # =================================================================
 # 🚀 SECTION 30: FINAL RUNNER (MAIN)
