@@ -1192,83 +1192,57 @@ async def process_cart_callbacks(update: Update, context: ContextTypes.DEFAULT_T
 # =================================================================
 
 async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Глобальний обробник вводу: адреса, промокоди та фото квитанцій.
-    """
     user_id = update.effective_user.id
     state = context.user_data.get("state")
     p = context.user_data.get("profile", {})
 
-    # 1. ОБРОБКА ТЕКСТУ (Адреса або Промокод)
+    # 1. ОБРОБКА ФОТО (Квитанція)
+    if update.message.photo and state == "WAIT_RECEIPT":
+        file_id = update.message.photo[-1].file_id
+        order_id = context.user_data.get("last_order_id", "Unknown")
+        
+        # Оновлюємо статус в базі
+        conn = sqlite3.connect('ghosty_v3.db')
+        cur = conn.cursor()
+        cur.execute("UPDATE orders SET receipt_url = ?, status = '⌛ На перевірці' WHERE order_id = ?", (file_id, order_id))
+        conn.commit()
+        conn.close()
+
+        await update.message.reply_text("✅ <b>Квитанцію отримано!</b>\nМенеджер перевірить оплату найближчим часом.")
+        
+        # Відправляємо менеджеру
+        admin_text = (
+            f"🔔 <b>НОВЕ ЗАМОВЛЕННЯ #{order_id}</b>\n"
+            f"👤 Клієнт: {update.effective_user.mention_html()}\n"
+            f"💰 Сума: <b>{context.user_data.get('last_total', 0)}₴</b>"
+        )
+        keyboard = [
+            [InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"admin_app_{order_id}")],
+            [InlineKeyboardButton("❌ ВІДХИЛИТИ", callback_data=f"admin_rej_{order_id}")]
+        ]
+        await context.bot.send_photo(MANAGER_ID, photo=file_id, caption=admin_text, 
+                                   reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        context.user_data["state"] = None
+        return
+
+    # 2. ОБРОБКА ТЕКСТУ
     if update.message.text:
         text = update.message.text
-
-        # Введення адреси
         if state == "WAITING_ADDRESS":
-            if len(text) < 5:
-                await update.message.reply_text("❌ <b>Адреса занадто коротка.</b>\nВкажіть вулицю та номер будинку:")
-                return
-            
             context.user_data["profile"]["address_details"] = text
             context.user_data["state"] = None
             await update.message.reply_text(f"✅ <b>Адресу збережено:</b>\n<code>{text}</code>")
             await checkout_init(update, context)
-            return
-
-        # Введення промокоду (виправлено назву стану під диспетчер)
         elif state == "WAIT_PROMO":
             code = text.strip().upper()
             if code == "GHOSTY35":
                 context.user_data["profile"]["discount_active"] = True
-                context.user_data["profile"]["promo_code"] = code
-                await update.message.reply_text("🔥 <b>Промокод активовано!</b>\nЗнижка -35% застосована до вашого профілю.", parse_mode='HTML')
+                await update.message.reply_text("🔥 <b>Промокод активовано!</b>")
             else:
-                await update.message.reply_text("❌ <b>Невірний промокод.</b>\nСпробуйте ще раз або зверніться до менеджера.")
-            
+                await update.message.reply_text("❌ Невірний код.")
             context.user_data["state"] = None
             await show_profile(update, context)
-            return
-
-    # 2. ОБРОБКА ФОТО (Квитанція про оплату)
-    elif update.message.photo and state == "WAIT_RECEIPT":
-        file_id = update.message.photo[-1].file_id
-        order_id = context.user_data.get("last_order_id", "Unknown")
-
-        # Оновлюємо статус в БД
-        try:
-            conn = sqlite3.connect('ghosty_v3.db')
-            cur = conn.cursor()
-            cur.execute("UPDATE orders SET receipt_url = ?, status = '⌛ На перевірці' WHERE order_id = ?", (file_id, order_id))
-            conn.commit()
-            conn.close()
             
-            await update.message.reply_text("✅ <b>Квитанцію отримано!</b>\nМенеджер перевірить оплату протягом 15-30 хвилин.")
-            
-            # ПЕРЕСИЛАЄМО МЕНЕДЖЕРУ (Адмін-панель)
-            admin_text = (
-                f"🔔 <b>НОВЕ ЗАМОВЛЕННЯ #{order_id}</b>\n"
-                f"👤 Клієнт: {update.effective_user.mention_html()}\n"
-                f"💰 Сума: <b>{context.user_data.get('last_total', 0)}₴</b>\n"
-                f"📍 Адреса: {p.get('city')}, {p.get('address_details')}"
-            )
-            
-            keyboard = [[InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"admin_app_{order_id}")]]
-            await context.bot.send_photo(
-                chat_id=MANAGER_ID, 
-                photo=file_id, 
-                caption=admin_text, 
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-            
-            context.user_data["state"] = None
-        except Exception as e:
-            logger.error(f"Error saving receipt: {e}")
-            await update.message.reply_text("⚠️ Помилка при збереженні. Спробуйте надіслати фото ще раз.")
-        return
-
-    # Якщо просто текст без стану
-    if not state:
-        await update.message.reply_text("🤖 <b>Будь ласка, використовуйте кнопки меню.</b>", parse_mode='HTML')
 
 # =================================================================
 # 💳 SECTION 25: PAYMENT GATEWAYS LOGIC
@@ -1429,55 +1403,116 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await query.message.reply_text("⚠️ Сталася помилка. Зверніться до @ghosstydpbot")
 
 # =================================================================
-# ⚙️ ВСТАВЛЯТИ СЮДИ (ВНУТРІШНЯ ЧАСТИНА global_callback_handler)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL & STABLE)
 # =================================================================
 
-        # ... (попередні elif для меню, кошика тощо) ...
+async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Центральний розподільник для всіх натискань кнопок."""
+    query = update.callback_query
+    data = query.data
+    user_id = update.effective_user.id
+    
+    # Створюємо профіль, якщо його немає в пам'яті
+    if "profile" not in context.user_data: 
+        await get_or_create_user(update, context)
 
-        # АДМІН-ДІЇ: ОБРОБКА ОПЛАТИ МЕНЕДЖЕРОМ
-        elif data.startswith("admin_app_") or data.startswith("admin_rej_"):
-            if update.effective_user.id != MANAGER_ID:
+    try:
+        # Відповідаємо відразу, щоб прибрати "годинник" на кнопці
+        await query.answer()
+
+        # ---------------------------------------------------------
+        # 1. АДМІН-ДІЇ: ОБРОБКА ОПЛАТИ МЕНЕДЖЕРОМ
+        # ---------------------------------------------------------
+        if data.startswith("admin_app_") or data.startswith("admin_rej_"):
+            if user_id != MANAGER_ID:
                 await query.answer("🚫 Доступ заборонено!", show_alert=True)
                 return
 
             order_id = data.replace("admin_app_", "").replace("admin_rej_", "")
             
-            # Підключаємось до бази
+            # Робота з базою даних
             conn = sqlite3.connect('ghosty_v3.db')
             cur = conn.cursor()
             
             if "admin_app_" in data:
-                # 1. Оновлюємо статус в базі
                 cur.execute("UPDATE orders SET status = '✅ Оплачено / Готується' WHERE order_id = ?", (order_id,))
                 status_text = "✅ ПІДТВЕРДЖЕНО"
                 user_msg = f"🎉 <b>Ваша оплата замовлення #{order_id} прийнята!</b>\nМенеджер вже готує стафф до видачі/відправки."
             else:
-                # 2. Відхиляємо
                 cur.execute("UPDATE orders SET status = '❌ Оплата відхилена' WHERE order_id = ?", (order_id,))
                 status_text = "❌ ВІДХИЛЕНО"
                 user_msg = f"⚠️ <b>Оплата замовлення #{order_id} не підтверджена.</b>\nБудь ласка, перевірте дані або зв'яжіться з менеджером @{MANAGER_USERNAME}."
 
-            # Отримуємо ID клієнта, щоб повідомити його
+            # Отримуємо ID клієнта, щоб відправити йому повідомлення
             cur.execute("SELECT user_id FROM orders WHERE order_id = ?", (order_id,))
             result = cur.fetchone()
             conn.commit()
             conn.close()
 
-            # Оновлюємо повідомлення у менеджера (прибираємо кнопки)
+            # Оновлюємо квитанцію у менеджера (прибираємо кнопки)
             await query.edit_message_caption(
                 caption=f"{query.message.caption}\n\n🛑 СТАТУС: {status_text}",
                 parse_mode='HTML'
             )
 
-            # Надсилаємо сповіщення клієнту
+            # Надсилаємо сповіщення клієнту про результат
             if result:
                 try:
                     await context.bot.send_message(chat_id=result[0], text=user_msg, parse_mode='HTML')
                 except Exception as e:
-                    logger.error(f"Не вдалося відправити повідомлення клієнту: {e}")
+                    logging.error(f"Не вдалося повідомити клієнта {result[0]}: {e}")
 
-            await query.answer(f"Замовлення #{order_id} оновлено")
-        
+        # ---------------------------------------------------------
+        # 2. ГОЛОВНА НАВІГАЦІЯ ТА КАТАЛОГ
+        # ---------------------------------------------------------
+        elif data == "menu_start":
+            await start_command(update, context)
+            
+        elif data == "menu_profile":
+            await show_profile(update, context)
+            
+        elif data == "menu_city":
+            await city_selection_menu(update, context)
+            
+        elif data == "menu_cart":
+            await show_cart(update, context)
+
+        elif data == "promo_activate":
+            context.user_data["state"] = "WAIT_PROMO"
+            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
+
+        # Обробка каталогу (вейпи, поди, рідини)
+        elif any(x in data for x in ["cat_main", "cat_list_", "view_item_", "add_", "choose_gift_"]):
+            if data == "cat_main":
+                await catalog_main_menu(update, context)
+            else:
+                await process_catalog_callbacks(update, context, data)
+
+        # ---------------------------------------------------------
+        # 3. ОФОРМЛЕННЯ ТА ПІДТВЕРДЖЕННЯ ОПЛАТИ (ЮЗЕР)
+        # ---------------------------------------------------------
+        elif data == "cart_checkout":
+            await checkout_init(update, context)
+
+        elif data.startswith("confirm_pay_"):
+            order_id = data.replace("confirm_pay_", "")
+            context.user_data["last_order_id"] = order_id
+            context.user_data["state"] = "WAIT_RECEIPT"
+            
+            await query.message.reply_text(
+                "📸 <b>ЧУДОВО! ТЕПЕР НАДІШЛІТЬ ФОТО КВИТАНЦІЇ</b>\n\n"
+                "Будь ласка, надішліть скріншот або фото оплати прямо сюди в чат.\n"
+                "Менеджер отримає його та підтвердить замовлення.",
+                parse_mode='HTML'
+            )
+
+        # Решта платіжних методів
+        elif "pay_" in data:
+            method = data.replace("pay_", "")
+            await payment_selection_handler(update, context, method)
+
+    except Exception as e:
+        logging.error(f"🔴 Critical Error in Dispatcher: {e}", exc_info=True)
         
 
 # =================================================================
@@ -1520,35 +1555,16 @@ async def admin_order_view(update: Update, context: ContextTypes.DEFAULT_TYPE, o
         
         
         
-# =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (STABLE FOREVER)
-# =================================================================
-
 def main():
-    # Папки
-    for p in ['data', 'data/logs']:
-        if not os.path.exists(p): os.makedirs(p)
-    
     db_init()
-    pers = PicklePersistence(filepath="data/ghosty_data.pickle")
-    from telegram import LinkPreviewOptions
-    defaults = Defaults(parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+    app = Application.builder().token(TOKEN).persistence(PicklePersistence(filepath="data/ghosty_data.pickle")).build()
     
-    app = Application.builder().token(TOKEN).persistence(pers).defaults(defaults).build()
-
-    # Хендлери
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
+    app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
-    print("\n--- [ GHO$$TY STAFF: ONLINE ] ---")
-    
-    # Агресивний polling для BotHost
-    app.run_polling(
-        drop_pending_updates=True, 
-        close_if_open=True,  # Це ключове!
-        stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
-    )
+    print("✅ GHO$$TY STAFF ONLINE")
+    app.run_polling(drop_pending_updates=True, close_if_open=True)
 
 if __name__ == "__main__":
     main()
