@@ -42,11 +42,13 @@ MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# Посилання на оплату
-PAYMENT_LINKS = {
+# SECTION 1
+PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
+# Додай цей рядок нижче як "запасний", щоб старі частини коду не видавали помилку:
+PAYMENT_LINK = PAYMENT_LINK["mono"]
 
 # Економіка
 DISCOUNT_MULT = 0.65         # Знижка -35%
@@ -1202,7 +1204,7 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     order_id = order_data['order_id']
     
     # Вибір посилання залежно від банку
-    pay_url = PAYMENT_LINKS['mono'] if method == "mono" else PAYMENT_LINKS['privat']
+    pay_url = PAYMENT_LINK['mono'] if method == "mono" else PAYMENT_LINK['privat']
     bank_name = "MONOBANK" if method == "mono" else "PRIVAT24"
 
     pay_text = (
