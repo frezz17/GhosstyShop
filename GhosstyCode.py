@@ -1337,80 +1337,67 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Центральний розподільник для всіх натискань кнопок."""
     query = update.callback_query
     data = query.data
     
-    # Захист профілю
+    # Авто-створення профілю, якщо його немає
     if "profile" not in context.user_data:
         await get_or_create_user(update, context)
     if "cart" not in context.user_data:
         context.user_data["cart"] = []
 
     try:
-        # Відповідаємо відразу, щоб прибрати "годинник" на кнопці
         await query.answer()
 
-        # 1. Головна навігація
-        if data == "menu_start": 
-            await start_command(update, context)
-        elif data == "menu_profile": 
-            await show_profile(update, context)
-        elif data == "menu_city": 
-            await city_selection_menu(update, context)
-        elif data == "menu_cart": 
-            await show_cart(update, context)
+        # 1. Навігація
+        if data == "menu_start": await start_command(update, context)
+        elif data == "menu_profile": await show_profile(update, context)
+        elif data == "menu_city": await city_selection_menu(update, context)
+        elif data == "menu_cart": await show_cart(update, context)
         
-        # 2. КАТАЛОГ (Вейпи, Поди, Рідини)
+        # 2. Каталог (Вейпи, Поди, Рідини)
         elif any(x in data for x in ["cat_main", "cat_list_", "view_item_", "add_", "choose_gift_"]):
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
                 await process_catalog_callbacks(update, context, data)
 
-        # 3. ГЕОГРАФІЯ (Райони та адреса)
+        # 3. Доставка / Гео
         elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
             await process_geo_(update, context, data)
 
-        # 4. ПРОМОКОД
+        # 4. Промокод
         elif data == "promo_activate":
             context.user_data["state"] = "WAIT_PROMO"
-            await query.message.reply_text("⌨️ <b>Введіть ваш промокод:</b>", parse_mode='HTML')
+            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
 
-        # 5. КОШИК ТА ОПЛАТА
+        # 5. Оформлення та Оплата
         elif "cart_" in data:
-            if data == "cart_checkout":
-                await checkout_init(update, context)
-            else:
-                await cart_action_handler(update, context, data)
-        
+            if data == "cart_checkout": await checkout_init(update, context)
+            else: await cart_action_handler(update, context, data)
         elif data in ["pay_mono", "pay_privat"]:
             await payment_selection_handler(update, context, data.replace("pay_", ""))
-            
         elif "confirm_pay_" in data:
             await process_payment_callbacks(update, context, data)
 
     except Exception as e:
-        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
-
+        logger.error(f"🔴 Callback Error: {e}", exc_info=True)
+        
 # =================================================================
 # 🚀 SECTION 30: FINAL RUNNER (STABLE FOR BOTHOST)
 # =================================================================
 
-import signal # Додай цей імпорт, якщо його немає на початку файлу
+import signal
 
 def main():
-    """Запуск бота з автоматичним очищенням конфліктів."""
-    
     # 1. Створюємо папки
     for p in ['data', 'data/logs']:
-        if not os.path.exists(p): 
-            os.makedirs(p)
+        if not os.path.exists(p): os.makedirs(p)
 
-    # 2. Ініціалізація бази
+    # 2. Ініціалізація бази (той самий ghosty_v3.db)
     db_init()
     
-    # 3.Persistence (Збереження даних)
+    # 3. Persistence
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
     # 4. Defaults
@@ -1420,7 +1407,7 @@ def main():
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # 5. Створення додатка
+    # 5. Побудова додатка
     app = (
         Application.builder()
         .token(TOKEN)
@@ -1436,17 +1423,12 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # 7. Обробник помилок (якщо він є в коді)
     if 'error_handler' in globals():
         app.add_error_handler(error_handler)
 
-    print("\n" + "="*40)
-    print("✅ GHO$$TY STAFF SYSTEM: ONLINE")
-    print("="*40 + "\n")
+    print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
     
-    # Запуск polling
-    # close_if_open=True — вбиває старі сесії (запобігає Conflict)
-    # drop_pending_updates=True — ігнорує спам, поки бот був офлайн
+    # 7. Посилений запуск (close_if_open вбиває старі сесії)
     app.run_polling(
         drop_pending_updates=True, 
         close_if_open=True,
@@ -1457,4 +1439,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ FATAL ERROR: {e}")
+        print(f"❌ Помилка: {e}")
