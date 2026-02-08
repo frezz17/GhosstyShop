@@ -634,24 +634,64 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_my_orders(update, context)
 
 # ===================== APP SETUP =====================
+from telegram.ext import AIORateLimiter
 
 def main():
-    # Налаштування збереження (Persistence)
-    persistence = PicklePersistence(filepath="data/bot_data.pickle")
+    # 1. Створюємо папку для бази даних (важливо для збереження на хостингу)
+    if not os.path.exists('data'):
+        os.makedirs('data', exist_ok=True)
     
-    app = Application.builder().token(TOKEN).persistence(persistence).build()
+    # 2. Налаштування Persistence (збереження кошиків, VIP тощо)
+    persistence = PicklePersistence(filepath="data/bot_data.pickle")
 
-    # Handlers
+    # 3. Налаштування додатка з розширеними таймаутами
+    # Це допоможе, якщо мережа на хості "тупить"
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .persistence(persistence)
+        .connect_timeout(60.0)  # Збільшено до 60 секунд
+        .read_timeout(60.0)
+        .write_timeout(60.0)
+        .pool_timeout(60.0)
+        .get_updates_read_timeout(60.0)
+        .rate_limiter(AIORateLimiter())
+        .build()
+    )
+
+    # 4. Реєстрація обробників (Handlers)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback_handler))
+    # Обробка тексту (адреса, телефон)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
+    # Обробка фото (чеки)
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo_receipt))
 
-    print("🤖 Ghosty Shop Bot запущено...")
-    app.run_polling()
+    print("🤖 Ghosty Shop Bot запускається...")
+    print("📍 Дані зберігаються у: data/bot_data.pickle")
+
+    # 5. Запуск опитування з налаштуваннями для стабільності
+    # drop_pending_updates=True — бот не буде відповідати на старі повідомлення після рестарту
+    # read_timeout та timeout тут контролюють довжину запиту до Telegram API
+    app.run_polling(
+        drop_pending_updates=True,
+        timeout=30, 
+        read_timeout=30,
+        connect_timeout=30
+    )
 
 if __name__ == "__main__":
-    # Для Windows, щоб уникнути помилок з EventLoop
+    # Спеціальне налаштування для Windows-серверів, щоб уникнути помилок циклу подій
     if sys.platform == 'win32':
+        import asyncio
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    main()
+    
+    try:
+        # Викликаємо головну функцію
+        main()
+    except KeyboardInterrupt:
+        print("\n🛑 Бот зупинений користувачем (Ctrl+C)")
+    except Exception as e:
+        # Якщо бот впаде, ми побачимо причину в логах хостингу
+        import logging
+        logging.critical(f"Критична помилка при запуску: {e}")
