@@ -17,12 +17,14 @@ import sqlite3
 import asyncio
 import random
 from datetime import datetime
+from html import escape
 
 import telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, PicklePersistence, Defaults
 from telegram.constants import ParseMode
 from telegram.error import NetworkError
+
 
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (OPTIMIZED)
@@ -91,24 +93,80 @@ def get_item_data(item_id):
         return None
 
 # Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
-CATALOG_DATA = {
-    # 💨 HHC ВЕЙПИ
-    101: {"name": "💨 HHC Vape: Amnesia Haze", "price": 1450, "desc": "95% HHC. Ефект: Енергія.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
-    102: {"name": "💨 HHC Vape: Girl Scout Cookies", "price": 1450, "desc": "95% HHC. Ефект: Релакс.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
-    103: {"name": "💨 HHC Vape: Pineapple Express", "price": 1450, "desc": "95% HHC. Тропічний мікс.", "img": "https://i.ibb.co/L9vC8L3/hhc1.png", "has_gift": True},
+# =================================================================
+# 📦 SECTION 7: REAL PRODUCT INVENTORY (PODS)
+# =================================================================
+PAYMENT_LINK = "https://t.me/ghosstydpbot" # Твій лінк на оплату/менеджера
 
-    # 🧪 РІДИНИ (30ml)
-    301: {"name": "🧪 Рідина: Apple Ice", "price": 300, "desc": "Зелене яблуко з льодом.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
-    302: {"name": "🧪 Рідина: Blueberry Mint", "price": 300, "desc": "Чорниця та м'ята.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
-    303: {"name": "🧪 Рідина: Mango Passion", "price": 300, "desc": "Манго та маракуйя.", "img": "https://i.ibb.co/m0fD8k9/liquid.png"},
-
-    # 🔌 POD-СИСТЕМИ
-    501: {"name": "🔌 Vaporesso XROS 3 Mini", "price": 950, "desc": "Надійний девайс.", "colors": ["Black", "Space Gray", "Silver"], "img": "https://i.ibb.co/9v3Kz5K/xros3.png"},
-
-    # 📦 НАБОРИ
-    701: {"name": "📦 Набір 'Classic' (3 шт)", "price": 750, "desc": "Будь-які 3 рідини на вибір.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True},
-    702: {"name": "📦 Набір 'Party' (5 шт)", "price": 1200, "desc": "5 рідин + стікерпак Gho$$tyyy.", "img": "https://i.ibb.co/m0fD8k9/set.png", "has_gift": True}
+PODS = {
+    501: {
+        "name": "🔌 Vaporesso XROS 4 Mini",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 549,
+        "discount": True,
+        "imgs": ["https://ibb.co/WpMYBCH1"],
+        "colors": ["🌸 Рожевий", "🟣 Фіолетовий", "⚫ Чорний"],
+        "desc": "🔋 1000 mAh\n🔥 COREX 2.0\n⚡ Швидка зарядка\n🎯 Яскравий смак\n💎 Оновлений дизайн",
+        "payment_url": PAYMENT_LINK
+    },
+    502: {
+        "name": "🔌 Vaporesso XROS Pro",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 689,
+        "discount": True,
+        "imgs": ["https://ibb.co/ynYwSMt6", "https://ibb.co/3mV7scXr", "https://ibb.co/xSJCgpJ5"],
+        "colors": ["⚫ Чорний", "🔴 Темно-червоний", "🌸 Рожево-червоний"],
+        "desc": "🔋 1200 mAh\n⚡ Регулювання потужності\n💨 RDL / MTL\n🔥 Максимальний смак\n🚀 Професійний рівень",
+        "payment_url": PAYMENT_LINK
+    },
+    503: {
+        "name": "🔌 Vaporesso XROS Nano",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 519,
+        "discount": True,
+        "imgs": ["https://ibb.co/5XW2yN80", "https://ibb.co/93dJ8wKS", "https://ibb.co/Qj90hyyz"],
+        "colors": ["🪖 Камуфляж 1", "🪖 Камуфляж 2", "🪖 Камуфляж 3"],
+        "desc": "🔋 1000 mAh\n💨 MTL\n🧱 Міцний корпус\n🎒 Ідеальний у дорогу\n😌 Спокійна, рівна тяга",
+        "payment_url": PAYMENT_LINK
+    },
+    504: {
+        "name": "🔌 Vaporesso XROS 4",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 599,
+        "discount": True,
+        "imgs": ["https://ibb.co/LDRbQxr1", "https://ibb.co/NPHYSjN", "https://ibb.co/LhbzXD57"],
+        "colors": ["🌸 Рожевий", "⚫ Чорний", "🔵 Синій"],
+        "desc": "🔋 1000 mAh\n🔥 COREX\n🎨 Стильний дизайн\n👌 Баланс смаку та тяги\n✨ Щоденний комфорт",
+        "payment_url": PAYMENT_LINK
+    },
+    505: {
+        "name": "🔌 Vaporesso XROS 5",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 799,
+        "discount": True,
+        "imgs": ["https://ibb.co/hxjmpHF2", "https://ibb.co/DDkgjtV4", "https://ibb.co/r2C9JTzz"],
+        "colors": ["⚫ Чорний", "🌸 Рожевий", "🟣 Фіолетовий з полоскою"],
+        "desc": "🔋 1200 mAh\n⚡ Fast Charge\n💎 Преміальна збірка\n🔥 Максимум смаку\n🚀 Флагман серії",
+        "payment_url": PAYMENT_LINK
+    },
+    506: {
+        "name": "🔌 Voopoo Vmate Mini Pod Kit",
+        "type": "pod",
+        "gift_liquid": False,
+        "price": 459,
+        "discount": True,
+        "imgs": ["https://ibb.co/8L0JNTHz", "https://ibb.co/0RZ1VDnG", "https://ibb.co/21LPrbbj"],
+        "colors": ["🌸 Рожевий", "🔴 Червоний", "⚫ Чорний"],
+        "desc": "🔋 1000 mAh\n💨 Автозатяжка\n🧲 Магнітний картридж\n🎯 Простий та надійний\n😌 Легкий старт для новачків",
+        "payment_url": PAYMENT_LINK
+    }
 }
+
 
 # Групування для категорій
 CATEGORIES = {
@@ -357,6 +415,61 @@ PODS = {
         "payment_url": PAYMENT_LINK
     }
 }
+
+# =================================================================
+# 🛒 SECTION 8: PRODUCT DISPLAY ENGINE
+# =================================================================
+
+async def show_pods(query, context: ContextTypes.DEFAULT_TYPE):
+    """Генерація списку всіх POD-систем зі словника."""
+    buttons = []
+    # Ми беремо кожен товар з твого списку PODS
+    for pid, item in PODS.items():
+        buttons.append([InlineKeyboardButton(f"{item['name']} — {item['price']}₴", callback_data=f"item_{pid}")])
+    
+    buttons.append([InlineKeyboardButton("⬅ Назад до категорій", callback_data="cat_all")])
+    
+    await query.edit_message_text(
+        "🔌 <b>Оберіть модель POD-системи:</b>", 
+        reply_markup=InlineKeyboardMarkup(buttons), 
+        parse_mode='HTML'
+    )
+
+async def show_item_card(query, item_id, context):
+    """Картка конкретного товару з вибором кольору."""
+    item = PODS.get(item_id)
+    if not item:
+        await query.answer("❌ Товар не знайдено", show_alert=True)
+        return
+
+    text = (
+        f"<b>{item['name']}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💰 Ціна: <b>{item['price']}₴</b>\n\n"
+        f"📝 <b>Опис:</b>\n{item['desc']}\n\n"
+        f"🎨 <b>Оберіть доступний колір:</b>"
+    )
+    
+    # Створюємо кнопки кольорів ДИНАМІЧНО з твого списку colors у PODS
+    buttons = []
+    for color in item['colors']:
+        # color_501_Black, color_501_Pink і так далі
+        buttons.append([InlineKeyboardButton(f"✨ {color}", callback_data=f"color_{item_id}_{color}")])
+    
+    buttons.append([InlineKeyboardButton("⬅ Назад до списку", callback_data="cat_list_pods")])
+    
+    # Якщо є фото, надсилаємо його як нове повідомлення
+    if item['imgs'] and len(item['imgs']) > 0:
+        await query.message.reply_photo(
+            photo=item['imgs'][0], # Беремо перше фото з твого списку imgs
+            caption=text, 
+            reply_markup=InlineKeyboardMarkup(buttons), 
+            parse_mode='HTML'
+        )
+        await query.message.delete() # Видаляємо текстове меню, щоб було красиво
+    else:
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode='HTML')
+
 
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
@@ -1463,39 +1576,55 @@ async def process_catalog_callbacks(update: Update, context: ContextTypes.DEFAUL
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
-    user_id = update.effective_user.id
-    
-    try:
-        await query.answer()
+    await query.answer()
 
-        # Навігація
+    try:
         if data == "menu_start":
             await start_command(update, context)
         
-        elif data == "menu_profile":
-            # Якщо функції show_profile ще немає, ми робимо заглушку, щоб не було помилки
-            await query.edit_message_text(
-                f"👤 <b>Ваш профіль</b>\n🆔 ID: <code>{user_id}</code>\n🏦 Статус: Стандарт",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]),
-                parse_mode='HTML'
-            )
+        # Виклик головного меню каталогу
+        elif data == "cat_all" or data == "assortment":
+            await catalog_main_menu(update, context)
             
-        elif data == "menu_cart":
-            await query.edit_message_text(
-                "🛒 <b>Ваш кошик порожній</b>",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 Каталог", callback_data="cat_all")]]),
-                parse_mode='HTML'
-            )
+        # Виклик списку ПОД-систем
+        elif data == "cat_list_pods":
+            await show_pods(query, context)
+            
+        # Перегляд конкретного товару за його ID (item_501, item_502 і т.д.)
+        async def show_item_details(query, context, item_id):
+    item = PODS.get(item_id)
+    if not item:
+        await query.message.reply_text("❌ Товар не знайдено.")
+        return
 
-        # Адмін-логіка (Підтвердження оплати)
-        elif data.startswith("admin_app_"):
-            if user_id != MANAGER_ID: return
-            order_id = data.replace("admin_app_", "")
-            # Тут логіка оновлення бази...
-            await query.edit_message_caption(caption="✅ <b>ОПЛАТА ПІДТВЕРДЖЕНА!</b>", parse_mode='HTML')
+    text = (
+        f"<b>{item['name']}</b>\n\n"
+        f"💰 Ціна: <b>{item['price']} ₴</b>\n\n"
+        f"📝 Опис:\n{item['desc']}\n\n"
+        f"🎨 Кольори: {', '.join(item['colors'])}"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🛒 Купити / Оплатити", url=item['payment_url'])],
+        [InlineKeyboardButton("⬅ Назад до списку", callback_data="cat_list_pods")]
+    ]
+    
+    # Якщо є картинка, надсилаємо фото, якщо ні - просто текст
+    if item['imgs']:
+        await query.message.reply_photo(
+            photo=item['imgs'][0],
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        await query.message.delete() # Видаляємо старе меню
+    else:
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
 
     except Exception as e:
-        logging.error(f"Callback Error: {e}")
+        logging.error(f"Callback error: {e}")
+
 
 
 # =================================================================
