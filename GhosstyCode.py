@@ -30,33 +30,43 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED SYNTAX)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED & COMPLETE)
 # =================================================================
-TOKEN = "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc"
+TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydpbot"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # Економіка
-DISCOUNT_MULT = 0.65         # -35%
-PROMO_DISCOUNT_MULT = 0.65   # -35%
+DISCOUNT_MULT = 0.65
+PROMO_DISCOUNT_MULT = 0.65
 VIP_EXPIRY = "25.03.2026"
 MIN_ORDER_SUM = 300 
 
-# Реквізити (ТУТ БУЛА ПОМИЛКА - КОМИ ВИПРАВЛЕНО)
+# Реквізити (КОМИ ВИПРАВЛЕНО)
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
 
-# Групування для категорій (ВАЖЛИВО: Категорії мають співпадати зі словниками нижче)
+# Об'єднаний каталог для пошуку (ВАЖЛИВО)
+def get_combined_catalog():
+    # Об'єднуємо всі твої словники в один для зручності пошуку
+    combined = {}
+    if 'HHC_VAPES' in globals(): combined.update(HHC_VAPES)
+    if 'PODS' in globals(): combined.update(PODS)
+    if 'LIQUIDS' in globals(): combined.update(LIQUIDS)
+    return combined
+
+# Групування для кнопок (Ключі мають бути як у твоїх словниках)
 CATEGORIES = {
     "cat_list_hhc": [100, 101, 102, 103, 104],
     "cat_list_pods": [500, 501, 502, 503, 504, 505, 506],
     "cat_list_liquids": [301, 302, 303],
     "cat_list_sets": [701, 702]
 }
+
 
 # Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
 CATALOG_DATA = {
@@ -1327,119 +1337,58 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     data = query.data
     
-    if "profile" not in context.user_data: 
-        await get_or_create_user(update, context)
-    if "cart" not in context.user_data: 
-        context.user_data["cart"] = []
+    if "profile" not in context.user_data: await get_or_create_user(update, context)
 
     try:
         await query.answer()
 
-        # 1. Головна навігація
-        if data == "menu_start": 
-            await start_command(update, context)
-        elif data == "menu_profile": 
-            await show_profile(update, context)
-        elif data == "menu_cart": 
-            await show_cart(update, context)
-        elif data == "menu_city": 
-            await city_selection_menu(update, context)
-        elif data == "menu_terms": 
-            await terms_handler(update, context)
-
-        # 2. КАТАЛОГ (Виправлено для HHC, PODS та LIQUIDS)
+        # Навігація
+        if data == "menu_start": await start_command(update, context)
+        elif data == "menu_profile": await show_profile(update, context)
+        elif data == "menu_city": await city_selection_menu(update, context)
+        elif data == "menu_cart": await show_cart(update, context)
+        
+        # КАТАЛОГ (Виправлено розпізнавання категорій вейпів/подів)
         elif any(x in data for x in ["cat_main", "cat_list_", "view_item_", "add_", "choose_gift_"]):
-            # Спеціальна перевірка для вейпів та інших списків
             if data == "cat_main":
                 await catalog_main_menu(update, context)
             else:
-                # Переконайся, що функція process_catalog_callbacks існує в коді
                 await process_catalog_callbacks(update, context, data)
 
-        # 3. ЛОКАЦІЯ / ДОСТАВКА
-        elif any(x in data for x in ["set_city_", "set_dist_", "delivery_address"]):
-            await process_geo_(update, context, data)
-
-        # 4. ПРОМОКОД
+        # ПРОМОКОД
         elif data == "promo_activate":
             context.user_data["state"] = "WAIT_PROMO"
-            await query.message.reply_text("⌨️ <b>Введіть ваш промокод:</b>\n\n<i>(Наприклад: GHOSTY35)</i>", parse_mode='HTML')
+            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
 
-        # 5. КОШИК ТА ОПЛАТА
-        elif "cart_" in data:
-            if data == "cart_checkout": 
-                await checkout_init(update, context)
-            else: 
-                await cart_action_handler(update, context, data)
-        
-        elif data in ["pay_mono", "pay_privat"]:
-            await payment_selection_handler(update, context, data.replace("pay_", ""))
-            
-        elif "confirm_pay_" in data:
-            await process_payment_callbacks(update, context, data)
+        # ОПЛАТА ТА ІНШЕ
+        elif "cart_" in data or "pay_" in data or "confirm_pay_" in data:
+            if "cart_" in data: await cart_action_handler(update, context, data)
+            elif "pay_" in data: await payment_selection_handler(update, context, data.replace("pay_", ""))
+            elif "confirm_pay_" in data: await process_payment_callbacks(update, context, data)
 
     except Exception as e:
-        logger.error(f"🔴 Callback Dispatcher Error: {e}", exc_info=True)
+        logger.error(f"Dispatcher Error: {e}")
         
         
-# =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (STABLE FOR BOTHOST.RU)
-# =================================================================
-
 def main():
-    """Запуск бота з максимальним рівнем стабільності."""
-    
-    # 1. Підготовка оточення
-    for path in ['data', 'data/logs']:
-        if not os.path.exists(path): 
-            os.makedirs(path)
-
+    for p in ['data', 'data/logs']:
+        if not os.path.exists(p): os.makedirs(p)
     db_init()
     
-    # 2. Налаштування збереження
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
-    
     from telegram import LinkPreviewOptions
-    defaults = Defaults(
-        parse_mode=ParseMode.HTML, 
-        link_preview_options=LinkPreviewOptions(is_disabled=True)
-    )
+    defaults = Defaults(parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
     
-    # 3. Побудова додатка з екстремальними таймаутами
-    app = (
-        Application.builder()
-        .token(TOKEN)
-        .persistence(pers)
-        .defaults(defaults)
-        .connect_timeout(60) # Максимальний час на підключення
-        .read_timeout(60)    # Максимальний час на відповідь
-        .build()
-    )
+    app = Application.builder().token(TOKEN).persistence(pers).defaults(defaults).build()
 
-    # 4. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    if 'error_handler' in globals():
-        app.add_error_handler(error_handler)
-
-    print("\n✅ GHO$$TY STAFF SYSTEM ONLINE")
+    print("\n--- [ GHO$$TY STAFF: ONLINE ] ---")
     
-    # 5. МАГІЯ ТУТ: drop_pending_updates + close_if_open
-    # close_if_open=True — змушує бібліотеку ПЕРЕВІРИТИ та ЗАКРИТИ старі сесії
-    app.run_polling(
-        drop_pending_updates=True, 
-        close_if_open=True,
-        stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
-    )
+    # close_if_open=True — це ліки від Conflict
+    app.run_polling(drop_pending_updates=True, close_if_open=True)
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"Критична помилка: {e}")
-        # Авто-перезапуск через 10 секунд, якщо хостинг вибив помилку
-        import time
-        time.sleep(10)
-        main()
+    main()
