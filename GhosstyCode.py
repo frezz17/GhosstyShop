@@ -1453,35 +1453,45 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         logging.error(f"Error: {e}")
 
 # =================================================================
-# 🚀 SECTION 30: RUNNER (FIXED FOR BOTHOST)
+# 🚀 SECTION 30: FINAL RUNNER (GITHUB & DOCKER READY)
 # =================================================================
 
+import signal
+
 def main():
-    # Налаштування логування всередині Docker
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
-    
-    # Створюємо папку в Docker, якщо її нема
+    """Запуск бота з автоматичним детектом середовища."""
+    # 1. Створюємо папку для збереження даних (база, сесії)
     if not os.path.exists('data'):
         os.makedirs('data')
-        
+
+    # 2. Ініціалізація бази даних
     db_init()
     
-    # Persistence для Docker
+    # 3. Persistence (зберігає кошики юзерів навіть після перезавантаження)
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
+    # 4. Створення додатка
+    # Ми беремо токен прямо з коду, як у тебе прописано в Секції 1
     app = Application.builder().token(TOKEN).persistence(pers).build()
 
+    # 5. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
+    
+    # Обробка тексту (адреси/промокоди) та фото (квитанції)
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.PHOTO) & ~filters.COMMAND, 
+        handle_user_input
+    ))
+    
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
-    print("\n🚀 GHO$$TY STAFF: DOCKER CONTAINER STARTED")
-    
-    # У версії 20.8 close_if_open працює чудово!
-    app.run_polling(drop_pending_updates=True, close_if_open=True)
+    print(f"\n✅ GHO$$TY STAFF ONLINE")
+    print(f"📡 База даних: ghosty_v3.db готова")
+
+    # 6. ЗАПУСК
+    # Ми прибрали 'close_if_open', щоб не було помилок "unexpected argument"
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
+
