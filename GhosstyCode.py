@@ -32,8 +32,11 @@ from telegram.error import BadRequest, NetworkError, TelegramError, Forbidden
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
 # =================================================================
-# Читаємо токен з Docker Environment або використовуємо дефолтний
+# Пріоритет: спочатку беремо токен з Docker, якщо його нема — з коду
 TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc")
+MANAGER_ID = 7544847872
+MANAGER_USERNAME = "ghosstydpbot"
+
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydp" # Твій основний юзернейм
 
@@ -1456,42 +1459,24 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 # 🚀 SECTION 30: FINAL RUNNER (GITHUB & DOCKER READY)
 # =================================================================
 
-import signal
-
 def main():
-    """Запуск бота з автоматичним детектом середовища."""
-    # 1. Створюємо папку для збереження даних (база, сесії)
     if not os.path.exists('data'):
         os.makedirs('data')
-
-    # 2. Ініціалізація бази даних
     db_init()
     
-    # 3. Persistence (зберігає кошики юзерів навіть після перезавантаження)
+    # Зберігаємо дані в папку data, яку ми підключили в Docker
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    # 4. Створення додатка
-    # Ми беремо токен прямо з коду, як у тебе прописано в Секції 1
     app = Application.builder().token(TOKEN).persistence(pers).build()
 
-    # 5. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
-    
-    # Обробка тексту (адреси/промокоди) та фото (квитанції)
-    app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO) & ~filters.COMMAND, 
-        handle_user_input
-    ))
-    
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
-    print(f"\n✅ GHO$$TY STAFF ONLINE")
-    print(f"📡 База даних: ghosty_v3.db готова")
-
-    # 6. ЗАПУСК
-    # Ми прибрали 'close_if_open', щоб не було помилок "unexpected argument"
+    print("\n🚀 GHO$$TY STAFF: DOCKER DEPLOY SUCCESS")
+    
+    # Видалено аргументи, що викликали помилку (unexpected argument)
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
-
