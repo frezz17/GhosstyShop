@@ -1117,143 +1117,117 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await confirm_payment_request(update, context, p_id)
 
 # =================================================================
-# 🛡 SECTION 28: ADMIN PANEL & ORDER CONTROL
+# 🛡 SECTION 28: ERROR HANDLING & ADMIN ACTIONS
 # =================================================================
 
-async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Обробка рішень менеджера (Підтвердити/Відхилити замовлення).
-    Спрацьовує при натисканні кнопок у чаті менеджера.
-    """
-    query = update.callback_query
-    data = query.data
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Глобальний обробник помилок, щоб бот не зупинявся при збоях."""
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
     
-    # Формат: adm_approve_ID_USERID
+    # Спроба сповістити користувача про технічні роботи
     try:
-        parts = data.split("_")
-        action = parts[1]
-        order_id = parts[2]
-        user_id = int(parts[3])
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text(
+                "⚠️ <b>Технічні роботи.</b>\nСталася помилка в обробці даних. Спробуйте пізніше або зверніться до @ghosstydpbot",
+                parse_mode=ParseMode.HTML
+            )
+    except:
+        pass
+
+async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка рішень менеджера (Підтвердити/Відхилити)."""
+    query = update.callback_query
+    try:
+        parts = query.data.split("_")
+        action, order_id, user_id = parts[1], parts[2], int(parts[3])
 
         if action == "approve":
-            status_text = "✅ <b>Ваше замовлення підтверджено!</b>\nКур'єр вже готує відправку. Очікуйте фото/трек-номер найближчим часом."
-            admin_notif = f"✅ Замовлення #{order_id} підтверджено."
+            msg = "✅ <b>Ваше замовлення підтверджено!</b>\nКур'єр готує відправку."
         else:
-            status_text = "❌ <b>Замовлення відхилено.</b>\nМенеджер не знайшов оплату. Якщо це помилка — напишіть нам."
-            admin_notif = f"❌ Замовлення #{order_id} відхилено."
+            msg = "❌ <b>Замовлення відхилено.</b>\nЗв'яжіться з менеджером для уточнення."
 
-        # Сповіщення користувача
-        await context.bot.send_message(chat_id=user_id, text=status_text, parse_mode=ParseMode.HTML)
-        # Оновлення повідомлення у менеджера
+        await context.bot.send_message(chat_id=user_id, text=msg, parse_mode=ParseMode.HTML)
         await query.edit_message_reply_markup(reply_markup=None)
-        await query.message.reply_text(admin_notif)
+        await query.message.reply_text(f"🏁 Рішення по #{order_id} надіслано.")
     except Exception as e:
         logger.error(f"Admin action error: {e}")
 
 # =================================================================
-# ⚙️ SECTION 29: ГЛОБАЛЬНИЙ ДИСПЕТЧЕР (З ВИПРАВЛЕННЯМ ТИПІВ)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Центральний обробник кнопок з захистом від NoneType помилок.
-    """
+    """Центральний розподільник для кнопок."""
     query = update.callback_query
     data = query.data
     
-    # Гарантуємо наявність профілю та кошика перед будь-якою дією
+    # Примусова ініціалізація даних, щоб уникнути NoneType Error
     if "profile" not in context.user_data:
         await get_or_create_user(update, context)
-    if "cart" not in context.user_data or context.user_data["cart"] is None:
+    if context.user_data.get("cart") is None:
         context.user_data["cart"] = []
 
     try:
         await query.answer()
 
-        # Навігація
+        # Розподіл логіки за ключовими словами в callback_data
         if data == "menu_start": await start_command(update, context)
         elif data == "menu_terms": await terms_handler(update, context)
-        
-        # Географія
-        elif any(data.startswith(x) for x in ["menu_city", "set_city_", "set_dist_", "set_delivery_address"]):
+        elif "city" in data or "set_dist_" in data or "delivery_address" in data:
             await process_geo_callbacks(update, context, data)
-            
-        # Кабінет
         elif data == "menu_profile": await show_profile(update, context)
-        
-        # Каталог
-        elif any(data.startswith(x) for x in ["cat_", "view_item_", "select_col_", "choose_gift_", "add_"]):
+        elif any(x in data for x in ["cat_", "view_item_", "add_", "choose_gift_"]):
             await process_catalog_callbacks(update, context, data)
-            
-        # Кошик та Оплата (Виправлена логіка виклику)
-        elif "cart" in data:
-            await process_cart_callbacks(update, context, data)
-        elif "pay_" in data or "confirm_pay_" in data:
-            await process_payment_callbacks(update, context, data)
-            
-        # Адмінка
+        elif "cart" in data: await process_cart_callbacks(update, context, data)
+        elif "pay_" in data or "confirm_pay_" in data: await process_payment_callbacks(update, context, data)
         elif data.startswith("adm_"):
             if update.effective_user.id == MANAGER_ID:
                 await admin_decision_handler(update, context)
                 
     except Exception as e:
-        logger.error(f"Callback error: {e}")
-        # Якщо сталася помилка, повертаємо юзера в старт
-        await start_command(update, context)
+        logger.error(f"Callback Dispatcher Error: {e}")
 
 # =================================================================
-# 🚀 SECTION 30: СТАБІЛЬНИЙ ЗАПУСК (MAIN)
+# 🚀 SECTION 30: FINAL RUNNER (MAIN)
 # =================================================================
 
 def main():
-    """
-    Фінальна конфігурація для BotHost.ru
-    Виправлено: AIORateLimiter, LinkPreview, NoneType Handling.
-    """
-    # Створення структури папок
-    for path in ['data', 'data/logs']:
-        if not os.path.exists(path):
-            os.makedirs(path)
+    """Запуск бота з виправленими налаштуваннями під BotHost.ru"""
+    
+    # Створюємо папки
+    for p in ['data', 'data/logs']:
+        if not os.path.exists(p): os.makedirs(p)
 
     db_init()
     
-    # Persistence дозволяє боту "пам'ятати" все після перезавантаження сервера
-    persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
+    # Збереження стану (Persistence)
+    pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
+    # Налаштування defaults без застарілих параметрів
     from telegram import LinkPreviewOptions
     defaults = Defaults(
         parse_mode=ParseMode.HTML, 
         link_preview_options=LinkPreviewOptions(is_disabled=True)
     )
     
-    # Створення додатку без AIORateLimiter для уникнення помилок встановлення
-    application = (
-        Application.builder()
-        .token(TOKEN)
-        .persistence(persistence)
-        .defaults(defaults)
-        .build()
-    )
+    # Створюємо додаток
+    app = Application.builder().token(TOKEN).persistence(pers).defaults(defaults).build()
 
-    # Реєстрація обробників
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
-    application.add_handler(CallbackQueryHandler(global_callback_handler))
-    application.add_error_handler(error_handler)
-
-    print("✅ GHOSTY STAFF СИСТЕМУ ЗАПУЩЕНО")
-    print("🆘 Помилки NoneType та RateLimiter виправлено.")
+    # Реєструємо хендлери
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
+    app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    application.run_polling(drop_pending_updates=True)
+    # Реєструємо обробник помилок (ТЕПЕР ВІН ВИЗНАЧЕНИЙ)
+    app.add_error_handler(error_handler)
+
+    print("--- [ GHOSTY STAFF: SYSTEM ONLINE ] ---")
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        # Автоматичний перезапуск при критичному збої
-        logger.critical(f"Global Crash: {e}")
-        os.execv(sys.executable, ['python'] + sys.argv)
-    except (KeyboardInterrupt, SystemExit):
-        print("\nБот зупинений.")
-    except Exception as e:
         logger.critical(f"FATAL RESTART: {e}")
+        # Автоматичний перезапуск скрипта при критичному збої
+        os.execv(sys.executable, ['python'] + sys.argv)
