@@ -1188,81 +1188,58 @@ async def process_cart_callbacks(update: Update, context: ContextTypes.DEFAULT_T
         await query.answer("⌛ Перехід до оплати...")
 
 # =================================================================
-# 📋 SECTION 28: STATE MANAGEMENT & INPUT HANDLER (FINAL)
+# =================================================================
+# 📋 SECTION 28: INPUT HANDLER (TEXT & PHOTO)
 # =================================================================
 
 async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка текстових повідомлень та фотографій (квитанцій)."""
+    """Обробка вводу: адреси, промокоди та фото квитанцій."""
     if not update.message: return
     
     user_id = update.effective_user.id
     state = context.user_data.get("state")
     
-    if "profile" not in context.user_data:
-        context.user_data["profile"] = {}
-
-    # --- 1. ОБРОБКА ФОТО (КВИТАНЦІЯ) ---
+    # 1. ОБРОБКА ФОТО (КВИТАНЦІЯ)
     if update.message.photo and state == "WAIT_RECEIPT":
         file_id = update.message.photo[-1].file_id
         order_id = context.user_data.get("last_order_id", "Unknown")
-        total_sum = context.user_data.get("last_total", 0)
+        
+        # Оновлюємо статус в базі
+        conn = sqlite3.connect('ghosty_v3.db')
+        cur = conn.cursor()
+        cur.execute("UPDATE orders SET receipt_url = ?, status = '⌛ На перевірці' WHERE order_id = ?", (file_id, order_id))
+        conn.commit()
+        conn.close()
 
-        try:
-            conn = sqlite3.connect('ghosty_v3.db')
-            cur = conn.cursor()
-            cur.execute("UPDATE orders SET receipt_url = ?, status = '⌛ На перевірці' WHERE order_id = ?", (file_id, order_id))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logging.error(f"DB Error: {e}")
-
-        await update.message.reply_text("✅ <b>Квитанцію отримано!</b>\nМенеджер підтвердить замовлення найближчим часом.", parse_mode='HTML')
+        await update.message.reply_text("✅ <b>Квитанцію отримано!</b>\nМенеджер перевірить її протягом 15 хв.", parse_mode='HTML')
         context.user_data["state"] = None
 
-        # Сповіщення менеджеру
-        admin_text = (
-            f"🔔 <b>НОВЕ ЗАМОВЛЕННЯ #{order_id}</b>\n"
-            f"👤 Клієнт: {update.effective_user.mention_html()}\n"
-            f"💰 Сума: <b>{total_sum}₴</b>"
-        )
+        # Сповіщення менеджеру з кнопками
+        admin_text = f"🔔 <b>НОВА ОПЛАТА #{order_id}</b>\n👤 Від: {update.effective_user.mention_html()}"
         keyboard = [[
             InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"admin_app_{order_id}"),
             InlineKeyboardButton("❌ ВІДХИЛИТИ", callback_data=f"admin_rej_{order_id}")
         ]]
-        
-        await context.bot.send_photo(
-            chat_id=MANAGER_ID, 
-            photo=file_id, 
-            caption=admin_text, 
-            reply_markup=InlineKeyboardMarkup(keyboard), 
-            parse_mode='HTML'
-        )
+        await context.bot.send_photo(chat_id=MANAGER_ID, photo=file_id, caption=admin_text, 
+                                   reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         return
 
-    # --- 2. ОБРОБКА ТЕКСТУ ---
+    # 2. ОБРОБКА ТЕКСТУ
     if update.message.text:
         text = update.message.text.strip()
-        
-        # Введення адреси
         if state == "WAITING_ADDRESS":
-            if len(text) < 5:
-                await update.message.reply_text("❌ Адреса занадто коротка. Спробуйте ще раз.")
-                return
             context.user_data["profile"]["address_details"] = text
             context.user_data["state"] = None
-            await update.message.reply_text(f"✅ <b>Адресу збережено:</b>\n<code>{text}</code>", parse_mode='HTML')
+            await update.message.reply_text(f"✅ <b>Адресу збережено!</b>")
             await checkout_init(update, context)
-            
-        # Введення промокоду
         elif state == "WAIT_PROMO":
             if text.upper() == "GHOSTY35":
                 context.user_data["profile"]["discount_active"] = True
-                await update.message.reply_text("🔥 <b>ПРОМОКОД АКТИВОВАНО!</b>\nЗнижка -35% застосована.", parse_mode='HTML')
+                await update.message.reply_text("🔥 <b>ПРОМОКОД АКТИВОВАНО!</b>")
             else:
                 await update.message.reply_text("❌ Невірний код.")
             context.user_data["state"] = None
             await show_profile(update, context)
-            
             
 
 # =================================================================
@@ -1424,7 +1401,7 @@ async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAUL
         await query.message.reply_text("⚠️ Сталася помилка. Зверніться до @ghosstydpbot")
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (STABLE)
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1435,7 +1412,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try:
         await query.answer()
 
-        # АДМІН-ЛОГІКА (Тільки для тебе)
+        # АДМІН-ДІЇ
         if data.startswith("admin_app_") or data.startswith("admin_rej_"):
             if user_id != MANAGER_ID: return
             oid = data.replace("admin_app_", "").replace("admin_rej_", "")
@@ -1444,79 +1421,56 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             
             if "admin_app_" in data:
                 cur.execute("UPDATE orders SET status = '✅ Оплачено' WHERE order_id = ?", (oid,))
-                res_text, user_m = "✅ ПІДТВЕРДЖЕНО", f"🎉 Замовлення #{oid} підтверджено! Менеджер готує відправку."
+                res_text, user_m = "✅ ПІДТВЕРДЖЕНО", f"🎉 Ваша оплата замовлення #{oid} прийнята!"
             else:
                 cur.execute("UPDATE orders SET status = '❌ Відхилено' WHERE order_id = ?", (oid,))
-                res_text, user_m = "❌ ВІДХИЛЕНО", f"⚠️ Оплата замовлення #{oid} відхилена менеджерoм."
+                res_text, user_m = "❌ ВІДХИЛЕНО", f"⚠️ Оплата #{oid} відхилена. Зв'яжіться з адміном."
             
             cur.execute("SELECT user_id FROM orders WHERE order_id = ?", (oid,))
-            cust_res = cur.fetchone()
+            cust = cur.fetchone()
             conn.commit()
             conn.close()
 
-            await query.edit_message_caption(caption=f"{query.message.caption}\n\n<b>СТАТУС: {res_text}</b>", parse_mode='HTML')
-            if cust_res:
-                try: await context.bot.send_message(chat_id=cust_res[0], text=user_m, parse_mode='HTML')
-                except: pass
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n🛑 <b>СТАТУС: {res_text}</b>", parse_mode='HTML')
+            if cust: await context.bot.send_message(chat_id=cust[0], text=user_m, parse_mode='HTML')
 
-        # НАВІГАЦІЯ ТА ОПЛАТА
+        # НАВІГАЦІЯ
         elif data == "menu_start": await start_command(update, context)
         elif data == "menu_profile": await show_profile(update, context)
         elif data == "menu_cart": await show_cart(update, context)
-        elif data == "cart_checkout": await checkout_init(update, context)
-        elif data == "promo_activate":
-            context.user_data["state"] = "WAIT_PROMO"
-            await query.message.reply_text("⌨️ <b>Введіть промокод:</b>", parse_mode='HTML')
         elif data.startswith("confirm_pay_"):
             context.user_data["last_order_id"] = data.replace("confirm_pay_", "")
             context.user_data["state"] = "WAIT_RECEIPT"
-            await query.message.reply_text("📸 <b>НАДІШЛІТЬ ФОТО КВИТАНЦІЇ СЮДИ</b>", parse_mode='HTML')
+            await query.message.reply_text("📸 <b>Надішліть фото квитанції:</b>")
         elif any(x in data for x in ["cat_", "view_", "add_"]):
             await process_catalog_callbacks(update, context, data)
 
     except Exception as e:
-        logging.error(f"Dispatcher Error: {e}")
+        logging.error(f"Error: {e}")
 
 # =================================================================
-# 🚀 SECTION 30: FINAL RUNNER (COMPATIBLE WITH BOTHOST)
+# 🚀 SECTION 30: RUNNER (FIXED FOR BOTHOST)
 # =================================================================
 
 import signal
 
 def main():
-    # Ініціалізація
-    if not os.path.exists('data'): os.makedirs('data')
     db_init()
-    
     pers = PicklePersistence(filepath="data/ghosty_data.pickle")
     
-    app = (
-        Application.builder()
-        .token(TOKEN)
-        .persistence(pers)
-        .connect_timeout(40)
-        .read_timeout(40)
-        .build()
-    )
+    app = Application.builder().token(TOKEN).persistence(pers).build()
 
-    # Хендлери
     app.add_handler(CommandHandler("start", start_command))
     
-    # ПРАВИЛЬНИЙ ФІЛЬТР: (Текст АБО Фото) ТА НЕ Команда
-    app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
-        handle_user_input
-    ))
+    # ФІКС: Дужки навколо фільтрів типів обов'язкові!
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_user_input))
     
     app.add_handler(CallbackQueryHandler(global_callback_handler))
 
     print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
     
-    # ВИПРАВЛЕНО: Видалено close_if_open для сумісності
-    app.run_polling(
-        drop_pending_updates=True,
-        stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT]
-    )
+    # ФІКС: Видалено close_if_open, бо він ламає запуск на старих версіях
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
