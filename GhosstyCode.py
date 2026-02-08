@@ -4,10 +4,16 @@ import sys
 import random
 import asyncio
 import warnings
-from html import escape
 from datetime import datetime, timedelta
+from html import escape
+from uuid import uuid4
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import (
+    Update, 
+    InlineKeyboardButton, 
+    InlineKeyboardMarkup, 
+    InputMediaPhoto
+)
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -16,34 +22,42 @@ from telegram.ext import (
     ContextTypes,
     filters,
     PicklePersistence,
-    AIORateLimiter
+    AIORateLimiter,
+    Defaults
 )
-from telegram.error import BadRequest, NetworkError
+from telegram.constants import ParseMode
+from telegram.error import NetworkError, BadRequest, TimedOut
 
-# ===================== CONFIG =====================
+# ==========================================
+# ⚙️ НАЛАШТУВАННЯ КОНФІГУРАЦІЇ
+# ==========================================
+
 TOKEN = "8351638507:AAEqc9p9b4AA8vTrzvvj_XArtUABqcfMGV4"
-MANAGER_ID = 7544847872
-MANAGER_USERNAME = "ghosstydpbot"
+MANAGER_ID = 7544847872  # Куди будуть приходити звіти
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 PAYMENT_LINK = "https://heylink.me/ghosstyshop/"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# Налаштування знижок
-DISCOUNT_MULTIPLIER = 0.65   # 35% знижка магазину
-PROMO_DISCOUNT = 45          # 45% персональна знижка
-BASE_VIP_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
+# Економіка
+DISCOUNT_MULTIPLIER = 0.65   # Базова націнка/знижка
+PROMO_DISCOUNT_PERCENT = 45  # Додаткова знижка по промокоду
+VIP_BASE_DATE = datetime.strptime("25.03.2026", "%d.%m.%Y")
 
-# ===================== LOGGING =====================
+# ==========================================
+# 📝 ЛОГУВАННЯ (Щоб бачити помилки в консолі)
+# ==========================================
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Прибираємо зайві ворнінги в консолі
+# Ігноруємо незначні попередження бібліотеки
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# ===================== DATA =====================
+# ==========================================
+# 📦 БАЗА ДАНИХ ТОВАРІВ
+# ==========================================
 
 GIFT_LIQUIDS = {
     9001: "🎁 Pumpkin Latte 30ml",
@@ -54,30 +68,49 @@ GIFT_LIQUIDS = {
     9006: "🎁 Fall Tea 30ml",
 }
 
+# --- КАТЕГОРІЯ 1: РІДИНИ ---
 LIQUIDS = {
-    301: {"name": "🎃 Pumpkin Latte", "price": 269, "discount": True, "img": "https://i.ibb.co/Y7qn69Ds/photo-2024-12-18-00-00-00.jpg", "desc": "☕ Гарбузовий латте з корицею\n🎄 Зимовий настрій\n😌 Мʼякий та теплий смак"},
-    302: {"name": "🍷 Glintwine", "price": 269, "discount": True, "img": "https://i.ibb.co/wF8r7Nmc/photo-2024-12-18-00-00-01.jpg", "desc": "🍇 Пряний глінтвейн\n🔥 Теплий винний смак\n🎄 Святковий вайб"},
-    303: {"name": "🎄 Christmas Tree", "price": 269, "discount": True, "img": "https://i.ibb.co/vCPGV8RV/photo-2024-12-18-00-00-02.jpg", "desc": "🌲 Хвоя + морозна свіжість\n❄️ Дуже свіжа\n🎅 Атмосфера зими"}
+    301: {
+        "name": "🎃 Pumpkin Latte", 
+        "price": 269, 
+        "img": "https://i.ibb.co/Y7qn69Ds/photo-2024-12-18-00-00-00.jpg", 
+        "desc": "☕ Гарбузовий латте з корицею\n🎄 Зимовий настрій\n😌 Мʼякий та теплий смак"
+    },
+    302: {
+        "name": "🍷 Glintwine", 
+        "price": 269, 
+        "img": "https://i.ibb.co/wF8r7Nmc/photo-2024-12-18-00-00-01.jpg", 
+        "desc": "🍇 Пряний глінтвейн\n🔥 Теплий винний смак\n🎄 Святковий вайб"
+    },
+    303: {
+        "name": "🎄 Christmas Tree", 
+        "price": 269, 
+        "img": "https://i.ibb.co/vCPGV8RV/photo-2024-12-18-00-00-02.jpg", 
+        "desc": "🌲 Хвоя + морозна свіжість\n❄️ Дуже свіжа\n🎅 Атмосфера зими"
+    }
 }
 
-HHC_VAPES = {
-    100: {"name": "🌴 Packwoods Purple 1ml", "price": 549, "discount": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 90% ННС | Гібрид\n😌 Розслаблення + легка ейфорія"},
-    101: {"name": "🍊 Packwoods Orange 1ml", "price": 629, "discount": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 90% ННС | Гібрид\n⚡ Бадьорить та фокусує"},
-    102: {"name": "🌸 Packwoods Pink 1ml", "price": 719, "discount": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 90% ННС | Гібрид\n😇 Спокій + підйом настрою"},
-    103: {"name": "🌿 Whole Mint 2ml", "price": 849, "discount": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 95% ННС | Сатіва\n⚡ Енергія та ясність"},
-    104: {"name": "🌴 Jungle Boys White 2ml", "price": 999, "discount": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 95% ННС | Індика\n😴 Глибокий релакс"}
-}
-
+# --- КАТЕГОРІЯ 2: POD СИСТЕМИ ---
 PODS = {
-    500: {"name": "🔌 XROS 3 Mini", "price": 499, "discount": True, "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg", "desc": "🔋 1000 mAh\n💨 MTL / RDL\n⚡ Type-C зарядка"},
-    501: {"name": "🔌 XROS 5 Mini", "price": 579, "discount": True, "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg", "desc": "🔋 1000 mAh\n🔥 COREX 2.0\n⚡ Швидка зарядка"},
-    502: {"name": "🔌 XROS Pro", "price": 689, "discount": True, "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg", "desc": "🔋 1200 mAh\n⚡ Регулювання потужності\n🚀 Професійний рівень"},
-    503: {"name": "🔌 XROS Nano", "price": 519, "discount": True, "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg", "desc": "🔋 1000 mAh\n🧱 Міцний корпус\n🎒 Ідеальний у дорогу"},
-    504: {"name": "🔌 XROS 4", "price": 599, "discount": True, "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg", "desc": "🔋 1000 mAh\n🔥 COREX\n🎨 Стильний дизайн"},
-    505: {"name": "🔌 XROS 5", "price": 799, "discount": True, "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg", "desc": "🔋 1200 mAh\n⚡ Fast Charge\n🚀 Флагман серії"},
-    506: {"name": "🔌 Voopoo Vmate Mini", "price": 459, "discount": True, "img": "https://i.ibb.co/8L0JNTHz/voopoo-vmate-mini.jpg", "desc": "🔋 1000 mAh\n💨 Автозатяжка\n😌 Легкий старт"}
+    500: {"name": "🔌 XROS 3 Mini", "price": 499, "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg", "desc": "🔋 1000 mAh | MTL/RDL"},
+    501: {"name": "🔌 XROS 5 Mini", "price": 579, "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg", "desc": "🔋 1000 mAh | COREX 2.0"},
+    502: {"name": "🔌 XROS Pro", "price": 689, "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg", "desc": "🔋 1200 mAh | Pro Series"},
+    503: {"name": "🔌 XROS Nano", "price": 519, "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg", "desc": "🔋 1000 mAh | Стильний квадрат"},
+    504: {"name": "🔌 XROS 4", "price": 599, "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg", "desc": "🔋 1000 mAh | Новинка"},
+    505: {"name": "🔌 XROS 5", "price": 799, "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg", "desc": "🔋 1200 mAh | Флагман"},
+    506: {"name": "🔌 Voopoo Vmate", "price": 459, "img": "https://i.ibb.co/8L0JNTHz/voopoo-vmate-mini.jpg", "desc": "🔋 900 mAh | Бюджетний топ"}
 }
 
+# --- КАТЕГОРІЯ 3: HHC / VAPES ---
+HHC_VAPES = {
+    100: {"name": "🌴 Packwoods Purple", "price": 549, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 90% HHC | Hybrid"},
+    101: {"name": "🍊 Packwoods Orange", "price": 629, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 90% HHC | Sativa"},
+    102: {"name": "🌸 Packwoods Pink", "price": 719, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 90% HHC | Indica"},
+    103: {"name": "🌿 Whole Mint", "price": 849, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 95% HHC | Super Strong"},
+    104: {"name": "🌴 Jungle Boys", "price": 999, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 95% HHC | Exclusive"}
+}
+
+# --- ГЕОГРАФІЯ ---
 CITIES = ["Київ", "Дніпро", "Камʼянське", "Харків", "Одеса", "Львів", "Запоріжжя", "Кривий Ріг", "Полтава", "Черкаси"]
 
 CITY_DISTRICTS = {
@@ -93,9 +126,12 @@ CITY_DISTRICTS = {
     "Черкаси": ["Придніпровський", "Соснівський"]
 }
 
-# ===================== HELPERS =====================
+# ==========================================
+# 🧠 ЛОГІКА ТА ДОПОМІЖНІ ФУНКЦІЇ
+# ==========================================
 
 def get_vip_date(profile):
+    """Розрахунок дати закінчення VIP"""
     base = profile.get("vip_base", BASE_VIP_DATE)
     if isinstance(base, str):
         base = datetime.strptime(base, "%d.%m.%Y")
@@ -103,48 +139,68 @@ def get_vip_date(profile):
     return base + timedelta(days=extra_days)
 
 def is_vip_active(profile):
+    """Перевірка чи активний VIP"""
     return get_vip_date(profile) > datetime.now()
 
 def generate_promo_code(user_id):
+    """Генерація унікального промокоду"""
     return f"GHOST-{user_id % 10000}{random.randint(100,999)}"
 
-def calc_prices(item, profile):
-    base_price = item["price"]
-    shop_price = int(base_price * DISCOUNT_MULTIPLIER) if item.get("discount", True) else base_price
-    promo_percent = profile.get("promo_discount", PROMO_DISCOUNT)
+def calculate_price(item_price, profile):
+    """Розрахунок трьох цін: Базова -> Магазин -> VIP"""
+    # 1. Ціна магазину (звичайна знижка)
+    shop_price = int(item_price * DISCOUNT_MULTIPLIER)
+    
+    # 2. Персональна VIP ціна
+    promo_percent = profile.get("promo_discount", PROMO_DISCOUNT_PERCENT)
     final_price = int(shop_price * (1 - promo_percent / 100))
-    return {"base": base_price, "shop": shop_price, "final": final_price}
+    
+    return {
+        "base": item_price,
+        "shop": shop_price,
+        "final": final_price
+    }
 
-def get_gift_list_text():
-    return "\n".join([f"• {name}" for name in GIFT_LIQUIDS.values()])
+def get_item_by_id(item_id):
+    """Пошук товару в усіх категоріях"""
+    return LIQUIDS.get(item_id) or PODS.get(item_id) or HHC_VAPES.get(item_id)
 
-# ===================== KEYBOARDS =====================
+# ==========================================
+# ⌨️ КЛАВІАТУРИ (UI)
+# ==========================================
 
-def main_menu_kb():
+def get_main_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("👤 Профіль", callback_data="profile"), InlineKeyboardButton("🛍 Асортимент", callback_data="assortment")],
-        [InlineKeyboardButton("📍 Місто", callback_data="set_city"), InlineKeyboardButton("🛒 Кошик", callback_data="cart")],
-        [InlineKeyboardButton("📦 Мої замовлення", callback_data="my_orders"), InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/{MANAGER_USERNAME}")],
-        [InlineKeyboardButton("📢 Канал магазину", url=CHANNEL_URL)]
+        [InlineKeyboardButton("👤 Мій Профіль", callback_data="profile"), InlineKeyboardButton("🛍 Каталог", callback_data="catalog")],
+        [InlineKeyboardButton("📍 Налаштування доставки", callback_data="set_city"), InlineKeyboardButton("🛒 Кошик", callback_data="cart")],
+        [InlineKeyboardButton("📦 Мої замовлення", callback_data="history"), InlineKeyboardButton("👨‍💻 Підтримка", url=f"https://t.me/ghosstydpbot")],
+        [InlineKeyboardButton("📢 Наш канал", url=CHANNEL_URL)]
     ])
 
-def back_to_main_kb():
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В головне меню", callback_data="main")]])
+def get_back_kb():
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 В головне меню", callback_data="main_menu")]])
 
-# ===================== HANDLERS =====================
+# ==========================================
+# 🎮 ОБРОБНИКИ (HANDLERS)
+# ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Точка входу. Створює профіль та обробляє рефералів."""
     user = update.effective_user
     args = context.args
 
+    # Ініціалізація даних користувача
     if "profile" not in context.user_data:
         context.user_data["profile"] = {
             "uid": user.id,
             "full_name": user.first_name,
             "username": user.username,
-            "city": None, "district": None, "address": None, "phone": None,
+            "city": None, 
+            "district": None, 
+            "address": None, 
+            "phone": None,
             "promo_code": generate_promo_code(user.id),
-            "promo_discount": PROMO_DISCOUNT,
+            "promo_discount": PROMO_DISCOUNT_PERCENT,
             "referrals": 0,
             "vip_base": BASE_VIP_DATE,
             "ref_applied": False
@@ -154,403 +210,492 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     profile = context.user_data["profile"]
 
+    # Обробка реферального посилання
     if args and not profile.get("ref_applied"):
         try:
-            ref_id = int(args[0])
-            if ref_id != user.id:
+            referrer_id = int(args[0])
+            if referrer_id != user.id:
                 profile["ref_applied"] = True
                 profile["referrals"] += 1
+                # Спроба повідомити запросившого (може не спрацювати, якщо немає контексту, але це ок)
+                try:
+                    await context.bot.send_message(chat_id=referrer_id, text=f"🎉 У вас новий реферал: {user.first_name}! +7 днів VIP.")
+                except:
+                    pass
         except ValueError:
             pass
 
-    vip_date_str = get_vip_date(profile).strftime("%d.%m.%Y")
-    
+    # Вітальний текст
+    vip_end = get_vip_date(profile).strftime("%d.%m.%Y")
+    is_vip = is_vip_active(profile)
+    delivery_status = "Безкоштовна (VIP)" if is_vip else "За тарифами пошти"
+
     text = (
-        f"👋 <b>{escape(user.first_name)}</b>, вітаємо у <b>Ghosty Shop</b> 💨\n\n"
-        f"🎁 <b>Подарунок до кожного замовлення:</b>\n3 рідини 30ml безкоштовно!\n\n"
-        f"🎫 Твій промокод: <code>{profile['promo_code']}</code>\n"
-        f"💸 Твоя знижка: <b>-{profile['promo_discount']}%</b>\n"
-        f"👑 VIP статус до: <b>{vip_date_str}</b>\n"
-        f"🚚 Доставка: <b>{'Безкоштовна (VIP)' if is_vip_active(profile) else 'За тарифом'}</b>\n\n"
-        f"👇 Оберіть дію:"
+        f"👋 Привіт, <b>{escape(user.first_name)}</b>!\n"
+        f"Ласкаво просимо до <b>Ghosty Shop</b> 💨\n\n"
+        f"🎫 Твій код: <code>{profile['promo_code']}</code>\n"
+        f"💎 Твоя знижка: <b>-{profile['promo_discount']}%</b>\n"
+        f"👑 VIP статус до: <b>{vip_end}</b>\n"
+        f"🚚 Доставка: <b>{delivery_status}</b>\n\n"
+        f"👇 Головне меню:"
     )
 
-    # Безпечне надсилання/редагування
-    try:
-        if update.message:
-            await update.message.reply_photo(photo=WELCOME_PHOTO, caption=text, parse_mode="HTML", reply_markup=main_menu_kb())
-        elif update.callback_query:
-            msg = update.callback_query.message
-            await msg.delete()
-            await msg.chat.send_photo(photo=WELCOME_PHOTO, caption=text, parse_mode="HTML", reply_markup=main_menu_kb())
-    except Exception:
-        # Fallback якщо не вдалося надіслати фото
-        if update.effective_message:
-            await update.effective_message.reply_text(text, parse_mode="HTML", reply_markup=main_menu_kb())
+    # Відправка або редагування
+    if update.callback_query:
+        # Щоб уникнути мерехтіння, видаляємо старе і шлемо нове фото
+        await update.callback_query.message.delete()
+    
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=WELCOME_PHOTO,
+        caption=text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=get_main_menu_kb()
+    )
 
+# --- ПРОФІЛЬ ---
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     p = context.user_data["profile"]
     vip_end = get_vip_date(p).strftime("%d.%m.%Y")
-    bot_username = context.bot.username
-    ref_link = f"https://t.me/{bot_username}?start={p['uid']}"
+    ref_link = f"https://t.me/{context.bot.username}?start={p['uid']}"
     
     text = (
-        f"👤 <b>Профіль користувача</b>\n\n"
-        f"🏙 Місто: {p['city'] or 'Не вказано'}\n"
-        f"📍 Район: {p['district'] or 'Не вказано'}\n"
-        f"🏠 Адреса: {p['address'] or 'Не вказано'}\n"
-        f"📞 Телефон: {p['phone'] or 'Не вказано'}\n\n"
-        f"👥 Рефералів: {p['referrals']}\n"
-        f"🔗 <b>Твоє посилання:</b>\n<code>{ref_link}</code>\n"
-        f"👑 VIP до: <b>{vip_end}</b>"
+        f"👤 <b>Особистий кабінет</b>\n\n"
+        f"🏙 Місто: {p['city'] or '❌ Не вказано'}\n"
+        f"📍 Район: {p['district'] or '❌ Не вказано'}\n"
+        f"🏠 Адреса: {p['address'] or '❌ Не вказано'}\n"
+        f"📞 Телефон: {p['phone'] or '❌ Не вказано'}\n\n"
+        f"👥 Приведено друзів: <b>{p['referrals']}</b>\n"
+        f"🔗 <b>Твоє посилання (тисни щоб скопіювати):</b>\n<code>{ref_link}</code>\n\n"
+        f"🗓 VIP активний до: <b>{vip_end}</b>"
     )
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📍 Змінити дані доставки", callback_data="set_city")],
-        [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
+        [InlineKeyboardButton("✏️ Змінити дані доставки", callback_data="set_city")],
+        [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
     ])
     
-    try:
-        await query.message.delete()
-        await query.message.chat.send_message(text, parse_mode="HTML", reply_markup=kb)
-    except:
-        pass
+    await query.message.delete()
+    await query.message.chat.send_message(text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
+# --- КАТАЛОГ ---
 async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💧 Рідини", callback_data="cat_300"), InlineKeyboardButton("🔌 POD-системи", callback_data="cat_500")],
-        [InlineKeyboardButton("💨 HHC / NNS", callback_data="cat_100")],
-        [InlineKeyboardButton("🏠 В головне меню", callback_data="main")]
+        [InlineKeyboardButton("💧 Premium Liquids", callback_data="cat_300")],
+        [InlineKeyboardButton("🔌 POD Systems", callback_data="cat_500")],
+        [InlineKeyboardButton("💨 HHC / NNS Vapes", callback_data="cat_100")],
+        [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
     ])
     
-    # Видаляємо попереднє, щоб не було помилок media type
     await query.message.delete()
-    await query.message.chat.send_message("🛍 <b>Оберіть категорію:</b>", parse_mode="HTML", reply_markup=kb)
+    await query.message.chat.send_message("📂 <b>Оберіть категорію товарів:</b>", parse_mode=ParseMode.HTML, reply_markup=kb)
 
-async def list_items(update: Update, context: ContextTypes.DEFAULT_TYPE, category_id):
+async def show_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    if category_id == 300:
-        items = LIQUIDS
-        title = "💧 Рідини"
-    elif category_id == 500:
-        items = PODS
-        title = "🔌 POD-системи"
+    cat_id = int(query.data.split("_")[1])
+    
+    if cat_id == 300:
+        items, title = LIQUIDS, "💧 Рідини"
+    elif cat_id == 500:
+        items, title = PODS, "🔌 POD-системи"
     else:
-        items = HHC_VAPES
-        title = "💨 HHC / NNS"
+        items, title = HHC_VAPES, "💨 HHC Вейпи"
         
     buttons = []
     for pid, data in items.items():
-        buttons.append([InlineKeyboardButton(f"{data['name']}", callback_data=f"view_{pid}")])
-    
-    buttons.append([InlineKeyboardButton("⬅️ Назад до категорій", callback_data="assortment")])
+        # Додаємо ціну прямо на кнопку
+        profile = context.user_data["profile"]
+        prices = calculate_price(data['price'], profile)
+        btn_text = f"{data['name']} | {prices['final']} грн"
+        buttons.append([InlineKeyboardButton(btn_text, callback_data=f"prod_{pid}")])
+        
+    buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="catalog")])
     
     await query.message.delete()
-    await query.message.chat.send_message(f"<b>{title}</b>\nОберіть товар:", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(buttons))
+    await query.message.chat.send_message(f"<b>{title}</b>\nОберіть товар:", parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
 
-async def view_item(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
+async def show_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    item = LIQUIDS.get(item_id) or PODS.get(item_id) or HHC_VAPES.get(item_id)
+    prod_id = int(query.data.split("_")[1])
+    item = get_item_by_id(prod_id)
+    
     if not item:
         await query.answer("Товар не знайдено!", show_alert=True)
         return
 
     profile = context.user_data["profile"]
-    prices = calc_prices(item, profile)
-    is_vip = is_vip_active(profile)
+    prices = calculate_price(item['price'], profile)
     
     caption = (
-        f"<b>{escape(item['name'])}</b>\n\n"
-        f"{item.get('desc', '')}\n\n"
-        f"💰 Звичайна ціна: <s>{prices['base']} грн</s>\n"
-        f"🔥 Знижка магазину: <s>{prices['shop']} грн</s>\n"
-        f"🎟 <b>Ціна для тебе: {prices['final']} грн</b>\n\n"
-        f"🎁 <b>Подарунок:</b>\n{get_gift_list_text()}\n\n"
-        f"🚚 Доставка: {'Безкоштовна (VIP) 👑' if is_vip else 'За тарифами'}"
+        f"✨ <b>{item['name']}</b>\n\n"
+        f"{item['desc']}\n\n"
+        f"❌ Ціна вітрини: <s>{prices['base']} грн</s>\n"
+        f"📉 Ціна зі знижкою: <s>{prices['shop']} грн</s>\n"
+        f"✅ <b>ТВОЯ ЦІНА: {prices['final']} грн</b>\n\n"
+        f"🎁 <b>Бонус:</b> 3 рідини у подарунок!"
     )
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🛒 Додати в кошик", callback_data=f"add_{item_id}")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="assortment")]
+        [InlineKeyboardButton("🛒 Додати в кошик", callback_data=f"add_{prod_id}")],
+        [InlineKeyboardButton("🔙 До списку", callback_data="catalog")]
     ])
     
     await query.message.delete()
-    await query.message.chat.send_photo(photo=item["img"], caption=caption, parse_mode="HTML", reply_markup=kb)
+    await query.message.chat.send_photo(photo=item["img"], caption=caption, parse_mode=ParseMode.HTML, reply_markup=kb)
 
-async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
+# --- КОШИК ---
+async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    item = LIQUIDS.get(item_id) or PODS.get(item_id) or HHC_VAPES.get(item_id)
+    prod_id = int(query.data.split("_")[1])
+    item = get_item_by_id(prod_id)
     
-    if item:
-        profile = context.user_data["profile"]
-        prices = calc_prices(item, profile)
-        context.user_data["cart"].append({
-            "id": item_id,
-            "name": item["name"],
-            "price": prices['final'],
-            "base_price": item["price"]
-        })
-        await query.answer("✅ Товар додано в кошик!")
-    else:
-        await query.answer("Помилка!", show_alert=True)
+    profile = context.user_data["profile"]
+    prices = calculate_price(item['price'], profile)
+    
+    context.user_data["cart"].append({
+        "id": prod_id,
+        "name": item["name"],
+        "price": prices['final']
+    })
+    
+    await query.answer("✅ Додано в кошик!", show_alert=False)
 
 async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     cart = context.user_data.get("cart", [])
+    
     if not cart:
-        await query.answer("Ваш кошик порожній!", show_alert=True)
+        await query.answer("Кошик порожній 🕸", show_alert=True)
         return
 
-    total = sum(item["price"] for item in cart)
-    text = "🛒 <b>Ваш кошик:</b>\n\n"
-    for i, item in enumerate(cart, 1):
-        text += f"{i}. {item['name']} — <b>{item['price']} грн</b>\n"
+    total = sum(i['price'] for i in cart)
+    text = "🛒 <b>ВАШ КОШИК:</b>\n\n"
     
-    text += f"\n💰 <b>Разом до сплати: {total} грн</b>"
+    for idx, item in enumerate(cart, 1):
+        text += f"▫️ {idx}. {item['name']} — <b>{item['price']} грн</b>\n"
+        
+    text += f"\n💰 <b>ЗАГАЛОМ: {total} грн</b>"
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ Оформити замовлення", callback_data="checkout_start")],
-        [InlineKeyboardButton("🗑 Очистити кошик", callback_data="cart_clear")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="main")]
+        [InlineKeyboardButton("✅ ОФОРМИТИ ЗАМОВЛЕННЯ", callback_data="checkout_start")],
+        [InlineKeyboardButton("🗑 Очистити все", callback_data="clear_cart")],
+        [InlineKeyboardButton("🔙 Меню", callback_data="main_menu")]
     ])
     
     await query.message.delete()
-    await query.message.chat.send_message(text, parse_mode="HTML", reply_markup=kb)
+    await query.message.chat.send_message(text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
 async def clear_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["cart"] = []
-    await update.callback_query.answer("Кошик очищено!")
-    # Повертаємо в меню, бо кошик порожній
+    await update.callback_query.answer("Кошик очищено 🗑")
     await start(update, context)
 
-async def start_checkout_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- CHECKOUT FLOW (ОФОРМЛЕННЯ) ---
+
+async def checkout_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Початок оформлення або налаштування міста"""
     query = update.callback_query
     await query.answer()
     
+    # Генерація клавіатури міст (по 2 в ряд)
     buttons = []
     row = []
     for city in CITIES:
-        row.append(InlineKeyboardButton(city, callback_data=f"city_{city}"))
+        row.append(InlineKeyboardButton(city, callback_data=f"setcity_{city}"))
         if len(row) == 2:
             buttons.append(row)
             row = []
     if row: buttons.append(row)
-    buttons.append([InlineKeyboardButton("❌ Скасувати", callback_data="main")])
+    buttons.append([InlineKeyboardButton("❌ Скасувати", callback_data="main_menu")])
     
     await query.message.delete()
-    await query.message.chat.send_message("📍 <b>Крок 1/4:</b> Оберіть ваше місто:", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(buttons))
+    await query.message.chat.send_message("📍 <b>Крок 1:</b> Оберіть ваше місто доставки:", parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
 
-async def select_district(update: Update, context: ContextTypes.DEFAULT_TYPE, city):
+async def checkout_district(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    context.user_data["profile"]["city"] = city
-    districts = CITY_DISTRICTS.get(city, ["Інший район"])
+    city_name = query.data.split("_")[1]
+    context.user_data["profile"]["city"] = city_name
     
+    districts = CITY_DISTRICTS.get(city_name, ["Центр", "Інший"])
+    
+    # Клавіатура районів
     buttons = []
     row = []
     for d in districts:
-        row.append(InlineKeyboardButton(d, callback_data=f"dist_{d}"))
+        row.append(InlineKeyboardButton(d, callback_data=f"setdist_{d}"))
         if len(row) == 2:
             buttons.append(row)
             row = []
     if row: buttons.append(row)
-    buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="checkout_start")])
+    buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="checkout_start")])
     
-    await query.message.edit_text(f"📍 Місто: <b>{city}</b>\n<b>Крок 2/4:</b> Оберіть район:", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(buttons))
+    await query.message.delete()
+    await query.message.chat.send_message(f"📍 Місто: <b>{city_name}</b>\n👇 Оберіть район:", parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
 
-async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE, district):
+async def checkout_address_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    context.user_data["profile"]["district"] = district
-    context.user_data["state"] = "wait_address"
+    dist_name = query.data.split("_")[1]
+    context.user_data["profile"]["district"] = dist_name
     
-    await query.message.edit_text(
-        f"📍 Місто: {context.user_data['profile']['city']}\n"
-        f"📍 Район: {district}\n\n"
-        f"✍️ <b>Крок 3/4:</b> Напишіть вашу адресу або номер відділення пошти:",
-        parse_mode="HTML"
+    # Встановлюємо стан для очікування тексту
+    context.user_data["input_state"] = "awaiting_address"
+    
+    await query.message.delete()
+    await query.message.chat.send_message(
+        f"📝 <b>Введіть адресу доставки:</b>\n"
+        f"(Вулиця, будинок, квартира або номер відділення НП)",
+        parse_mode=ParseMode.HTML
     )
 
+# --- TEXT INPUT HANDLER (Універсальний) ---
 async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get("state")
+    state = context.user_data.get("input_state")
     if not state:
-        return
+        return # Не реагуємо на звичайний текст без стану
 
     text = update.message.text
     profile = context.user_data["profile"]
-
-    if state == "wait_address":
-        profile["address"] = text
-        context.user_data["state"] = "wait_phone"
-        await update.message.reply_text("📞 <b>Крок 4/4:</b> Введіть ваш номер телефону:", parse_mode="HTML")
     
-    elif state == "wait_phone":
+    if state == "awaiting_address":
+        profile["address"] = text
+        context.user_data["input_state"] = "awaiting_phone"
+        await update.message.reply_text("📞 <b>Введіть ваш номер телефону:</b>\n(Приклад: 0931234567)", parse_mode=ParseMode.HTML)
+    
+    elif state == "awaiting_phone":
         profile["phone"] = text
-        context.user_data["state"] = "waiting_payment"
-        await finalize_order(update, context)
+        context.user_data["input_state"] = "awaiting_payment" # Готові приймати чек
+        await checkout_final_invoice(update, context)
 
-async def finalize_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def checkout_final_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cart = context.user_data.get("cart", [])
     profile = context.user_data["profile"]
-    total = sum(i["price"] for i in cart)
+    total = sum(i['price'] for i in cart)
     
-    order_id = f"ORD-{profile['uid']}-{random.randint(1000,9999)}"
-    
-    context.user_data["orders"].append({
+    # Якщо кошик пустий (наприклад, просто змінювали налаштування), повертаємо в меню
+    if not cart:
+        context.user_data["input_state"] = None
+        await update.message.reply_text("✅ Дані збережено!", reply_markup=get_back_kb())
+        return
+
+    order_id = str(uuid4())[:8].upper()
+    context.user_data["current_order"] = {
         "id": order_id,
-        "items": cart.copy(),
         "total": total,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "status": "Очікує оплату"
-    })
-    context.user_data["current_order_id"] = order_id
+        "items": cart.copy(),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
     
-    text = (
-        f"✅ <b>Дані прийнято!</b>\n"
-        f"🆔 Замовлення: <code>{order_id}</code>\n"
-        f"💰 <b>До сплати: {total} грн</b>\n\n"
-        f"💳 <b>Посилання на оплату:</b>\n{PAYMENT_LINK}\n\n"
-        f"⚠️ <b>Після оплати надішліть сюди фото квитанції!</b>"
+    msg_text = (
+        f"✅ <b>Замовлення сформовано!</b>\n"
+        f"🆔 Номер: <code>{order_id}</code>\n\n"
+        f"👤 {profile['full_name']}\n"
+        f"📞 {profile['phone']}\n"
+        f"📍 {profile['city']}, {profile['district']}\n"
+        f"🏠 {profile['address']}\n\n"
+        f"💳 <b>ДО СПЛАТИ: {total} грн</b>\n"
+        f"🔗 <b><a href='{PAYMENT_LINK}'>НАТИСНІТЬ ТУТ ДЛЯ ОПЛАТИ</a></b>\n\n"
+        f"⚠️ <b>Після оплати надішліть сюди скріншот квитанції!</b>"
     )
     
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатити", url=PAYMENT_LINK)], [InlineKeyboardButton("Скасувати", callback_data="main")]])
-    await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💳 ОПЛАТИТИ", url=PAYMENT_LINK)],
+        [InlineKeyboardButton("❌ Скасувати", callback_data="main_menu")]
+    ])
+    
+    await update.message.reply_text(msg_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=kb)
 
-async def handle_photo_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get("state")
-    if state != "waiting_payment":
-        await update.message.reply_text("Я не очікую зараз фото.")
+# --- ОБРОБКА ФОТО (ЧЕКІВ) ---
+async def handle_receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    state = context.user_data.get("input_state")
+    
+    # Якщо ми не чекаємо оплату - ігноруємо (або можна відповідати "Я не розумію")
+    if state != "awaiting_payment":
         return
 
     photo = update.message.photo[-1]
-    order_id = context.user_data.get("current_order_id", "Unknown")
+    order_data = context.user_data.get("current_order")
     profile = context.user_data["profile"]
-    cart = context.user_data.get("cart", [])
-    total = sum(i["price"] for i in cart)
     
-    items_str = "\n".join([f"- {i['name']} ({i['price']} грн)" for i in cart])
+    if not order_data:
+        await update.message.reply_text("Помилка замовлення. Спробуйте оформити заново.")
+        return
+
+    # 1. Зберігаємо в історію
+    order_data["status"] = "На перевірці"
+    context.user_data["orders"].append(order_data)
+    
+    # 2. Формуємо звіт менеджеру
+    items_list = "\n".join([f"- {i['name']} ({i['price']} грн)" for i in order_data['items']])
     is_vip = is_vip_active(profile)
     
-    manager_text = (
-        f"💰 <b>Нове замовлення!</b>\n🆔 {order_id}\n"
-        f"👤 @{profile['username']} ({profile['full_name']})\n"
+    manager_report = (
+        f"💰 <b>НОВЕ ЗАМОВЛЕННЯ!</b>\n"
+        f"🆔 <code>{order_data['id']}</code>\n"
+        f"👤 @{profile['username']} | {profile['full_name']}\n"
         f"📞 <code>{profile['phone']}</code>\n"
-        f"📍 {profile['city']}, {profile['district']}\n🏠 {profile['address']}\n\n"
-        f"🛒 <b>Товари:</b>\n{items_str}\n\n"
-        f"🚚 VIP: {'ТАК' if is_vip else 'НІ'}\n"
-        f"💵 <b>Сума: {total} грн</b>"
+        f"📍 {profile['city']}, {profile['district']}\n"
+        f"🏠 {profile['address']}\n\n"
+        f"🛒 <b>Товари:</b>\n{items_list}\n\n"
+        f"💎 VIP: {'ТАК' if is_vip else 'НІ'}\n"
+        f"💵 <b>СУМА: {order_data['total']} грн</b>"
     )
     
     try:
-        await context.bot.send_photo(chat_id=MANAGER_ID, photo=photo.file_id, caption=manager_text, parse_mode="HTML")
-    except Exception:
-        logger.error("Не вдалося відправити звіт менеджеру")
-    
-    context.user_data["cart"] = []
-    context.user_data["state"] = None
-    
-    await update.message.reply_text("✅ <b>Квитанцію отримано!</b>\nДякуємо! Менеджер скоро зв'яжеться.", parse_mode="HTML", reply_markup=back_to_main_kb())
+        await context.bot.send_photo(
+            chat_id=MANAGER_ID,
+            photo=photo.file_id,
+            caption=manager_report,
+            parse_mode=ParseMode.HTML
+        )
+    except Exception as e:
+        logger.error(f"Failed to send to manager: {e}")
 
-async def show_my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 3. Очищуємо стан
+    context.user_data["cart"] = []
+    context.user_data["input_state"] = None
+    context.user_data["current_order"] = None
+    
+    await update.message.reply_text(
+        "✅ <b>Оплата отримана!</b>\n\n"
+        "Менеджер перевірить платіж протягом 15 хвилин.\n"
+        "Дякуємо, що обираєте Ghosty Shop! 👻",
+        parse_mode=ParseMode.HTML,
+        reply_markup=get_back_kb()
+    )
+
+# --- ІСТОРІЯ ---
+async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    orders = context.user_data.get("orders", [])
     
+    orders = context.user_data.get("orders", [])
     if not orders:
-        try:
-            await query.message.delete()
-            await query.message.chat.send_message("📭 У вас ще немає замовлень.", reply_markup=back_to_main_kb())
-        except:
-            pass
+        await query.message.delete()
+        await query.message.chat.send_message("📭 Історія замовлень порожня.", reply_markup=get_back_kb())
         return
-        
-    text = "📦 <b>Історія замовлень:</b>\n\n"
+
+    text = "📦 <b>ІСТОРІЯ ЗАМОВЛЕНЬ:</b>\n\n"
+    # Показуємо останні 5
     for o in orders[-5:]:
-        text += f"🔹 {o['date']} | {o['id']} | {o['total']} грн\nStatus: {o['status']}\n\n"
+        text += f"🔹 <b>{o['date']}</b> | ID: {o['id']}\n💰 {o['total']} грн | Статус: {o['status']}\n\n"
         
     await query.message.delete()
-    await query.message.chat.send_message(text, parse_mode="HTML", reply_markup=back_to_main_kb())
+    await query.message.chat.send_message(text, parse_mode=ParseMode.HTML, reply_markup=get_back_kb())
 
-async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==========================================
+# 📡 ГОЛОВНИЙ РОУТЕР (CALLBACKS)
+# ==========================================
+
+async def router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data
     
-    if data == "main":
+    # Головне меню
+    if data == "main_menu":
         await start(update, context)
+    
+    # Профіль
     elif data == "profile":
         await show_profile(update, context)
-    elif data == "assortment":
+    
+    # Каталог
+    elif data == "catalog":
         await show_categories(update, context)
     elif data.startswith("cat_"):
-        await list_items(update, context, int(data.split("_")[1]))
-    elif data.startswith("view_"):
-        await view_item(update, context, int(data.split("_")[1]))
+        await show_items(update, context)
+    elif data.startswith("prod_"):
+        await show_product(update, context)
+    
+    # Кошик
     elif data.startswith("add_"):
-        await add_to_cart(update, context, int(data.split("_")[1]))
+        await add_to_cart(update, context)
     elif data == "cart":
         await show_cart(update, context)
-    elif data == "cart_clear":
+    elif data == "clear_cart":
         await clear_cart(update, context)
+    
+    # Оформлення
     elif data == "checkout_start" or data == "set_city":
-        await start_checkout_city(update, context)
-    elif data.startswith("city_"):
-        await select_district(update, context, data.split("_")[1])
-    elif data.startswith("dist_"):
-        await ask_address(update, context, data.split("_")[1])
-    elif data == "my_orders":
-        await show_my_orders(update, context)
+        await checkout_start(update, context)
+    elif data.startswith("setcity_"):
+        await checkout_district(update, context)
+    elif data.startswith("setdist_"):
+        await checkout_address_prompt(update, context)
+        
+    # Історія
+    elif data == "history":
+        await show_history(update, context)
 
-# ===================== MAIN =====================
+# ==========================================
+# 🚀 ЗАПУСК ДОДАТКУ
+# ==========================================
 
 def main():
+    # 1. Створюємо директорію для даних (щоб не було помилок на сервері)
     if not os.path.exists('data'):
         os.makedirs('data', exist_ok=True)
-    
+
+    # 2. Налаштування збереження (Persistence)
+    # Це дозволяє боту "пам'ятати" кошики користувачів навіть після перезапуску
     persistence = PicklePersistence(filepath="data/bot_data.pickle")
 
+    # 3. Створення додатку з налаштуваннями проти таймаутів
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(persistence)
-        .connect_timeout(60.0)
+        .defaults(Defaults(parse_mode=ParseMode.HTML))
+        .rate_limiter(AIORateLimiter())  # Захист від блокування телеграмом
+        .connect_timeout(60.0) # Важливо для повільних хостингів
         .read_timeout(60.0)
         .write_timeout(60.0)
         .pool_timeout(60.0)
-        .get_updates_read_timeout(60.0)
-        .rate_limiter(AIORateLimiter())
         .build()
     )
 
+    # 4. Реєстрація обробників
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callback_handler))
+    app.add_handler(CallbackQueryHandler(router))
+    
+    # Обробка тексту (адреса, телефон)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo_receipt))
+    
+    # Обробка фото (чеки)
+    app.add_handler(MessageHandler(filters.PHOTO, handle_receipt_photo))
 
-    print("-" * 30)
-    print("🚀 GHOSTY SHOP BOT ZAPUSCHEN!")
-    print("-" * 30)
+    # 5. Інфо про запуск
+    print("------------------------------------------------")
+    print("🚀 GHOSTY SHOP BOT PRO STARTED SUCCESSFULLY")
+    print("📍 Data Storage: data/bot_data.pickle")
+    print("📡 Connection: Long Polling (Optimized)")
+    print("------------------------------------------------")
 
-    app.run_polling(drop_pending_updates=True, timeout=30, read_timeout=30, connect_timeout=30)
+    # 6. Запуск (drop_pending_updates видаляє старі повідомлення, щоб не було спаму при старті)
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
+    # Спеціальний фікс для Windows (якщо ви запускаєте на ПК), на Linux (хості) не заважає
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
     try:
         main()
     except KeyboardInterrupt:
-        print("\n🛑 Stopped.")
+        print("🛑 Bot stopped by user")
     except Exception as e:
-        logger.critical(f"Error: {e}", exc_info=True)
+        logger.critical(f"CRITICAL ERROR: {e}", exc_info=True)
