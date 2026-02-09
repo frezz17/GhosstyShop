@@ -1270,36 +1270,56 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
 
 # =================================================================
-# 🔑 SECTION 22: PROMOCODE & VIP LOGIC
+# 🔑 SECTION 22: PROMOCODE & VIP LOGIC (FIXED)
 # =================================================================
 
-async def apply_promo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Ручне введення промокоду через MessageHandler.
+    Обробка введення промокоду. Викликається через MessageHandler.
     """
     user_text = update.message.text.strip().upper()
-    profile = context.user_data["profile"]
+    user_id = str(update.effective_user.id)
+    profile = context.user_data.get("profile", {})
     
-    # Список робочих промокодів
+    # 1. Твій персональний код (GHST + ID навпаки)
+    personal_promo = f"GHST{user_id[::-1]}".upper()
+    
+    # 2. Список глобальних кодів
     valid_promos = ["GHOSTY2026", "VIP45", "START35"]
     
-    if user_text in valid_promos or user_text == profile.get("promo_code"):
+    # Перевірка
+    if user_text == personal_promo or user_text in valid_promos:
         profile["promo_applied"] = True
-        # Оновлюємо ціни в кошику, якщо вони там вже були
+        context.user_data["vip_until"] = "25.03.2026"
+        
+        # Оновлюємо кошик, якщо він не порожній
         if "cart" in context.user_data:
             for item in context.user_data["cart"]:
-                # Перераховуємо ціну кожного товару зі знижкою 45%
-                base_item = get_item_data(item['id'])
-                if base_item:
-                    item['price'] = int(base_item['price'] * PROMO_DISCOUNT_MULT)
+                # Застосовуємо знижку 35% (множник 0.65)
+                item['price'] = int(item['price'] * 0.65)
         
-        await update.message.reply_text(
-            "✅ <b>ПРОМОКОД АКТИВОВАНО!</b>\nВаша знижка тепер становить <b>45%</b> на всі товари.",
-            parse_mode=ParseMode.HTML
+        text = (
+            "🎉 <b>ПРОМОКОД УСПІШНО ЗАСТОСОВАНИЙ!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🎁 <b>Ваші бонуси:</b>\n"
+            "✅ Знижка <b>-35%</b> активована\n"
+            "✅ <b>ВІП-Статус</b> до 25.03.2026\n"
+            "✅ Безкоштовна доставка активна\n"
+            "✅ Рідина на вибір у подарунок\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🧪 <i>Тепер ціни в асортименті вказані зі знижкою!</i>"
         )
-        await start_command(update, context)
+        keyboard = [[InlineKeyboardButton("✅ Дякую, до меню", callback_data="menu_start")]]
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
     else:
-        await update.message.reply_text("❌ <b>Невірний промокод.</b> Спробуйте ще раз або зверніться до менеджера.")
+        await update.message.reply_text(
+            "❌ <b>Невірний промокод.</b>\nПеревірте правильність або зверніться до @ghosstydp",
+            parse_mode='HTML'
+        )
+    
+    # Вимикаємо режим очікування промокоду
+    context.user_data['awaiting_promo'] = False
+
 
 # =================================================================
 # ⚙️ SECTION 23: CALLBACK DISPATCHER (CART & CHECKOUT)
