@@ -26,20 +26,6 @@ from telegram.constants import ParseMode
 from telegram.error import NetworkError
 
 
-# =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (OPTIMIZED)
-# =================================================================
-TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc")
-MANAGER_ID = 7544847872
-MANAGER_USERNAME = "ghosstydpbot"
-CHANNEL_URL = "https://t.me/GhostyStaffDP"
-WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
-
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-
 
 # =================================================================
 # ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
@@ -65,6 +51,7 @@ MIN_ORDER_SUM = 300
 
 # Реквізити (ВИПРАВЛЕНО КОМИ ТА ДУЖКИ)
 PAYMENT_LINK = {
+    PAYMENT_LINK = "https://heylink.me/ghosstyshop" # Твій основний хаб
     "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
     "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
 }
@@ -661,36 +648,45 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_ghosty_message(update, text, reply_markup, WELCOME_PHOTO)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головне меню (Start)"""
-    # Перевірка наявності профілю
-    if "profile" not in context.user_data:
-        await get_or_create_user(update, context)
+    """Головне меню Ghosty Staff."""
+    user = update.effective_user
+    ghst_id = f"GHSTid-{user.id}"
     
-    p = context.user_data["profile"]
-    context.user_data["state"] = None
-    cart_count = len(context.user_data.get('cart', []))
-    
+    # Текст у примарному лабораторному стилі
     welcome_text = (
-        f"👋 <b>Вітаємо в Gho$$ty Staff!</b>\n\n"
-        f"🎟 Ваш промокод: <code>{p['promo_code']}</code>\n"
-        f"💎 Статус: <b>VIP до {VIP_EXPIRY}</b>\n"
-        f"🚚 <b>Доставка 0₴</b> активна!\n\n"
-        f"📍 Локація: <b>{p.get('city') or 'Не обрана'}</b>\n"
-        f"🛒 Кошик: <b>{cart_count} шт.</b>"
+        f"🌫️ <b>GHO$$TY STAFF LAB | УКРАЇНА</b> 🧪\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🧬 <b>HHC SHOP ПОВНІСТЮ ВІДКРИТО!</b>\n"
+        f"🔥 Діє промокод на перше замовлення: <b>-35%</b>\n"
+        f"🎁 + Рідина на вибір до кожного вейпу!\n"
+        f"🚚 <b>ВІП-СТАТУС:</b> Безкоштовна доставка (0 грн) активна до 25.03.2026!\n\n"
+        f"👤 Твій персональний код: <code>{ghst_id}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌫️ Оберіть пункт меню нижче 👇"
     )
     
     keyboard = [
-        [InlineKeyboardButton("🛍 Каталог товарів", callback_data="cat_main")],
-        [InlineKeyboardButton("👤 Мій профіль", callback_data="menu_profile"), 
-         InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart")],
-        [InlineKeyboardButton("📍 Змінити локацію", callback_data="menu_city")],
-        [InlineKeyboardButton("👨‍💻 Менеджер", url=f"https://t.me/{MANAGER_USERNAME}"),
-         InlineKeyboardButton("📢 Канал", url=CHANNEL_URL)],
-        [InlineKeyboardButton("📜 Угода користувача", callback_data="menu_terms")]
+        [InlineKeyboardButton("🛍 АСОРТИМЕНТ ТОВАРІВ", callback_data="cat_all")],
+        [InlineKeyboardButton("👤 ПРОФІЛЬ", callback_data="menu_profile"), 
+         InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],
+        [InlineKeyboardButton("📍 ОБРАТИ ЛОКАЦІЮ", callback_data="choose_city")],
+        [InlineKeyboardButton("📜 УГОДА", callback_data="user_agreement")],
+        [InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", url=f"https://t.me/{MANAGER_USERNAME}"),
+         InlineKeyboardButton("📢 КАНАЛ", url=CHANNEL_URL)]
     ]
     
-    await send_ghosty_message(update, welcome_text, InlineKeyboardMarkup(keyboard), WELCOME_PHOTO)
+    # Для адміна додаємо сіру кнопку та елітну адмінку
+    if user.id == MANAGER_ID:
+        keyboard.append([InlineKeyboardButton("---", callback_data="none")])
+        keyboard.append([InlineKeyboardButton("💰 АДМІН-ПАНЕЛЬ 💎", callback_data="admin_main")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
+    if update.message:
+        await update.message.reply_photo(photo=WELCOME_PHOTO, caption=welcome_text, reply_markup=reply_markup, parse_mode='HTML')
+    else:
+        await update.callback_query.message.edit_caption(caption=welcome_text, reply_markup=reply_markup, parse_mode='HTML')
+
     
 # =================================================================
 # ⚙️ SECTION 9: GLOBAL CALLBACK DISPATCHER (PARTIAL)
@@ -712,6 +708,7 @@ async def main_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "menu_terms":
         await terms_handler(update, context)
     # Інші гілки (Каталог, Кошик, Профіль) будуть у наступних частинах
+
     # =================================================================
 # 📍 SECTION 10: GEOGRAPHY LOGIC (CITIES & DISTRICTS)
 # =================================================================
@@ -804,37 +801,85 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
     await send_ghosty_message(update, msg, InlineKeyboardMarkup(keyboard))
 
 # =================================================================
-# 👤 SECTION 12: USER CABINET (PROFILE)
+# 👤 SECTION 10: USER PROFILE & REFERRAL SYSTEM (GHOSTY STYLE)
 # =================================================================
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Відображає кабінет користувача: ID, Реферали, Статус, Локація.
-    """
-    profile = await get_or_create_user(update, context)
+    """Відображення профілю користувача з фото та даними."""
+    query = update.callback_query
+    user = update.effective_user
+    user_id = user.id
+    ghst_id = f"GHSTid-{user_id}"
     
-    # Генеруємо реферальне посилання
-    bot_username = (await context.bot.get_me()).username
-    ref_link = f"https://t.me/{bot_username}?start={profile['uid']}"
+    # Ініціалізація даних користувача, якщо їх немає
+    if 'delivery' not in context.user_data:
+        context.user_data['delivery'] = None
+    if 'vip_until' not in context.user_data:
+        context.user_data['vip_until'] = VIP_END_DATE
+    if 'balance' not in context.user_data:
+        context.user_data['balance'] = 0
+
+    delivery_status = context.user_data['delivery'] if context.user_data['delivery'] else "❌ Не вказано"
     
-    text = (
-        f"👤 <b>ОСОБИСТИЙ КАБІНЕТ</b>\n\n"
-        f"🆔 Ваш ID: <code>{profile['uid']}</code>\n"
-        f"🏷 Статус: <b>{'VIP (-45%)' if profile['promo_applied'] else 'Покупець (-35%)'}</b>\n"
-        f"📍 Місто: {profile['city'] if profile['city'] else '❌ Не обрано'}\n"
-        f"🗺 Район: {profile['district'] if profile['district'] else '❌ Не обрано'}\n\n"
-        f"👥 Запрошено друзів: <b>{profile['referrals']}</b>\n"
-        f"🎁 Ваше реферальне посилання:\n<code>{ref_link}</code>\n\n"
-        f"<i>Запрошуйте друзів та отримуйте бонуси на баланс!</i>"
+    # Текст профілю
+    profile_text = (
+        f"👤 <b>ПРОФІЛЬ КОРИСТУВАЧА</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌫️ <b>Юзернейм:</b> @{user.username if user.username else 'відсутній'}\n"
+        f"🧬 <b>Ім'я:</b> {user.first_name}\n"
+        f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+        f"🛡️ <b>Персональний код:</b> <code>{ghst_id}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🚚 <b>Дані про доставку:</b>\n<i>{delivery_status}</i>\n\n"
+        f"💎 <b>ВІП-Статус до:</b> {context.user_data['vip_until']}\n"
+        f"ℹ️ <i>+7 днів VIP за кожного запрошеного друга!</i>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>Баланс:</b> {context.user_data['balance']} ₴\n"
+        f"🎟️ <b>Реферальне посилання:</b>\n<code>https://t.me/{context.bot.username}?start={user_id}</code>"
     )
-    
+
     keyboard = [
-        [InlineKeyboardButton("💳 Поповнити баланс", callback_data="profile_topup")],
-        [InlineKeyboardButton("📍 Змінити локацію", callback_data="menu_city")],
+        [InlineKeyboardButton("📦 Дані про доставку", callback_data="edit_delivery")],
+        [InlineKeyboardButton("🤝 Реферальна система", callback_data="ref_system")],
+        [InlineKeyboardButton("🎟 Застосувати промокод", callback_data="use_promo")],
         [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
     ]
+
+    # Спроба отримати фото профілю
+    try:
+        photos = await user.get_profile_photos(limit=1)
+        if photos.total_count > 0:
+            await query.message.reply_photo(
+                photo=photos.photos[0][-1].file_id,
+                caption=profile_text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'
+            )
+            await query.message.delete()
+        else:
+            await query.edit_message_text(profile_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+    except Exception:
+        await query.edit_message_text(profile_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
+async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Інформація про реферальну систему (1.2)."""
+    query = update.callback_query
+    user_id = update.effective_user.id
     
-    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
+    ref_text = (
+        f"🤝 <b>РЕФЕРАЛЬНА ПРОГРАМА LAB</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"За кожного приглашеного друга ти отримуєш:\n"
+        f"✅ <b>+7 днів ВІП-Статусу</b> (Безкоштовна доставка)\n"
+        f"✅ <b>Додатковий промокод на 101 грн</b>\n"
+        f"✅ <b>Рідина на вибір</b> (з 3-х реальних наборів) у подарунок до замовлення!\n\n"
+        f"🔗 <b>Твоє посилання:</b>\n<code>https://t.me/{context.bot.username}?start={user_id}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌫️ Більше друзів — більше бонусів у Ghosty Staff!"
+    )
+    keyboard = [[InlineKeyboardButton("⬅️ Назад до профілю", callback_data="menu_profile")]]
+    await query.edit_message_text(ref_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
 
 # =================================================================
 # ⚙️ SECTION 13: CALLBACK DISPATCHER (CITIES & PROFILE)
@@ -1569,6 +1614,23 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     
     try:
         await query.answer()
+
+            # В Секції 29 всередині блоку try:
+    if data == "menu_profile":
+        await show_profile(update, context)
+    elif data == "ref_system":
+        await show_ref_info(update, context)
+    elif data == "edit_delivery":
+        await query.edit_message_text(
+            "🚚 <b>НАЛАШТУВАННЯ ДОСТАВКИ</b>\n\n"
+            "Будь ласка, введіть ваші дані у форматі:\n"
+            "<i>Прізвище Ім'я, Номер телефону, Місто, Район, Адреса</i>\n\n"
+            "🌫️ Або натисніть кнопку нижче, щоб залишити як є.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="menu_profile")]]),
+            parse_mode='HTML'
+        )
+        context.user_data['awaiting_delivery'] = True # Вмикаємо режим очікування тексту
+        
 
         # 1. Навігація
         if data == "menu_start":
