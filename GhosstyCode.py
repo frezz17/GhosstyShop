@@ -1530,118 +1530,100 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
 # =================================================================
 # 🛡 SECTION 26: ORDER CONFIRMATION (ADMIN NOTIFICATION)
 # =================================================================
-
-async def confirm_payment_request(update: Update, context: ContextTypes.DEFAULT_TYPE, pay_id: str):
+async def confirm_payment_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Відправка замовлення менеджеру для ручної перевірки.
+    Викликається, коли юзер вибрав банк. Надсилає звіт адміну і готує юзера до відправки фото.
     """
-    profile = context.user_data["profile"]
-    cart = context.user_data["cart"]
+    profile = context.user_data.get("profile", {})
+    cart = context.user_data.get("cart", [])
     order_data = context.user_data.get("current_order", {})
+    pay_id = order_data.get("order_id", "???")
     
-    # Формування звіту для адміна
-    items_summary = "\n".join([f"- {i['name']} ({i['price']}₴) {'+ 🎁' if i.get('gift') else ''}" for i in cart])
+    if not cart: return
+
+    # Формування списку товарів для тебе
+    items_summary = "\n".join([f"• {i['name']} ({int(i['price']*0.65) if profile.get('is_vip') else i['price']}₴)" for i in cart])
     
+    # Визначаємо статус для звіту
+    vip_status = "💎 VIP (-35%)" if profile.get("is_vip") else "👤 Стандарт"
+    bonus_status = "🎁 +ПОДАРУНОК" if profile.get("vip_bonus") else "Немає"
+
     admin_msg = (
-        f"🔔 <b>НОВЕ ЗАМОВЛЕННЯ #{pay_id}</b>\n\n"
-        f"👤 Клієнт: {profile['name']} ({profile['username']})\n"
-        f"🆔 ID: <code>{profile['uid']}</code>\n\n"
-        f"📍 Локація: {profile['city']}, {profile['district']}\n"
-        f"🏠 Адреса: {profile.get('address_details', 'Клад')}\n\n"
-        f"🛒 Товари:\n{items_summary}\n\n"
-        f"💰 <b>СУМА: {order_data['amount']}₴</b>\n"
-        f"💳 Спосіб: Оплата перевіряється..."
+        f"🔔 <b>НОВЕ ЗАМОВЛЕННЯ #{pay_id}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 Клієнт: {update.effective_user.mention_html()}\n"
+        f"🆔 ID: <code>{update.effective_user.id}</code>\n"
+        f"📍 Локація: {profile.get('city')}, {profile.get('district')}\n"
+        f"🚚 Тип: {'🏠 Кур\'єр' if profile.get('district') == 'Кур\'єр (Адресна)' else '📍 Клад'}\n"
+        f"💎 Статус: {vip_status}\n"
+        f"🎁 Бонус: {bonus_status}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🛒 Товари:\n{items_summary}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>СУМА ДО СПЛАТИ: {order_data.get('amount', 0):.2f}₴</b>\n"
     )
 
     try:
-        # Відправка менеджеру
+        # Відправка тобі (Менеджеру)
         await context.bot.send_message(
             chat_id=MANAGER_ID,
             text=admin_msg,
-            parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Підтвердити", callback_data=f"adm_approve_{pay_id}_{profile['uid']}"),
-                 InlineKeyboardButton("❌ Відхилити", callback_data=f"adm_decline_{pay_id}_{profile['uid']}")]
-            ])
+            parse_mode='HTML'
         )
         
-        # Повідомлення користувачу
+        # Повідомлення юзеру через нашу стабільну функцію
         user_msg = (
-            f"✅ <b>Заявка на замовлення #{pay_id} прийнята!</b>\n\n"
-            "Менеджер перевірить оплату протягом 15-30 хвилин. "
-            "Ви отримаєте сповіщення про зміну статусу.\n\n"
-            "Дякуємо, що ви з Ghosty Staff! 🔥"
+            f"⏳ <b>ЗАМОВЛЕННЯ #{pay_id} ОФОРМЛЕНО!</b>\n\n"
+            "Надішліть, будь ласка, <b>скріншот квитанції</b> сюди в чат.\n"
+            "Менеджер перевірить оплату і надішле координати або ТТН. 👇"
         )
+        await _edit_or_reply(update, user_msg, [[InlineKeyboardButton("🏠 В МЕНЮ", callback_data="menu_start")]])
         
-        # Очищуємо кошик після успішного запиту
-        context.user_data["cart"] = []
-        
-        await send_ghosty_message(update, user_msg, InlineKeyboardMarkup([[InlineKeyboardButton("🏠 В меню", callback_data="menu_start")]]))
+        # Вмикаємо режим очікування фото
+        context.user_data["awaiting_receipt"] = True
 
     except Exception as e:
-        logger.error(f"Failed to send admin notification: {e}")
-        await update.callback_query.answer("⚠️ Помилка зв'язку з сервером. Спробуйте пізніше.", show_alert=True)
-
+        logging.error(f"Admin notify error: {e}")
+        
 # =================================================================
-# ⚙️ SECTION 27: CALLBACK DISPATCHER (PAYMENT & ADMIN)
+# SECTION 27: CALLBACK DISPATCHER
 # =================================================================
-
-async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str):
-    """
-    Покращена обробка платіжних та адмінських дій.
-    """
+async def process_payment_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    data = query.data
     user_id = update.effective_user.id
 
-    try:
-        # 1. ВИБІР МЕТОДУ ОПЛАТИ
-        if data == "pay_card":
-            await payment_selection_handler(update, context, "card")
-        
-        elif data == "pay_crypto":
-            # Якщо крипта не налаштована, ведемо на карту або до менеджера
-            await query.message.reply_text("💎 Крипто-платежі тимчасово через менеджера.")
-            await payment_selection_handler(update, context, "card")
+    # 1. Вибір банків (Викликають фінальний чекаут)
+    if data in ["pay_mono", "pay_privat"]:
+        # Тут ми просто запускаємо процес підтвердження
+        await confirm_payment_request(update, context)
 
-        # 2. ПІДТВЕРДЖЕННЯ ОПЛАТИ КОРИСТУВАЧЕМ
-        elif data.startswith("confirm_pay_"):
-            order_id = data.replace("confirm_pay_", "")
-            context.user_data["last_order_id"] = order_id
-            context.user_data["state"] = "WAIT_RECEIPT" # ВАЖЛИВО: вмикаємо очікування фото
-            
-            await query.message.reply_text(
-                "📸 <b>ЧУДОВО! ТЕПЕР НАДІШЛІТЬ СКРІНШОТ ОПЛАТИ</b>\n\n"
-                "Будь ласка, надішліть фото квитанції прямо сюди в чат.\n"
-                "Після цього менеджер підтвердить замовлення.",
-                parse_mode='HTML'
-            )
-
-        # 3. АДМІН-ПАНЕЛЬ (ДІЇ МЕНЕДЖЕРА)
-        elif data.startswith("admin_app_"): # Підтвердження менеджером
-            if user_id == MANAGER_ID:
-                order_id = data.replace("admin_app_", "")
-                
-                # Оновлюємо статус в БД
-                conn = sqlite3.connect('ghosty_v3.db')
-                cur = conn.cursor()
-                cur.execute("UPDATE orders SET status = '✅ Оплачено / Готується' WHERE order_id = ?", (order_id,))
-                
-                # Отримуємо ID клієнта, щоб відправити йому радісну звістку
-                cur.execute("SELECT user_id FROM orders WHERE order_id = ?", (order_id,))
-                customer_id = cur.fetchone()[0]
-                conn.commit()
-                conn.close()
-
+    # 2. Дії адміна (Підтвердження з кнопок під фото)
+    elif data.startswith("admin_approve_"):
+        if user_id == MANAGER_ID:
+            target_uid = int(data.split("_")[2])
+            try:
                 # Повідомляємо клієнта
-                try:
-                    await context.bot.send_message(customer_id, f"🎉 <b>ТВОЯ ОПЛАТА ПІДТВЕРДЖЕНА!</b>\nЗамовлення #{order_id} вже збирається менеджерoм.", parse_mode='HTML')
-                except: pass
+                await context.bot.send_message(
+                    chat_id=target_uid, 
+                    text="🎉 <b>ВАША ОПЛАТА ПІДТВЕРДЖЕНА!</b>\nМенеджер готує видачу. Очікуйте повідомлення. 🌫️", 
+                    parse_mode='HTML'
+                )
+                # Редагуємо повідомлення в тебе в каналі/лічці
+                await query.edit_message_caption(
+                    caption=f"{query.message.caption}\n\n✅ <b>ПІДТВЕРДЖЕНО</b>", 
+                    parse_mode='HTML'
+                )
+                await query.answer("Клієнта сповіщено!")
+            except Exception as e:
+                await query.answer(f"Помилка сповіщення: {e}")
 
-                await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ <b>ПІДТВЕРДЖЕНО</b>", parse_mode='HTML')
+    elif data.startswith("admin_decline_"):
+        if user_id == MANAGER_ID:
+            target_uid = int(data.split("_")[2])
+            await context.bot.send_message(target_uid, "❌ <b>ОПЛАТА НЕ ПІДТВЕРДЖЕНА.</b>\nЗв'яжіться з менеджером @ghosstydp для уточнення.")
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ <b>ВІДХИЛЕНО</b>")
 
-    except Exception as e:
-        logger.error(f"🔴 Error in payment callbacks: {e}")
-        await query.message.reply_text("⚠️ Сталася помилка. Зверніться до @ghosstydpbot")
 
 # =================================================================
 # 🛒 SECTION 27.1: INTERFACE FUNCTIONS (MISSING LOGIC)
