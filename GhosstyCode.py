@@ -416,60 +416,6 @@ PODS = {
     }
 }
 
-# =================================================================
-# 🛒 SECTION 8: PRODUCT DISPLAY ENGINE
-# =================================================================
-
-async def show_pods(query, context: ContextTypes.DEFAULT_TYPE):
-    """Генерація списку всіх POD-систем зі словника."""
-    buttons = []
-    # Ми беремо кожен товар з твого списку PODS
-    for pid, item in PODS.items():
-        buttons.append([InlineKeyboardButton(f"{item['name']} — {item['price']}₴", callback_data=f"item_{pid}")])
-    
-    buttons.append([InlineKeyboardButton("⬅ Назад до категорій", callback_data="cat_all")])
-    
-    await query.edit_message_text(
-        "🔌 <b>Оберіть модель POD-системи:</b>", 
-        reply_markup=InlineKeyboardMarkup(buttons), 
-        parse_mode='HTML'
-    )
-
-async def show_item_card(query, item_id, context):
-    """Картка конкретного товару з вибором кольору."""
-    item = PODS.get(item_id)
-    if not item:
-        await query.answer("❌ Товар не знайдено", show_alert=True)
-        return
-
-    text = (
-        f"<b>{item['name']}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"💰 Ціна: <b>{item['price']}₴</b>\n\n"
-        f"📝 <b>Опис:</b>\n{item['desc']}\n\n"
-        f"🎨 <b>Оберіть доступний колір:</b>"
-    )
-    
-    # Створюємо кнопки кольорів ДИНАМІЧНО з твого списку colors у PODS
-    buttons = []
-    for color in item['colors']:
-        # color_501_Black, color_501_Pink і так далі
-        buttons.append([InlineKeyboardButton(f"✨ {color}", callback_data=f"color_{item_id}_{color}")])
-    
-    buttons.append([InlineKeyboardButton("⬅ Назад до списку", callback_data="cat_list_pods")])
-    
-    # Якщо є фото, надсилаємо його як нове повідомлення
-    if item['imgs'] and len(item['imgs']) > 0:
-        await query.message.reply_photo(
-            photo=item['imgs'][0], # Беремо перше фото з твого списку imgs
-            caption=text, 
-            reply_markup=InlineKeyboardMarkup(buttons), 
-            parse_mode='HTML'
-        )
-        await query.message.delete() # Видаляємо текстове меню, щоб було красиво
-    else:
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode='HTML')
-
 
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
@@ -1568,30 +1514,8 @@ async def process_catalog_callbacks(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.message.reply_text("🛍 Каталог у розробці...")
     
-
-# =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FIXED)
-# =================================================================
-
-async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    data = query.data
-    await query.answer()
-
-    try:
-        if data == "menu_start":
-            await start_command(update, context)
-        
-        # Виклик головного меню каталогу
-        elif data == "cat_all" or data == "assortment":
-            await catalog_main_menu(update, context)
-            
-        # Виклик списку ПОД-систем
-        elif data == "cat_list_pods":
-            await show_pods(query, context)
-            
-        # Перегляд конкретного товару за його ID (item_501, item_502 і т.д.)
-        async def show_item_details(query, context, item_id):
+# ЦЕ МАЄ БУТИ ОКРЕМОЮ ФУНКЦІЄЮ (наприклад, у Секції 8)
+async def show_item_details(query, context, item_id):
     item = PODS.get(item_id)
     if not item:
         await query.message.reply_text("❌ Товар не знайдено.")
@@ -1601,26 +1525,97 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         f"<b>{item['name']}</b>\n\n"
         f"💰 Ціна: <b>{item['price']} ₴</b>\n\n"
         f"📝 Опис:\n{item['desc']}\n\n"
-        f"🎨 Кольори: {', '.join(item['colors'])}"
+        f"🎨 Оберіть колір нижче 👇"
     )
     
-    keyboard = [
-        [InlineKeyboardButton("🛒 Купити / Оплатити", url=item['payment_url'])],
-        [InlineKeyboardButton("⬅ Назад до списку", callback_data="cat_list_pods")]
-    ]
+    buttons = []
+    for color in item['colors']:
+        buttons.append([InlineKeyboardButton(f"🎨 {color}", callback_data=f"color_{item_id}_{color}")])
+    buttons.append([InlineKeyboardButton("⬅ Назад до списку", callback_data="cat_list_pods")])
     
-    # Якщо є картинка, надсилаємо фото, якщо ні - просто текст
     if item['imgs']:
-        await query.message.reply_photo(
-            photo=item['imgs'][0],
-            caption=text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='HTML'
-        )
-        await query.message.delete() # Видаляємо старе меню
+        await query.message.reply_photo(photo=item['imgs'][0], caption=text, 
+                                     reply_markup=InlineKeyboardMarkup(buttons), parse_mode='HTML')
+        await query.message.delete()
+    else:
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode='HTML')
+
+async def select_location(query, item_id, color, context):
+    text = (
+        f"✅ Ви обрали: <b>{PODS[item_id]['name']}</b>\n"
+        f"🎨 Колір: <b>{color}</b>\n\n"
+        f"📍 <b>Оберіть ваш район у м. Дніпро:</b>"
+    )
+    keyboard = [
+        [InlineKeyboardButton("🏙 Центр", callback_data="loc_center")],
+        [InlineKeyboardButton("🌉 Лівий берег", callback_data="loc_left")],
+        [InlineKeyboardButton("🏗 Перемога / Сокіл", callback_data="loc_pobeda")],
+        [InlineKeyboardButton("⬅ Назад", callback_data=f"item_{item_id}")]
+    ]
+    if query.message.photo:
+        await query.edit_message_caption(caption=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
     else:
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+    
 
+    
+# =================================================================
+# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (USA-PRO LEVEL)
+# =================================================================
+async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data
+    user_id = update.effective_user.id
+    
+    try:
+        await query.answer()
+
+        # 1. Навігація
+        if data == "menu_start":
+            await start_command(update, context)
+        elif data == "cat_all" or data == "assortment":
+            await catalog_main_menu(update, context)
+        elif data == "cat_list_pods":
+            await show_pods(query, context)
+            
+        # 2. Вибір товару та кольору
+        elif data.startswith("item_"):
+            item_id = int(data.split("_")[1])
+            await show_item_details(query, context, item_id)
+            
+        elif data.startswith("color_"):
+            parts = data.split("_")
+            item_id, color = int(parts[1]), parts[2]
+            context.user_data['order_draft'] = {'item_id': item_id, 'color': color}
+            await select_location(query, item_id, color, context)
+
+        # 3. Обробка локацій (Дніпро)
+        elif data.startswith("loc_"):
+            district = data.replace("loc_", "")
+            draft = context.user_data.get('order_draft', {})
+            item = PODS.get(draft.get('item_id'))
+            
+            if not item:
+                await query.edit_message_text("❌ Помилка замовлення. Спробуйте знову.")
+                return
+
+            text = (
+                f"📦 <b>ЗАМОВЛЕННЯ СФОРМОВАНО</b>\n\n"
+                f"Товар: <b>{item['name']}</b>\n"
+                f"Колір: <b>{draft['color']}</b>\n"
+                f"Район: <b>{district}</b>\n"
+                f"Сума до сплати: <b>{item['price']} ₴</b>\n\n"
+                f"🚀 Оберіть спосіб швидкого замовлення:"
+            )
+            keyboard = [
+                [InlineKeyboardButton("💳 Швидка оплата (Менеджер)", url=PAYMENT_LINK)],
+                [InlineKeyboardButton("🏠 В головне меню", callback_data="menu_start")]
+            ]
+            # Використовуємо caption, якщо було фото, або текст, якщо ні
+            if query.message.photo:
+                await query.edit_message_caption(caption=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            else:
+                await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
     except Exception as e:
         logging.error(f"Callback error: {e}")
