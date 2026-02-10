@@ -1,19 +1,27 @@
+# Використовуємо легкий Python
 FROM python:3.11-slim
 
-# Встановлюємо необхідні системні бібліотеки для SQLite
-RUN apt-get update && apt-get install -y sqlite3 && rm -rf /var/lib/apt/lists/*
+# 1. Вимикаємо буферизацію Python (щоб логи з'являлися миттєво і хостинг бачив, що бот живий)
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
+# 2. Встановлюємо системні залежності
+RUN apt-get update && apt-get install -y \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. Робоча папка
 WORKDIR /app
 
-# Спочатку копіюємо залежності, щоб Docker їх закешував
+# 4. Створюємо папку для даних і даємо права (щоб не було помилок доступу)
+RUN mkdir -p /app/data && chmod 777 /app/data
+
+# 5. Копіюємо залежності та встановлюємо їх
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копіюємо весь код
+# 6. Копіюємо весь код (переконайся, що твій скрипт тепер називається main.py!)
 COPY . .
 
-# Створюємо папку для бази даних (це критично для збереження замовлень)
-RUN mkdir -p /app/data
-
-# Запуск файлу GhosstyCode.py
+# 7. Запуск (використовуємо main.py)
 CMD ["python", "GhosstyCode.py"]
