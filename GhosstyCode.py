@@ -256,7 +256,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/Kxmrpm1C/Fall-Tea.jpg", # Замінив на прямі лінки для стабільності
-        "desc": "☕ <b>Осінній Чай</b>\nСпокійний, теплий аромат чаю з нотками лимону.\n⚖️ Ідеальний баланс."
+        "desc": "☕ <b>Осінній Чай</b>\nСпокійний, теплий аромат чаю з нотками лимону.\n⚖️ Ідеальний баланс.",
        "payment_url": PAYMENT_LINK
     },
     
@@ -267,7 +267,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/bMMVHXG6/Mystery-One.jpg",
-        "desc": "🔮 <b>Ghost Edition</b>\nТаємничий фруктовий мікс. Секретний рецепт."
+        "desc": "🔮 <b>Ghost Edition</b>\nТаємничий фруктовий мікс. Секретний рецепт.",
         "payment_url": PAYMENT_LINK
     },
     
@@ -278,7 +278,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/sd9ZSfyH/Strawberry-Jelly.jpg",
-        "desc": "🍮 <b>Полуничне Желе</b>\nНіжний десертний смак, солодкий та легкий."
+        "desc": "🍮 <b>Полуничне Желе</b>\nНіжний десертний смак, солодкий та легкий.",
         "payment_url": PAYMENT_LINK
     },
     
@@ -291,7 +291,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/nMJ2VdQK/Grape-Black-Berry.jpg",
-        "desc": "🍇 <b>Виноград-Ожина</b>\nВибух темних ягід. Кисло-солодкий баланс."
+        "desc": "🍇 <b>Виноград-Ожина</b>\nВибух темних ягід. Кисло-солодкий баланс.",
         "payment_url": PAYMENT_LINK
     },
     
@@ -302,7 +302,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/zdpDg2K/Cola-Pomelo.jpg",
-        "desc": "🍊 <b>Кола-Помело</b>\nНезвичне поєднання класичної коли та цитрусової гірчинки."
+        "desc": "🍊 <b>Кола-Помело</b>\nНезвичне поєднання класичної коли та цитрусової гірчинки.",
         "payment_url": PAYMENT_LINK
     },
     
@@ -313,7 +313,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/0pLKnvx2/Black-Currant-Rose.jpg",
-        "desc": "🥀 <b>Смородина-Троянда</b>\nВишуканий квітково-ягідний аромат для гурманів."
+        "desc": "🥀 <b>Смородина-Троянда</b>\nВишуканий квітково-ягідний аромат для гурманів.",
         "payment_url": PAYMENT_LINK
     },
     
@@ -326,7 +326,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/21xt8N1p/Berry-Lemonade.jpg",
-        "desc": "🍹 <b>Ягідний Лимонад</b>\nОсвіжаючий літній мікс з льодом."
+        "desc": "🍹 <b>Ягідний Лимонад</b>\nОсвіжаючий літній мікс з льодом.",
          "payment_url": PAYMENT_LINK
     },
     
@@ -337,7 +337,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/TBwR7NTP/Energetic.jpg",
-        "desc": "🔋 <b>Енергетик</b>\nСмак твого улюбленого напою. Бадьорить!"
+        "desc": "🔋 <b>Енергетик</b>\nСмак твого улюбленого напою. Бадьорить!",
       "payment_url": PAYMENT_LINK
     },
     
@@ -348,7 +348,7 @@ LIQUIDS = {
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/tTLrsGGT/Vitamin.jpg",
-        "desc": "🍏 <b>Вітамін</b>\nМікс фруктів, що заряджає позитивом."
+        "desc": "🍏 <b>Вітамін</b>\nМікс фруктів, що заряджає позитивом.",
         "payment_url": PAYMENT_LINK
     },
     
@@ -363,7 +363,7 @@ HHC_VAPES = {
         "discount": True,
         "gift_liquid": True, # Активує вибір подарунку
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + легка ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
+        "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + легка ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
         "payment_url": PAYMENT_LINK
     },
     
@@ -374,7 +374,7 @@ HHC_VAPES = {
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "🧠 <b>90% HHC | Сатіва</b>\n⚡ Бадьорить та фокусує\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
+        "desc": "🧠 <b>90% HHC | Сатіва</b>\n⚡ Бадьорить та фокусує\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
          "payment_url": PAYMENT_LINK
     },
     
@@ -385,7 +385,7 @@ HHC_VAPES = {
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "🧠 <b>90% HHC | Індіка</b>\n😇 Спокій + підйом настрою\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
+        "desc": "🧠 <b>90% HHC | Індіка</b>\n😇 Спокій + підйом настрою\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
         "payment_url": PAYMENT_LINK
     },
     
@@ -396,7 +396,7 @@ HHC_VAPES = {
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "🧠 <b>95% HHC | Сатіва</b>\n⚡ Енергія та ясність (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
+        "desc": "🧠 <b>95% HHC | Сатіва</b>\n⚡ Енергія та ясність (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
        "payment_url": PAYMENT_LINK
     },
     
@@ -407,7 +407,7 @@ HHC_VAPES = {
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
-        "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
+        "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
          "payment_url": PAYMENT_LINK
     },
     
@@ -653,34 +653,24 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
 # =================================================================
 
 async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
-    """
-    Картка товару PRO 2.0:
-    - Підтримка вибору кольору (Pods)
-    - Підтримка вибору міцності (Liquids)
-    - Підтримка подарунків (HHC)
-    - Промокоди в описі
-    """
+    """Картка товару PRO 2.0 з вибором кольорів."""
     item = get_item_data(item_id)
-    if not item:
-        await update.callback_query.answer("❌ Товар не знайдено")
-        return
+    if not item: return
 
-    # Розрахунок ціни
+    # Ціна
     profile = context.user_data.get("profile", {})
     final_price, has_discount = calculate_final_price(item['price'], profile)
-
-    # Форматування ціни
     price_html = f"<b>{int(item['price'])} ₴</b>"
     if has_discount:
         price_html = f"<s>{int(item['price'])}</s> ➡️ <b>{final_price} ₴</b> 🔥"
 
-    # Текст промокодів
+    # Опис + Промо
     promo_block = (
         "\n🎫 <b>Твої промокоди:</b>\n"
         "▫️ <code>GHST2026</code> (-101 грн + VIP + Рідина)\n"
         "▫️ <code>START35</code> (-35% на перше замовлення)"
     )
-
+    
     caption = (
         f"<b>{item['name']}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -692,47 +682,39 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     keyboard = []
 
-    # --- ЛОГІКА КНОПОК ---
-
-    # 1. Якщо це POD -> Вибір кольору
+    # 1. Якщо POD -> Кольори
     if "colors" in item:
-        caption += "\n\n🎨 <b>Оберіть колір девайсу:</b>"
-        # Розбиваємо кольори по 2 в ряд
+        caption += "\n\n🎨 <b>Оберіть колір:</b>"
         colors = item["colors"]
         for i in range(0, len(colors), 2):
             row = []
             col1 = colors[i]
-            # data: add_ID_COLOR
             row.append(InlineKeyboardButton(col1, callback_data=f"add_{item_id}_{col1}"))
             if i + 1 < len(colors):
                 col2 = colors[i+1]
                 row.append(InlineKeyboardButton(col2, callback_data=f"add_{item_id}_{col2}"))
             keyboard.append(row)
 
-    # 2. Якщо це Рідина -> Вибір міцності
+    # 2. Якщо Рідина -> Міцність
     elif "strengths" in item:
-        caption += "\n\n🧪 <b>Оберіть міцність нікотину:</b>"
+        caption += "\n\n🧪 <b>Оберіть міцність:</b>"
         row = []
         for s in item['strengths']:
             row.append(InlineKeyboardButton(f"{s}mg", callback_data=f"add_{item_id}_{s}"))
         keyboard.append(row)
 
-    # 3. Якщо це HHC -> Кнопка з подарунком
+    # 3. Якщо HHC -> Подарунок
     elif item.get("gift_liquid"):
         caption += "\n🎁 <b>+ РІДИНА У ПОДАРУНОК!</b>"
         keyboard.append([InlineKeyboardButton("🎁 Обрати бонус і купити", callback_data=f"add_{item_id}")])
 
-    # 4. Звичайний товар (без опцій)
     else:
         keyboard.append([InlineKeyboardButton("🛒 Додати у кошик", callback_data=f"add_{item_id}")])
 
-    # Кнопка швидкого зв'язку з менеджером (з назвою товару)
-    manager_text = f"Привіт! Хочу замовити {item['name']}"
-    manager_url = f"https://t.me/{MANAGER_USERNAME}?text={manager_text.replace(' ', '%20')}"
-    
-    keyboard.append([InlineKeyboardButton("👨‍💻 Замовити через менеджера", url=manager_url)])
-    keyboard.append([InlineKeyboardButton("⚡ Купити в 1 клік", url=mgr_url)])
-    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="cat_all")])
+    # Кнопка менеджера
+    mgr_url = f"https://t.me/{MANAGER_USERNAME}?text=Привіт!%20Хочу%20замовити%20{item['name'].replace(' ', '%20')}"
+    keyboard.append([InlineKeyboardButton("👨‍💻 Замовити через менеджера", url=mgr_url)])
+    keyboard.append([InlineKeyboardButton("🔙 До списку", callback_data="cat_all")])
 
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
     
@@ -1347,100 +1329,36 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 # =================================================================
 
 async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Розумний додавар.
-    Обробляє: add_ID_VARIANT (де VARIANT це колір або міцність).
-    """
+    """Обробляє додавання: add_ID_VARIANT (Колір або Міцність)."""
     query = update.callback_query
-    
     try:
         parts = query.data.split("_")
         item_id = int(parts[1])
-        # Збираємо варіант (може містити пробіли, наприклад "Black Phantom")
+        # Варіант (колір/міцність) - це все, що після ID
         variant = "_".join(parts[2:]) if len(parts) > 2 else None
-    except:
-        await query.answer("⚠️ Помилка даних товару")
-        return
+    except: return
 
     item = get_item_data(item_id)
-    if not item: 
-        await query.answer("❌ Товар не знайдено")
-        return
+    if not item: return
 
-    # 1. ПЕРЕХОПЛЕННЯ: HHC ТОВАРИ (ПОТРІБЕН ПОДАРУНОК)
+    # HHC: Обираємо подарунок
     if item.get("gift_liquid", False):
         context.user_data['pending_item_id'] = item_id
-        text = (
-            f"🎁 <b>ОБЕРІТЬ ВАШ ПОДАРУНОК!</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"До <b>{item['name']}</b> йде безкоштовна рідина.\n"
-            f"👇 Оберіть смак зі списку:"
-        )
-        kb = []
-        # Кнопки подарунків по 1 в ряд для зручності
-        for gid, ginfo in GIFT_LIQUIDS.items():
-            kb.append([InlineKeyboardButton(ginfo['name'], callback_data=f"gift_sel_{gid}")])
-        
+        text = f"🎁 <b>ОБЕРІТЬ ВАШ ПОДАРУНОК!</b>\nДо <b>{item['name']}</b> йде безкоштовна рідина:"
+        kb = [[InlineKeyboardButton(g['name'], callback_data=f"gift_sel_{gid}")] for gid, g in GIFT_LIQUIDS.items()]
         kb.append([InlineKeyboardButton("❌ Скасувати", callback_data=f"view_item_{item_id}")])
         await _edit_or_reply(query, text, kb)
         return
 
-    # 2. ФОРМУВАННЯ НАЗВИ (З ВАРІАНТОМ)
+    # Формування назви з кольором
     final_name = item['name']
-    
     if variant:
-        # Якщо варіант - це число (міцність)
-        if variant.isdigit():
-            final_name += f" ({variant}mg)"
-        # Якщо варіант - це текст (колір)
-        else:
-            # Відновлюємо пробіли замість підкреслень, якщо були
-            variant_clean = variant.replace("_", " ") 
-            final_name += f" ({variant_clean})"
+        # Якщо цифра -> міцність, якщо текст -> колір
+        suffix = f"{variant}mg" if variant.isdigit() else variant.replace("_", " ")
+        final_name += f" ({suffix})"
 
-    # 3. ФІНАЛІЗАЦІЯ
     await _finalize_add_to_cart(update, context, item, gift=None, name=final_name)
-
-async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка вибору подарунка (gift_sel_ID)."""
-    query = update.callback_query
-    gift_id = int(query.data.split("_")[2])
     
-    # Дістаємо "завислий" товар з пам'яті
-    main_id = context.user_data.get('pending_item_id')
-    if not main_id: return
-    
-    main_item = get_item_data(main_id)
-    gift_item = GIFT_LIQUIDS.get(gift_id)
-    gift_name = gift_item['name'] if gift_item else "Сюрприз"
-    
-    # Додаємо HHC + Подарунок
-    await _finalize_add_to_cart(update, context, main_item, gift=gift_name)
-    
-    # Чистимо буфер
-    context.user_data.pop('pending_item_id', None)
-
-async def _finalize_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE, item, gift=None, name=None):
-    """Фізичний запис у базу кошика."""
-    cart = context.user_data.setdefault("cart", [])
-    profile = context.user_data.setdefault("profile", {})
-    
-    # Рахуємо персональну ціну
-    price, _ = calculate_final_price(item['price'], profile)
-    
-    # Створюємо унікальний запис
-    cart.append({
-        "id": random.randint(100000, 999999), # ID для видалення саме цього екземпляру
-        "name": name if name else item['name'],
-        "price": price,
-        "gift": gift
-    })
-    
-    msg = f"✅ <b>{name or item['name']}</b> додано!\n💰 Ваша ціна: {price} грн"
-    if gift: msg += f"\n🎁 Бонус: {gift}"
-    
-    kb = [[InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart"), InlineKeyboardButton("🔙 Каталог", callback_data="cat_all")]]
-    await send_ghosty_message(update, msg, kb)
 
 # =================================================================
 # 🛒 SECTION 18: CART LOGIC (VISUALIZATION)
@@ -1947,12 +1865,12 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Єдиний центр обробки кнопок."""
+    """Головний маршрутизатор."""
     query = update.callback_query
     data = query.data
     
     try:
-        await query.answer() # Щоб кнопка не крутилася вічно
+        await query.answer()
         
         # --- 1. МЕНЮ ---
         if data == "menu_start": await start_command(update, context)
@@ -1963,17 +1881,14 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         elif data == "ref_system": await show_ref_info(update, context)
 
         # --- 2. ГЕОГРАФІЯ ---
-        elif data == "choose_city" or data == "menu_city": 
-            await choose_city_menu(update, context)
+        elif data == "choose_city" or data == "menu_city": await choose_city_menu(update, context)
         elif data.startswith("sel_city_"):
             city = data.replace("sel_city_", "")
             context.user_data.setdefault("profile", {})["city"] = city
             if city == "Дніпро": await choose_dnipro_delivery(update, context)
             else: await choose_district_menu(update, context, city)
-        elif data == "set_del_type_klad": 
-            await choose_district_menu(update, context, "Дніпро")
-        elif data == "set_del_type_courier": 
-            await save_location_handler(update, context, is_courier=True)
+        elif data == "set_del_type_klad": await choose_district_menu(update, context, "Дніпро")
+        elif data == "set_del_type_courier": await save_location_handler(update, context, is_courier=True)
         elif data.startswith("sel_dist_"):
             dist = data.replace("sel_dist_", "")
             await save_location_handler(update, context, dist_name=dist)
@@ -2001,8 +1916,8 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         # --- 6. АДМІНКА ---
         elif data.startswith("admin_approve_"):
             uid = int(data.split("_")[2])
-            await context.bot.send_message(uid, "✅ <b>Оплата підтверджена!</b>\nДякуємо за покупку!")
-            await query.edit_message_caption(caption=query.message.caption + "\n\n✅ [ОК]")
+            await context.bot.send_message(uid, "✅ <b>Оплата підтверджена!</b>\nДякуємо!")
+            await query.edit_message_caption(caption=query.message.caption + "\n✅ [ОК]")
         elif data == "admin_broadcast": await start_broadcast(update, context)
 
     except Exception as e:
