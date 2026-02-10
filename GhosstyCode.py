@@ -1,6 +1,7 @@
 # =================================================================
 # 🤖 PROJECT: GHOSTY STAFF PREMIUM E-COMMERCE ENGINE (FINAL)
-# 🛠 VERSION: 5.0.0 (BOTHOST READY)
+# 🛠 VERSION: 5.1.0 (GIFT SYSTEM READY)
+# 🛡 DEVELOPER: Gho$$tyyy & Gemini AI
 # =================================================================
 
 import os
@@ -11,7 +12,7 @@ import asyncio
 import random
 import traceback
 from datetime import datetime
-from html import escape  # <--- КРИТИЧНО ВАЖЛИВО
+from html import escape 
 
 # Telegram Core
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
@@ -34,25 +35,26 @@ DB_PATH = os.path.join(DATA_DIR, 'ghosty_v3.db')
 PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state.pickle')
 LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
 
-# Створюємо папку data одразу
+# Створюємо папку data одразу, щоб уникнути помилок
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # 2. Налаштування Бота
 TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
-MANAGER_USERNAME = "ghosstydpbot"
+MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# 3. Економіка
+# 3. Економіка та Посилання
 VIP_EXPIRY = "25.03.2026"
 VIP_DISCOUNT = 0.65  # -35%
+PROMO_BONUS = 101    # Знижка за промокод
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3"
 }
 
-# 4. Логування (В абсолютний файл)
+# 4. Логування (В абсолютний файл + Консоль)
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -64,30 +66,51 @@ logging.basicConfig(
 logger = logging.getLogger("GhostyCore")
 
 # =================================================================
-# 🛠 SECTION 2: ERROR HANDLING & LOGGING
+# 🛠 SECTION 2: ERROR HANDLING
 # =================================================================
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Логування помилок та сповіщення адміна."""
-    # Логуємо помилку в файл
+    """Логування критичних помилок."""
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
-    
-    # Формуємо повідомлення про помилку для адміна
     try:
-        error_msg = (
-            f"🆘 <b>CRITICAL ERROR:</b>\n\n"
-            f"❌ <b>Тип:</b> <code>{type(context.error).__name__}</code>\n"
-            f"📝 <b>Опис:</b> <code>{escape(str(context.error))}</code>"
-        )
+        # Сповіщення адміну про збій
+        tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+        tb_string = "".join(tb_list)[-4000:] # Обрізаємо, щоб влізло
         
-        # Відправляємо сповіщення адміну
-        await context.bot.send_message(chat_id=MANAGER_ID, text=error_msg)
+        message = (
+            f"🆘 <b>CRITICAL ERROR</b>\n"
+            f"<pre>{escape(tb_string)}</pre>"
+        )
+        await context.bot.send_message(chat_id=MANAGER_ID, text=message, parse_mode=ParseMode.HTML)
     except Exception as e:
-        logger.error(f"Could not send error message to admin: {e}")
+        logger.error(f"Could not send error log to admin: {e}")
 
 # =================================================================
+# 🛍 SECTION 3: PRODUCT CATALOGS & GIFTS
 # =================================================================
-# 📍 SECTION 7: GEOGRAPHY ENGINE (EXPANDED LIST)
+
+# --- 🎁 ПОДАРУНКОВІ РІДИНИ (30мл) ---
+# Використовуються як бонус до HHC або Сетів
+GIFT_LIQUIDS = {
+    9001: {"name": "🎁 Pumpkin Latte 30ml", "price": 0, "type": "gift", "desc": "Теплий осінній смак пряного гарбуза."},
+    9002: {"name": "🎁 Glintwine 30ml", "price": 0, "type": "gift", "desc": "Насичений виноград та зимові спеції."},
+    9003: {"name": "🎁 Christmas Tree 30ml", "price": 0, "type": "gift", "desc": "Унікальний аромат морозної хвої."},
+    9004: {"name": "🎁 Strawberry Jelly 30ml", "price": 0, "type": "gift", "desc": "Солодкий десертний аромат полуниці."},
+    9005: {"name": "🎁 Mystery One 30ml", "price": 0, "type": "gift", "desc": "Секретний мікс від Ghosty Staff."},
+    9006: {"name": "🎁 Fall Tea 30ml", "price": 0, "type": "gift", "desc": "Чайний аромат з нотками лимону."},
+    9007: {"name": "🎁 Banana Ice 30ml", "price": 0, "type": "gift", "desc": "Стиглий банан з крижаною свіжістю."},
+    9008: {"name": "🎁 Wild Berries 30ml", "price": 0, "type": "gift", "desc": "Класичний мікс лісових ягід."}
+}
+
+# --- ЗАГЛУШКИ ДЛЯ ІНШИХ КАТЕГОРІЙ (ЩОБ КОД НЕ ЛАМАВСЯ) ---
+# (Сюди ти вставиш свої HHC_VAPES, PODS, LIQUIDS, SETS з попередніх версій)
+HHC_VAPES = {} 
+LIQUIDS = {}
+PODS = {}
+SETS = {}
+
+# =================================================================
+# 📍 SECTION 4: GEOGRAPHY ENGINE (CITIES & LOGISTICS)
 # =================================================================
 
 UKRAINE_CITIES = {
@@ -103,8 +126,27 @@ UKRAINE_CITIES = {
     "Черкаси": ["Соснівський", "Придніпровський", "Центральний", "Митниця", "Казбет", "Південно-Західний", "Хімселище", "Дахнівка"]
 }
 
+# --- ДОПОМІЖНА ФУНКЦІЯ (ЩОБ ВСЕ ПРАЦЮВАЛО) ---
+async def _edit_or_reply(update: Update, text: str, reply_markup=None):
+    """Універсальний відправник повідомлень для меню."""
+    try:
+        if isinstance(reply_markup, list):
+            reply_markup = InlineKeyboardMarkup(reply_markup)
+            
+        if update.callback_query:
+            try:
+                await update.callback_query.message.edit_text(text, reply_markup=reply_markup, parse_mode='HTML')
+            except BadRequest:
+                # Якщо текст не змінився - видаляємо старе і шлемо нове (для чистоти)
+                await update.callback_query.message.delete()
+                await update.callback_query.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    except Exception as e:
+        logger.error(f"UI Error: {e}")
+
+# --- МЕНЮ ВИБОРУ МІСТА ---
 async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Меню вибору міста (10 міст)."""
     query = update.callback_query
     profile = context.user_data.get("profile", {})
     current_city = profile.get("city")
@@ -116,7 +158,7 @@ async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = []
     city_list = list(UKRAINE_CITIES.keys())
-    # Виводимо кнопки по 2 в ряд
+    # Генерація кнопок (по 2 в ряд)
     for i in range(0, len(city_list), 2):
         row = [InlineKeyboardButton(city, callback_data=f"sel_city_{city}") for city in city_list[i:i+2]]
         keyboard.append(row)
@@ -124,8 +166,8 @@ async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append([InlineKeyboardButton("⬅️ Назад до профілю", callback_data="menu_profile")])
     await _edit_or_reply(query, text, keyboard)
 
+# --- МЕНЮ ВИБОРУ РАЙОНУ ---
 async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """Меню вибору району для конкретного міста."""
     query = update.callback_query
     profile = context.user_data.get("profile", {})
     current_dist = profile.get("district")
@@ -135,7 +177,7 @@ async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYP
 
     keyboard = []
     districts = UKRAINE_CITIES.get(city, [])
-    # Виводимо райони по 2 в ряд для компактності
+    # Генерація кнопок (по 2 в ряд)
     for i in range(0, len(districts), 2):
         row = []
         for d in districts[i:i+2]:
@@ -146,17 +188,9 @@ async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYP
     keyboard.append([InlineKeyboardButton("🏘 Змінити місто", callback_data="choose_city")])
     await _edit_or_reply(query, text, keyboard)
 
-# =================================================================
-# 🛵 SECTION 7.1: DNIPRO SPECIAL LOGISTICS
-# =================================================================
-
-DNIPRO_SPECIAL_KEYBOARD = [
-    [InlineKeyboardButton("📍 Район (Клад)", callback_data="set_del_type_klad")],
-    [InlineKeyboardButton("🏠 Адресна доставка (+150 грн)", callback_data="set_del_type_courier")]
-]
-
+# --- СПЕЦІАЛЬНА ЛОГІКА ДНІПРА ---
 async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Спеціальне меню для Дніпра."""
+    """Спеціальне меню для Дніпра (Клад або Кур'єр)."""
     query = update.callback_query
     text = (
         "🛵 <b>ДОСТАВКА ПО ДНІПРУ</b>\n"
@@ -165,62 +199,13 @@ async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_T
         "1️⃣ <b>Район (Клад)</b> — стандартний вибір району.\n"
         "2️⃣ <b>Адресна доставка</b> — кур'єр до дверей (+150 грн).\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>При виборі кур'єра оплата проводиться окремо за спец-реквізитами.</i>"
+        "<i>При виборі кур'єра оплата проводиться окремо.</i>"
     )
-    await _edit_or_reply(query, text, DNIPRO_SPECIAL_KEYBOARD)
-
-# =================================================================
-# ⚙️ ОНОВЛЕННЯ ДИС ПЕТЧЕРА (SECTION 29) ДЛЯ ДНІПРА
-# =================================================================
-
-# Додай ці elif-блоки у свій global_callback_handler:
-
-        elif data.startswith("sel_city_"):
-            city = data.replace("sel_city_", "")
-            context.user_data.setdefault("profile", {})["city"] = city
-            # Якщо вибрано Дніпро — показуємо спец-меню
-            if city == "Дніпро":
-                await choose_dnipro_delivery(update, context)
-            else:
-                await choose_district_menu(update, context, city)
-
-        elif data == "set_del_type_klad":
-            await choose_district_menu(update, context, "Дніпро")
-
-        elif data == "set_del_type_courier":
-            profile = context.user_data.get("profile", {})
-            profile["district"] = "Кур'єр (Адресна)"
-            profile["courier_fee"] = 150
-            
-            text = (
-                "💳 <b>ОПЛАТА КУР'ЄРА</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━\n"
-                "💰 Сума: <b>149.99 грн</b>\n"
-                "🏷 Коментар: <code>GHSTdeliv1337</code>\n"
-                "━━━━━━━━━━━━━━━━━━━━\n"
-                "🌫️ <i>Надішліть квитанцію про оплату доставки сюди. "
-                "Після підтвердження менеджер зв'яжеться для уточнення адреси.</i>"
-            )
-            keyboard = [[InlineKeyboardButton("✅ Оплатити доставку", url=PAYMENT_LINK)], 
-                        [InlineKeyboardButton("⬅️ Назад", callback_data="choose_city")]]
-            await _edit_or_reply(query, text, keyboard)
-
-
-# =================================================================
-# 🛍 SECTION 3: ПОВНИЙ КАТАЛОГ (ДАНІ З MAIN.PY)
-# =================================================================
-
-# --- 🎁 ПОДАРУНКОВІ РІДИНИ (30мл на вибір до HHC та Наборів) ---
-GIFT_LIQUIDS = {
-    9001: {"name": "🎁 Pumpkin Latte 30ml", "desc": "Теплий осінній смак пряного гарбуза."},
-    9002: {"name": "🎁 Glintwine 30ml", "desc": "Насичений виноград та зимові спеції."},
-    9003: {"name": "🎁 Christmas Tree 30ml", "desc": "Унікальний аромат морозної хвої."},
-    9004: {"name": "🎁 Strawberry Jelly 30ml", "desc": "Солодкий десертний аромат полуниці."},
-    9005: {"name": "🎁 Mystery One 30ml", "desc": "Секретний мікс від Ghosty Staff."},
-    9006: {"name": "🎁 Fall Tea 30ml", "desc": "Чайний аромат з нотками лимону."},
-    9007: {"name": "🎁 Banana Ice 30ml", "desc": "Стиглий банан з крижаною свіжістю."},
-    9008: {"name": "🎁 Wild Berries 30ml", "desc": "Класичний мікс лісових ягід."}
-}
+    kb = [
+        [InlineKeyboardButton("📍 Район (Клад)", callback_data="set_del_type_klad")],
+        [InlineKeyboardButton("🏠 Адресна доставка (+150 грн)", callback_data="set_del_type_courier")]
+    ]
+    await _edit_or_reply(query, text, kb)
 
 # ===================== PRODUCTS =====================
 LIQUIDS = {
