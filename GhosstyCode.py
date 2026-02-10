@@ -1,14 +1,7 @@
 # =================================================================
-# 🤖 PROJECT: GHOSTY STAFF PREMIUM E-COMMERCE ENGINE (STABLE)
-# 🛠 VERSION: 4.2.0 (BOTHOST OPTIMIZED)
-# 🛡 DEVELOPER: Gho$$tyyy & Gemini AI
+# 🤖 PROJECT: GHOSTY STAFF PREMIUM E-COMMERCE ENGINE (FINAL)
+# 🛠 VERSION: 5.0.0 (BOTHOST READY)
 # =================================================================
-from telegram.ext import (
-    Application, CommandHandler, MessageHandler, 
-    CallbackQueryHandler, ContextTypes, filters, 
-    PicklePersistence, Defaults  # Обов'язково тут!
-)
-from telegram.constants import ParseMode # Обов'язково тут!
 
 import os
 import sys
@@ -17,165 +10,43 @@ import sqlite3
 import asyncio
 import random
 from datetime import datetime
-from html import escape
 
-import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, PicklePersistence, Defaults
+# Telegram Imports
 from telegram.constants import ParseMode
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, 
+    CallbackQueryHandler, ContextTypes, filters, 
+    PicklePersistence, Defaults # <--- ЦЕ МАЄ БУТИ ОБОВ'ЯЗКОВО
+)
 from telegram.error import NetworkError
 
+# Шляхи до файлів (Критично для BotHost)
+DB_PATH = 'data/ghosty_v3.db'
+PERSISTENCE_PATH = 'data/ghosty_state.pickle'
 
-
-# =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
-# =================================================================
-# Пріоритет: спочатку беремо токен з Docker, якщо його нема — з коду
-TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc")
+# --- НАЛАШТУВАННЯ ---
+TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydpbot"
-
-MANAGER_ID = 7544847872
-MANAGER_USERNAME = "ghosstydp" # Твій основний юзернейм
-
-MANAGER_ID = 7544847872
-MANAGER_USERNAME = "ghosstydpbot"
-CHANNEL_URL = "https://t.me/GhostyStaffDP"
-WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # Економіка
-DISCOUNT_MULT = 0.65         
-PROMO_DISCOUNT_MULT = 0.65   
-VIP_EXPIRY = "25.03.2026"
-MIN_ORDER_SUM = 300 
-
-# Реквізити (ВИПРАВЛЕНО КОМИ ТА ДУЖКИ)
-PAYMENT_LINK = {
-    PAYMENT_LINK = "https://heylink.me/ghosstyshop" # Твій основний хаб
-    "mono": "https://lnk.ua/k4xJG21Vy?utm_medium=social&utm_source=heylink.me",
-    "privat": "https://lnk.ua/RVd0OW6V3?utm_medium=social&utm_source=heylink.me"
-}
-
-# Категорії для диспетчера
-CATEGORIES = {
-    "cat_list_hhc": [100, 101, 102, 103, 104],
-    "cat_list_pods": [500, 501, 502, 503, 504, 505, 506],
-    "cat_list_liquids": [301, 302, 303],
-    "cat_list_sets": [701, 702]
-}
-
-# Виправлена функція пошуку (заміни стару версію)
-def get_item_data(item_id):
-    try:
-        iid = int(item_id)
-        # Об'єднуємо всі словники для пошуку
-        all_products = {}
-        if 'HHC_VAPES' in globals(): all_products.update(HHC_VAPES)
-        if 'PODS' in globals(): all_products.update(PODS)
-        if 'LIQUIDS' in globals(): all_products.update(LIQUIDS)
-        
-        return all_products.get(iid)
-    except Exception as e:
-        logger.error(f"Error getting item data: {e}")
-        return None
-
-# Повна база товарів Gho$$tyyy (HHC, Рідини, Набори)
-# =================================================================
-# 📦 SECTION 7: REAL PRODUCT INVENTORY (PODS)
-# =================================================================
-PAYMENT_LINK = "https://t.me/ghosstydpbot" # Твій лінк на оплату/менеджера
-
-PODS = {
-    501: {
-        "name": "🔌 Vaporesso XROS 4 Mini",
-        "type": "pod",
-        "gift_liquid": False,
-        "price": 549,
-        "discount": True,
-        "imgs": ["https://ibb.co/WpMYBCH1"],
-        "colors": ["🌸 Рожевий", "🟣 Фіолетовий", "⚫ Чорний"],
-        "desc": "🔋 1000 mAh\n🔥 COREX 2.0\n⚡ Швидка зарядка\n🎯 Яскравий смак\n💎 Оновлений дизайн",
-        "payment_url": PAYMENT_LINK
-    },
-    502: {
-        "name": "🔌 Vaporesso XROS Pro",
-        "type": "pod",
-        "gift_liquid": False,
-        "price": 689,
-        "discount": True,
-        "imgs": ["https://ibb.co/ynYwSMt6", "https://ibb.co/3mV7scXr", "https://ibb.co/xSJCgpJ5"],
-        "colors": ["⚫ Чорний", "🔴 Темно-червоний", "🌸 Рожево-червоний"],
-        "desc": "🔋 1200 mAh\n⚡ Регулювання потужності\n💨 RDL / MTL\n🔥 Максимальний смак\n🚀 Професійний рівень",
-        "payment_url": PAYMENT_LINK
-    },
-    503: {
-        "name": "🔌 Vaporesso XROS Nano",
-        "type": "pod",
-        "gift_liquid": False,
-        "price": 519,
-        "discount": True,
-        "imgs": ["https://ibb.co/5XW2yN80", "https://ibb.co/93dJ8wKS", "https://ibb.co/Qj90hyyz"],
-        "colors": ["🪖 Камуфляж 1", "🪖 Камуфляж 2", "🪖 Камуфляж 3"],
-        "desc": "🔋 1000 mAh\n💨 MTL\n🧱 Міцний корпус\n🎒 Ідеальний у дорогу\n😌 Спокійна, рівна тяга",
-        "payment_url": PAYMENT_LINK
-    },
-    504: {
-        "name": "🔌 Vaporesso XROS 4",
-        "type": "pod",
-        "gift_liquid": False,
-        "price": 599,
-        "discount": True,
-        "imgs": ["https://ibb.co/LDRbQxr1", "https://ibb.co/NPHYSjN", "https://ibb.co/LhbzXD57"],
-        "colors": ["🌸 Рожевий", "⚫ Чорний", "🔵 Синій"],
-        "desc": "🔋 1000 mAh\n🔥 COREX\n🎨 Стильний дизайн\n👌 Баланс смаку та тяги\n✨ Щоденний комфорт",
-        "payment_url": PAYMENT_LINK
-    },
-    505: {
-        "name": "🔌 Vaporesso XROS 5",
-        "type": "pod",
-        "gift_liquid": False,
-        "price": 799,
-        "discount": True,
-        "imgs": ["https://ibb.co/hxjmpHF2", "https://ibb.co/DDkgjtV4", "https://ibb.co/r2C9JTzz"],
-        "colors": ["⚫ Чорний", "🌸 Рожевий", "🟣 Фіолетовий з полоскою"],
-        "desc": "🔋 1200 mAh\n⚡ Fast Charge\n💎 Преміальна збірка\n🔥 Максимум смаку\n🚀 Флагман серії",
-        "payment_url": PAYMENT_LINK
-    },
-    506: {
-        "name": "🔌 Voopoo Vmate Mini Pod Kit",
-        "type": "pod",
-        "gift_liquid": False,
-        "price": 459,
-        "discount": True,
-        "imgs": ["https://ibb.co/8L0JNTHz", "https://ibb.co/0RZ1VDnG", "https://ibb.co/21LPrbbj"],
-        "colors": ["🌸 Рожевий", "🔴 Червоний", "⚫ Чорний"],
-        "desc": "🔋 1000 mAh\n💨 Автозатяжка\n🧲 Магнітний картридж\n🎯 Простий та надійний\n😌 Легкий старт для новачків",
-        "payment_url": PAYMENT_LINK
-    }
-}
+VIP_DISCOUNT = 0.65  # -35%
+PROMO_BONUS = 101    # -101 грн за промокод 2026
 
 
-# Групування для категорій
-CATEGORIES = {
-    "cat_list_hhc": [101, 102, 103],
-    "cat_list_pods": [501],
-    "cat_list_liquids": [301, 302, 303],
-    "cat_list_sets": [701, 702]
-}
+# Логування
+if not os.path.exists('data/logs'):
+    os.makedirs('data/logs', exist_ok=True)
 
-# Налаштування логування
-os.makedirs('data/logs', exist_ok=True)
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("data/logs/ghosty_system.log", encoding='utf-8'),
+        logging.FileHandler("data/logs/ghosty_system.log"),
         logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger("GhostyCore")
-
-
 
 # =================================================================
 # 🛠 SECTION 2: ERROR HANDLING & LOGGING
@@ -520,28 +391,25 @@ TERMS_TEXT = (
 # 🧠 SECTION 5: DATABASE ENGINE & PERSISTENCE
 # =================================================================
 
-def db_init():
-    try:
-        if not os.path.exists('data'): os.makedirs('data')
-        conn = sqlite3.connect('data/ghosty_v3.db')
-        cursor = conn.cursor()
+def init_db():
+    """Ініціалізація бази даних."""
+    # Створюємо папку data, якщо її немає (важливо для Docker)
+    if not os.path.exists('data'):
+        os.makedirs('data')
         
-        cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT, 
-            referrals INTEGER DEFAULT 0, is_vip INTEGER DEFAULT 0)''')
-        
-        cursor.execute('''CREATE TABLE IF NOT EXISTS orders (
-            order_id TEXT PRIMARY KEY, user_id INTEGER, items_text TEXT, 
-            total_sum INTEGER, status TEXT, receipt_url TEXT)''')
-        
-        conn.commit()
-        conn.close()
-        logging.info("Database initialized successfully.")
-    except Exception as e:
-        logging.critical(f"DB Error: {e}")
-        sys.exit(1)
-
-
+    conn = sqlite3.connect(DB_PATH) # Використовуємо змінну з Кроку 1
+    cur = conn.cursor()
+    cur.execute('''CREATE TABLE IF NOT EXISTS users 
+                   (uid INTEGER PRIMARY KEY, name TEXT, city TEXT, district TEXT, 
+                    is_vip INTEGER DEFAULT 0, bonus_balance REAL DEFAULT 0)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS orders 
+                   (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, 
+                    items TEXT, amount REAL, status TEXT, date TEXT)''')
+    conn.commit()
+    conn.close()
+    # Використовуємо print, бо logger може бути ще не налаштований
+    print("✅ DATABASE CONNECTED")
+    
 # =================================================================
 # 🛒 SECTION 6: USER INTERFACE (PROFILE & CART)
 # =================================================================
@@ -1935,19 +1803,25 @@ def main():
     Точка входу. Забезпечує старт бази, завантаження даних 
     та запуск опитування (polling).
     """
+    # Переконайся, що ці змінні визначені в SECTION 1
+    # Якщо ні - додай їх на початку файлу:
+    # DB_PATH = 'data/ghosty_v3.db'
+    
     try:
-        # 1. Створюємо структуру бази (Секція 5)
-        db_init()
+        # 1. Створюємо структуру бази (Виклик функції з Секції 2)
+        # ВАЖЛИВО: Назва має співпадати з оголошенням функції!
+        init_db() 
         
         # 2. Налаштовуємо збереження (Pickle)
-        # Зберігаємо все в папку data, щоб дані не зникали при перезавантаженні
-        persistence = PicklePersistence(filepath="data/ghosty_data.pickle")
+        # Це дозволяє боту "пам'ятати" розмови після перезапуску
+        persistence = PicklePersistence(filepath="data/ghosty_state.pickle")
         
         # 3. Налаштування за замовчуванням (HTML режим)
+        # Це щоб не писати parse_mode='HTML' у кожному повідомленні
         defaults = Defaults(parse_mode=ParseMode.HTML)
 
         # 4. Створення Application
-        # Беремо TOKEN, який ми визначили на самому початку
+        print("🏗 Будуємо архітектуру бота...")
         app = (
             Application.builder()
             .token(TOKEN)
@@ -1956,41 +1830,46 @@ def main():
             .build()
         )
 
-        # 5. Реєстрація хендлерів (Команди -> Текст/Фото -> Кнопки)
-        # 1. Спочатку команди (найвищий пріоритет)
-        app.add_handler(CommandHandler("start", start_command))
+        # 5. Реєстрація хендлерів (Пріоритетність важлива!)
         
-        # 2. Потім наш універсальний обробник (текст, фото, квитанції)
-        # Він тепер викликає ту саму handle_user_input, яку ми оновили під Дніпро та кур'єра
+        # А) Команди (найвищий пріоритет)
+        app.add_handler(CommandHandler("start", start_command))
+        # app.add_handler(CommandHandler("admin", admin_menu)) # Якщо є адмінка
+        
+        # Б) Кнопки (CallbackQuery)
+        # Це має йти ПЕРЕД обробкою тексту, щоб кнопки не сприймалися як текст
+        app.add_handler(CallbackQueryHandler(global_callback_handler))
+
+        # В) Універсальний обробник (Текст, Фото, Квитанції)
+        # Фільтр (~filters.COMMAND) означає "все, що не є командою"
         app.add_handler(MessageHandler(
             (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
             handle_user_input
         ))
         
-        # 3. Обробка натискань на кнопки (CallbackQuery)
-        app.add_handler(CallbackQueryHandler(global_callback_handler))
-
-
         # 6. Запуск
         logging.info("GHO$$TY STAFF SYSTEM: ONLINE")
         print("\n✅ GHO$$TY STAFF SYSTEM: ONLINE")
         print("📡 Статус: Очікування замовлень та квитанцій...")
 
-        # run_polling автоматично обробляє сигнали зупинки в Docker (SIGINT/SIGTERM)
-        # drop_pending_updates=True дозволяє боту не "спамити" старими повідомленнями
+        # run_polling запускає нескінченний цикл
         app.run_polling(drop_pending_updates=True)
 
     except NetworkError:
-        logging.error("Помилка мережі: Перевірте BOT_TOKEN та підключення до інтернету.")
+        logging.error("🔴 Помилка мережі: Перевірте BOT_TOKEN та інтернет.")
+        print("🔴 Помилка мережі. Спробуйте пізніше.")
     except Exception as e:
-        logging.critical(f"Критична помилка при запуску бота: {e}")
+        logging.critical(f"🔴 Критична помилка при запуску: {e}")
+        # На хостингу важливо бачити повний лог помилки
+        import traceback
+        traceback.print_exc() 
         sys.exit(1)
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
+        print("\n🛑 Бот зупинений вручну.")
         sys.exit(0)
     except Exception as e:
-        print(f"Критична помилка: {e}")
-            
+        print(f"💀 Fatal Error: {e}")
