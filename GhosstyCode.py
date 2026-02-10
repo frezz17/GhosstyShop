@@ -39,7 +39,7 @@ LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # 2. Налаштування Бота
-TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
+TOKEN = "8351638507:AAFEWRyQBANh2IjXV3NxBUT6CTya6vdgg5U"
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
@@ -102,7 +102,7 @@ GIFT_LIQUIDS = {
 HHC_VAPES = {} 
 LIQUIDS = {}
 PODS = {}
-SETS = {}
+GIFT_LIQUIDS = {}
 
 # =================================================================
 # 📍 SECTION 4: GEOGRAPHY DATA (UKRAINE EXPANDED)
