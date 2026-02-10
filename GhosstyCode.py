@@ -11,6 +11,7 @@ import asyncio
 import random
 import traceback
 from datetime import datetime
+from html import escape  # <--- КРИТИЧНО ВАЖЛИВО
 
 # Telegram Core
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
@@ -22,25 +23,41 @@ from telegram.ext import (
 )
 from telegram.error import NetworkError, BadRequest
 
-# --- НАЛАШТУВАННЯ ---
+# =================================================================
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (BOTHOST FIXED)
+# =================================================================
+
+# 1. Абсолютні шляхи (Критично для Docker/BotHost)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+DB_PATH = os.path.join(DATA_DIR, 'ghosty_v3.db')
+PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state.pickle')
+LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
+
+# Створюємо папку data одразу
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# 2. Налаштування Бота
 TOKEN = "8351638507:AAFA9Ke-4Uln9yshcOe9CmCChdcilvx22xw"
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydpbot"
-DB_PATH = 'data/ghosty_v3.db'
-PERSISTENCE_PATH = 'data/ghosty_state.pickle'
+CHANNEL_URL = "https://t.me/GhostyStaffDP"
+WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
+
+# 3. Економіка
+VIP_EXPIRY = "25.03.2026"
 VIP_DISCOUNT = 0.65  # -35%
-PROMO_BONUS = 101    # -101 грн за промокод 2026
+PAYMENT_LINK = {
+    "mono": "https://lnk.ua/k4xJG21Vy",   
+    "privat": "https://lnk.ua/RVd0OW6V3"
+}
 
-
-# Логування
-if not os.path.exists('data/logs'):
-    os.makedirs('data/logs', exist_ok=True)
-
+# 4. Логування (В абсолютний файл)
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("data/logs/ghosty_system.log"),
+        logging.FileHandler(LOG_PATH, encoding='utf-8'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -439,146 +456,213 @@ def init_db():
     print("✅ DATABASE SYNCHRONIZED")
     
 # =================================================================
-# 🛒 SECTION 6: USER INTERFACE (PROFILE & CART)
-# =================================================================
-
-async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = update.effective_user.id
-    
-    # Спрощена логіка профілю для стабільності
-    text = (
-        f"👤 <b>Ваш профіль</b>\n"
-        f"🆔 ID: <code>{user_id}</code>\n"
-        f"🏦 Статус: Стандарт\n\n"
-        f"📢 Наш канал: <a href='{CHANNEL_URL}'>Підписатися</a>"
-    )
-    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]
-    
-    if query:
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-    else:
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-
-async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    text = "🛒 <b>Ваш кошик порожній</b>\n\nПерейдіть до каталогу, щоб обрати товар."
-    keyboard = [[InlineKeyboardButton("🛍 Каталог", callback_data="cat_all")],
-                [InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]
-    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-
-async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.message.reply_text("📝 <b>Оформлення замовлення</b>\n\nВведіть вашу адресу доставки:")
-    context.user_data["state"] = "WAITING_ADDRESS"
-    
-
-# =================================================================
-# 👤 SECTION 6: USER PROFILE & REFERRAL SYSTEM (FIXED & SYNCED)
+# 👤 SECTION 6: USER INTERFACE (PROFILE, CART & AUTH)
 # =================================================================
 
 async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Комплексна ініціалізація користувача.
-    Обробляє: реєстрацію, реферальні посилання, VIP-дати та адресні дані.
+    ⚙️ ЯДРО АВТОРИЗАЦІЇ:
+    Створює профіль, обробляє рефералку та синхронізує з БД.
+    Повертає словник profile.
     """
     user = update.effective_user
     uid = user.id
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     
-    # Ініціалізація профілю в пам'яті (context.user_data)
+    # 1. Створюємо структуру в пам'яті, якщо її немає
     if "profile" not in context.user_data:
+        # Перевіряємо рефералку (тільки при першому старті)
+        referrer_id = None
+        if context.args and context.args[0].isdigit():
+            ref_candidate = int(context.args[0])
+            if ref_candidate != uid:
+                referrer_id = ref_candidate
+
         context.user_data["profile"] = {
             "uid": uid,
             "name": escape(user.first_name) if user.first_name else "Клієнт",
             "username": f"@{user.username}" if user.username else "Приховано",
             "city": None,
             "district": None,
-            "address_details": None,      # ВИПРАВЛЕНО: обов'язкове поле для адресних замовлень
+            "address_details": None,
+            "phone": None,
             "promo_applied": False,
-            "promo_code": f"GHST{uid}",   # ВИПРАВЛЕНО: персональний промокод GHST + ID
-            "referrals": 0,
+            "promo_code": f"GHST{uid}",  # Персональний промокод
+            "referred_by": referrer_id,
             "orders_count": 0,
-            "vip_status": f"VIP до {VIP_EXPIRY}", # Текстовий статус для відображення
+            "is_vip": False,
             "reg_date": current_time
         }
         
-        # Обробка реферального посилання
-        if context.args and context.args[0].isdigit():
-            referrer_id = int(context.args[0])
-            if referrer_id != uid:
-                context.user_data["profile"]["referred_by"] = referrer_id
-                logger.info(f"User {uid} registered via ref-link from {referrer_id}")
+        # Лог реферала
+        if referrer_id:
+            logger.info(f"👤 User {uid} invited by {referrer_id}")
 
-    # Перестраховка: якщо старий профіль не мав поля address_details, додаємо його
-    if "address_details" not in context.user_data["profile"]:
-        context.user_data["profile"]["address_details"] = None
-
-    # Синхронізація з фізичною базою даних SQLite
+    # 2. Оновлюємо дані в БД (SQLite)
     try:
-        conn = sqlite3.connect('data/ghosty_v3.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('''
-            INSERT OR IGNORE INTO users (user_id, username, first_name, reg_date, last_active)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (uid, user.username, user.first_name, current_time, current_time))
+        # Створюємо таблицю, якщо раптом нема
+        c.execute('''CREATE TABLE IF NOT EXISTS users 
+                     (user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT, 
+                      reg_date TEXT, last_active TEXT)''')
         
-        # Оновлення часу останньої активності та імені (якщо змінив у ТГ)
-        c.execute('''
-            UPDATE users 
-            SET last_active = ?, username = ?, first_name = ? 
-            WHERE user_id = ?
-        ''', (current_time, user.username, user.first_name, uid))
+        # Додаємо або ігноруємо
+        c.execute('''INSERT OR IGNORE INTO users (user_id, username, first_name, reg_date, last_active)
+                     VALUES (?, ?, ?, ?, ?)''', 
+                     (uid, user.username, user.first_name, current_time, current_time))
         
+        # Оновлюємо активність
+        c.execute('''UPDATE users SET last_active = ?, username = ? WHERE user_id = ?''', 
+                     (current_time, user.username, uid))
         conn.commit()
         conn.close()
-    except sqlite3.Error as e:
-        logger.error(f"SQLite Sync Error: {e}")
+    except Exception as e:
+        logger.error(f"DB Error in auth: {e}")
 
     return context.user_data["profile"]
 
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Відображає кабінет користувача."""
+    # Гарантуємо, що профіль існує
+    profile = await get_or_create_user(update, context)
+    
+    # Визначаємо статус
+    status_icon = "💎 VIP" if profile.get('is_vip') else "👤 Standard"
+    
+    text = (
+        f"<b>💼 ОСОБИСТИЙ КАБІНЕТ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 ID: <code>{profile['uid']}</code>\n"
+        f"📛 Ім'я: {profile['name']}\n"
+        f"🔰 Статус: <b>{status_icon}</b>\n"
+        f"📦 Всього замовлень: {profile.get('orders_count', 0)}\n"
+        f"🎟 Твій промокод: <code>{profile['promo_code']}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📢 <a href='{CHANNEL_URL}'>Новини та відгуки</a>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("📦 Мої замовлення", callback_data="history_orders")],
+        [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
+        [InlineKeyboardButton("🔙 Головне меню", callback_data="menu_start")]
+    ]
+    
+    await send_ghosty_message(update, text, keyboard)
+
+async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Розумний кошик: показує товари або каже, що пусто."""
+    cart = context.user_data.get("cart", [])
+    
+    if not cart:
+        await send_ghosty_message(
+            update, 
+            "🛒 <b>Кошик порожній</b>\n\nПодивіться наш каталог, там багато цікавого!",
+            [[InlineKeyboardButton("🛍 До Каталогу", callback_data="cat_all")],
+             [InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]
+        )
+        return
+
+    # Рахуємо суму
+    total_price = sum(item['price'] for item in cart)
+    items_list = "\n".join([f"▫️ {i['name']} — {i['price']}₴" for i in cart])
+    
+    text = (
+        f"🛒 <b>ВАШ КОШИК ({len(cart)} шт.)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{items_list}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>РАЗОМ: {total_price}₴</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Оформити замовлення", callback_data="checkout_init")],
+        [InlineKeyboardButton("🗑 Очистити кошик", callback_data="cart_clear")],
+        [InlineKeyboardButton("🔙 Продовжити покупки", callback_data="cat_all")]
+    ]
+    
+    await send_ghosty_message(update, text, keyboard)
+
+async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Початок оформлення замовлення."""
+    cart = context.user_data.get("cart", [])
+    if not cart:
+        await show_cart_logic(update, context)
+        return
+
+    await send_ghosty_message(
+        update, 
+        "📝 <b>ОФОРМЛЕННЯ ЗАМОВЛЕННЯ</b>\n\n"
+        "Оберіть ваше місто для доставки:", 
+        [[InlineKeyboardButton("🏙 Вибрати місто", callback_data="choose_city")],
+         [InlineKeyboardButton("🔙 Назад", callback_data="menu_cart")]]
+    )
+
 # =================================================================
-# 🛠 SECTION 7: CORE UTILITIES (FIXED)
+# 🛠 SECTION 7: CORE UTILITIES (ULTIMATE EDITION)
 # =================================================================
 
 def get_item_data(item_id):
-    """Шукає товар за ID у всіх нових словниках товарів."""
+    """Безпечний пошук товару у всіх реєстрах."""
     try:
         iid = int(item_id)
-        # Шукаємо послідовно в усіх категоріях
-        if iid in HHC_VAPES: return HHC_VAPES[iid]
-        if iid in LIQUIDS: return LIQUIDS[iid]
-        if iid in PODS: return PODS[iid]
-        # Якщо у тебе залишилися LIQUID_SETS в SECTION 1:
-        if 'LIQUID_SETS' in globals() and iid in LIQUID_SETS: return LIQUID_SETS[iid]
+        # Перевіряємо глобальні змінні каталогів
+        if 'HHC_VAPES' in globals() and iid in HHC_VAPES: return HHC_VAPES[iid]
+        if 'LIQUIDS' in globals() and iid in LIQUIDS: return LIQUIDS[iid]
+        if 'PODS' in globals() and iid in PODS: return PODS[iid]
+        if 'SETS' in globals() and iid in SETS: return SETS[iid]
         return None
-    except:
+    except Exception as e:
+        logger.error(f"Item Search Error: {e}")
         return None
-        
+
 async def send_ghosty_message(update: Update, text: str, reply_markup=None, photo=None):
+    """
+    🛡 GHOSTY MESSAGE ENGINE v2.0
+    Універсальний відправник, який не ламається.
+    """
     try:
+        # Авто-конвертація списку кнопок у розмітку
+        if isinstance(reply_markup, list):
+            reply_markup = InlineKeyboardMarkup(reply_markup)
+            
         if update.callback_query:
             msg = update.callback_query.message
-            if photo:
-                try:
-                    await msg.edit_media(media=InputMediaPhoto(photo, caption=text, parse_mode='HTML'), reply_markup=reply_markup)
-                except:
-                    await msg.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-            else:
-                if msg.photo:
-                    await msg.edit_caption(caption=text, reply_markup=reply_markup, parse_mode='HTML')
+            try:
+                if photo:
+                    if msg.photo:
+                        await msg.edit_media(
+                            media=InputMediaPhoto(media=photo, caption=text, parse_mode='HTML'),
+                            reply_markup=reply_markup
+                        )
+                    else:
+                        await msg.delete() # Видаляємо текст, шлемо фото
+                        await msg.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
                 else:
-                    await msg.edit_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
+                    if msg.photo:
+                        await msg.delete() # Видаляємо фото, шлемо текст
+                        await msg.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
+                    else:
+                        await msg.edit_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
+            except BadRequest as e:
+                # Ігноруємо, якщо вміст не змінився
+                if "Message is not modified" in str(e): return
+                # Якщо повідомлення застаріло - шлемо нове
+                if "Message to edit not found" in str(e):
+                    await update.effective_chat.send_message(text, reply_markup=reply_markup, parse_mode='HTML')
         else:
+            # Це звичайний текст від юзера
             if photo:
                 await update.message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
             else:
                 await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
     except Exception as e:
-        logger.error(f"Delivery error: {e}")
+        logger.error(f"UI Engine Error: {e}")
 
+# Аліас для сумісності, якщо десь у коді викликається ця функція
 async def send_ghosty_media(update, text, reply_markup, photo):
     await send_ghosty_message(update, text, reply_markup, photo)
+    
 
 # =================================================================
 # 🏠 SECTION 8: START & PROFILE (STABLE & FINAL)
@@ -1257,6 +1341,8 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     ]
 
     await send_ghosty_message(update, pay_text, InlineKeyboardMarkup(keyboard))
+
+
 
 # =================================================================
 # 🛡 SECTION 26: ORDER CONFIRMATION (ADMIN NOTIFICATION)
