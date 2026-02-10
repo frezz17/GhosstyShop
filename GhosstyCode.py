@@ -407,6 +407,10 @@ HHC_VAPES = {
     }
 }
 
+# =================================================================
+# 🛍 SECTION 3: ТОВАРНА БАЗА (PODS - FIXED SYNTAX)
+# =================================================================
+
 PODS = {
     500: {
         "name": "🔌 Vaporesso XROS 3 Mini",
@@ -415,7 +419,7 @@ PODS = {
         "price": 499.77,
         "discount": True,
         "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg",
-        "desc": "🔋 1000 mAh | MTL\n⚡ Type-C зарядка\n✨ Компактний та легкий.",
+        "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель. Надійна та смачна.\n✨ <i>Ідеальний вибір для старту.</i>",
         "colors": ["⚫️ Black", "⚪️ Silver", "🔵 Navy Blue", "🔴 Phantom Red"],
         "payment_url": PAYMENT_LINK
     },
@@ -426,8 +430,8 @@ PODS = {
         "price": 674.77,
         "discount": True,
         "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg",
-        "desc": "🔥 НОВИНКА | COREX 2.0\n💎 Оновлений дизайн.",
-        "colors": ["⚫️ Core Black", "🔘 Space Grey", "🟣 Ice Purple"],
+        "desc": "🔥 <b>НОВИНКА 2025 | COREX 2.0</b>\nМаксимальна передача смаку.\n💎 <i>Оновлений дизайн та швидка зарядка.</i>",
+        "colors": ["⚫️ Core Black", "🔘 Space Grey", "🟣 Ice Purple", "🟢 Lime Green"],
         "payment_url": PAYMENT_LINK
     },
     502: {
@@ -437,8 +441,8 @@ PODS = {
         "price": 974.77,
         "discount": True,
         "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg",
-        "desc": "🚀 PROFESSIONAL | 1200 mAh\n⚡ Регулювання потужності.",
-        "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red", "🟢 Green"],
+        "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.\n⚡ <i>Зарядка за 35 хвилин!</i>",
+        "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red", "🔵 Blue"],
         "payment_url": PAYMENT_LINK
     },
     503: {
@@ -448,7 +452,7 @@ PODS = {
         "price": 659.77,
         "discount": True,
         "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg",
-        "desc": "🎒 КОМПАКТНИЙ КВАДРАТ\n🔋 1000 mAh у міні-корпусі.",
+        "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.\n🔋 <i>1000 mAh у міні-корпусі.</i>",
         "colors": ["⚫️ Black", "🟡 Yellow", "🟠 Orange", "🌸 Pink"],
         "payment_url": PAYMENT_LINK
     },
@@ -459,8 +463,8 @@ PODS = {
         "price": 629.77,
         "discount": True,
         "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg",
-        "desc": "👌 БАЛАНС ТА СТИЛЬ\n🔥 COREX технологія.",
-        "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient"],
+        "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.\n🎯 <i>Універсальний солдат.</i>",
+        "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient", "⚪️ Silver"],
         "payment_url": PAYMENT_LINK
     },
     505: {
@@ -470,7 +474,7 @@ PODS = {
         "price": 799.77,
         "discount": True,
         "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg",
-        "desc": "💎 ПРЕМІУМ ФЛАГМАН\n⚡ Fast Charge | 1200 mAh.",
+        "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.\n🚀 <i>Найкраще, що створили Vaporesso.</i>",
         "colors": ["⚫️ Obsidian Black", "⚪️ Pearl White", "🔵 Ocean Blue"],
         "payment_url": PAYMENT_LINK
     },
@@ -481,12 +485,12 @@ PODS = {
         "price": 459.77,
         "discount": True,
         "img": "https://i.ibb.co/8L0JNTHz/voopoo-vmate-mini.jpg",
-        "desc": "😌 ЛЕГКИЙ СТАРТ\n💨 Автозатяжка.",
+        "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.\n🧬 <i>Просто залий рідину і парь.</i>",
         "colors": ["⚫️ Black", "🔴 Red", "🔵 Blue", "🟢 Green"],
         "payment_url": PAYMENT_LINK
     }
 }
-    
+
 
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
@@ -709,13 +713,12 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     else:
         keyboard.append([InlineKeyboardButton("🛒 Додати у кошик", callback_data=f"add_{item_id}")])
 
-    # Кнопка менеджера з текстом замовлення
+    # Кнопка менеджера
     mgr_url = f"https://t.me/{MANAGER_USERNAME}?text=Привіт!%20Хочу%20замовити%20{item['name'].replace(' ', '%20')}"
     keyboard.append([InlineKeyboardButton("👨‍💻 Замовити через менеджера", url=mgr_url)])
     keyboard.append([InlineKeyboardButton("🔙 До списку", callback_data="cat_all")])
 
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
-
     
 # =================================================================
 # 👤 SECTION 6: USER INTERFACE (PROFILE, CART & AUTH)
@@ -1323,23 +1326,31 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
     
 # =================================================================
-# 🛒 SECTION 17: SMART CART HANDLER (COLORS, STRENGTHS & GIFTS)
+# 🛒 SECTION 17: ДОДАВАННЯ В КОШИК (ОБРОБКА КОЛЬОРІВ)
 # =================================================================
 
 async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробляє додавання: add_ID_VARIANT (Колір або Міцність)."""
+    """
+    Обробляє натискання на колір/міцність і додає в кошик.
+    Data: add_ITEMID_VARIANT (VARIANT = колір або міцність)
+    """
     query = update.callback_query
+    
     try:
         parts = query.data.split("_")
         item_id = int(parts[1])
-        # Варіант (колір/міцність) - це все, що після ID
+        # Збираємо варіант (це може бути "Black Phantom" з пробілами)
         variant = "_".join(parts[2:]) if len(parts) > 2 else None
-    except: return
+    except: 
+        await query.answer("⚠️ Помилка даних")
+        return
 
     item = get_item_data(item_id)
-    if not item: return
+    if not item: 
+        await query.answer("❌ Товар не знайдено")
+        return
 
-    # HHC: Обираємо подарунок
+    # Логіка HHC (вибір подарунка)
     if item.get("gift_liquid", False):
         context.user_data['pending_item_id'] = item_id
         text = f"🎁 <b>ОБЕРІТЬ ВАШ ПОДАРУНОК!</b>\nДо <b>{item['name']}</b> йде безкоштовна рідина:"
@@ -1348,14 +1359,54 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await _edit_or_reply(query, text, kb)
         return
 
-    # Формування назви з кольором
+    # Формування повної назви (Товар + Колір)
     final_name = item['name']
     if variant:
-        # Якщо цифра -> міцність, якщо текст -> колір
-        suffix = f"{variant}mg" if variant.isdigit() else variant.replace("_", " ")
-        final_name += f" ({suffix})"
+        # Якщо варіант цифра -> це міцність
+        if variant.isdigit():
+            final_name += f" ({variant}mg)"
+        # Якщо текст -> це колір (замінюємо підкреслення на пробіли, якщо були)
+        else:
+            clean_variant = variant.replace("_", " ")
+            final_name += f" ({clean_variant})"
 
+    # Фіналізація
     await _finalize_add_to_cart(update, context, item, gift=None, name=final_name)
+
+async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка вибору подарунка (gift_sel_ID)."""
+    query = update.callback_query
+    gift_id = int(query.data.split("_")[2])
+    
+    main_id = context.user_data.get('pending_item_id')
+    if not main_id: return
+    
+    main_item = get_item_data(main_id)
+    gift_item = GIFT_LIQUIDS.get(gift_id)
+    gift_name = gift_item['name'] if gift_item else "Сюрприз"
+    
+    await _finalize_add_to_cart(update, context, main_item, gift=gift_name)
+    context.user_data.pop('pending_item_id', None)
+
+async def _finalize_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE, item, gift=None, name=None):
+    """Фізичний запис у базу кошика."""
+    cart = context.user_data.setdefault("cart", [])
+    profile = context.user_data.setdefault("profile", {})
+    
+    price, _ = calculate_final_price(item['price'], profile)
+    
+    cart.append({
+        "id": random.randint(100000, 999999),
+        "name": name if name else item['name'],
+        "price": price,
+        "gift": gift
+    })
+    
+    msg = f"✅ <b>{name or item['name']}</b> додано!\n💰 Ваша ціна: {price} грн"
+    if gift: msg += f"\n🎁 Бонус: {gift}"
+    
+    kb = [[InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart"), InlineKeyboardButton("🔙 Каталог", callback_data="cat_all")]]
+    await send_ghosty_message(update, msg, kb)
     
 
 # =================================================================
@@ -1511,7 +1562,7 @@ async def gift_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     pass
 
 # =================================================================
-# 💳 SECTION 21: ОФОРМЛЕННЯ ЗАМОВЛЕННЯ (БЕЗПЕЧНЕ)
+# 💳 SECTION 21: ОФОРМЛЕННЯ ЗАМОВЛЕННЯ
 # =================================================================
 
 async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1534,7 +1585,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
         delivery_cost = 150
         total_sum += delivery_cost
 
-    # Генерація унікального ID (Anti-collision)
+    # Генерація унікального ID
     ts = int(datetime.now().timestamp()) % 10000
     rnd = random.randint(10, 99)
     order_id = f"GH-{ts}-{rnd}"
@@ -1565,6 +1616,48 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     await _edit_or_reply(query, text, keyboard)
+
+# =================================================================
+# 🔑 SECTION 22: ПРОМОКОДИ
+# =================================================================
+
+async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка промокоду."""
+    if not update.message or not update.message.text: return
+    
+    user_text = update.message.text.strip().upper()
+    user_id = update.effective_user.id
+    profile = context.user_data.setdefault("profile", {})
+    
+    # Список кодів
+    VALID_PROMOS = ["GHOSTY2026", "GHST2026", "START35"]
+    
+    if user_text in VALID_PROMOS:
+        profile["promo_applied"] = True
+        profile["is_vip"] = True # Активація VIP
+        
+        # Збереження в БД (безпечно)
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute("UPDATE users SET is_vip = 1 WHERE user_id = ?", (user_id,))
+            conn.commit()
+            conn.close()
+        except: pass
+
+        text = (
+            f"🎉 <b>ПРОМОКОД {user_text} АКТИВОВАНО!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"✅ <b>VIP-статус:</b> Увімкнено\n"
+            f"✅ <b>Знижка:</b> -35% (вже в кошику)\n"
+            f"🎁 <b>Бонус:</b> Безкоштовна доставка"
+        )
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍 ДО КАТАЛОГУ", callback_data="cat_all")]]), parse_mode='HTML')
+        
+    else:
+        await update.message.reply_text("❌ <b>Невірний код.</b> Спробуйте ще раз.", parse_mode='HTML')
+    
+    context.user_data['awaiting_promo'] = False
+    
     
     
 # =================================================================
@@ -1852,14 +1945,14 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головний маршрутизатор."""
+    """Головний маршрутизатор кнопок."""
     query = update.callback_query
     data = query.data
     
     try:
         await query.answer()
         
-        # --- 1. МЕНЮ ---
+        # 1. МЕНЮ
         if data == "menu_start": await start_command(update, context)
         elif data == "menu_profile": await show_profile(update, context)
         elif data == "menu_promo": 
@@ -1867,7 +1960,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             await _edit_or_reply(query, "🎟 <b>Введіть промокод:</b>", [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
         elif data == "ref_system": await show_ref_info(update, context)
 
-        # --- 2. ГЕОГРАФІЯ ---
+        # 2. ГЕОГРАФІЯ
         elif data == "choose_city" or data == "menu_city": await choose_city_menu(update, context)
         elif data.startswith("sel_city_"):
             city = data.replace("sel_city_", "")
@@ -1880,30 +1973,30 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             dist = data.replace("sel_dist_", "")
             await save_location_handler(update, context, dist_name=dist)
 
-        # --- 3. МАГАЗИН ---
+        # 3. МАГАЗИН
         elif data in ["cat_all", "assortment"]: await catalog_main_menu(update, context)
         elif data == "cat_list_hhc": await show_category_items(update, context, "hhc")
         elif data == "cat_list_pods": await show_category_items(update, context, "pods")
         elif data == "cat_list_liquids": await show_category_items(update, context, "liquids")
         elif data.startswith("view_item_"): await view_item_details(update, context, int(data.split("_")[2]))
             
-        # --- 4. КОШИК ---
+        # 4. КОШИК
         elif data.startswith("add_"): await add_to_cart_handler(update, context)
         elif data.startswith("gift_sel_"): await gift_selection_handler(update, context)
         elif data == "menu_cart": await show_cart_logic(update, context)
         elif data.startswith("cart_"): await cart_action_handler(update, context)
         
-        # --- 5. ОФОРМЛЕННЯ ---
+        # 5. ОФОРМЛЕННЯ
         elif data == "checkout_init": await checkout_init(update, context)
         elif data in ["pay_mono", "pay_privat"]:
             method = "mono" if data == "pay_mono" else "privat"
             await payment_selection_handler(update, context, method)
         elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
 
-        # --- 6. АДМІНКА ---
+        # 6. АДМІНКА
         elif data.startswith("admin_approve_"):
             uid = int(data.split("_")[2])
-            await context.bot.send_message(uid, "✅ <b>Оплата підтверджена!</b>\nДякуємо!")
+            await context.bot.send_message(uid, "✅ <b>Оплата підтверджена!</b>")
             await query.edit_message_caption(caption=query.message.caption + "\n✅ [ОК]")
         elif data == "admin_broadcast": await start_broadcast(update, context)
 
