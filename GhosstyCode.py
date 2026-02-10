@@ -49,7 +49,7 @@ WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 VIP_EXPIRY = "25.03.2026"
 VIP_DISCOUNT = 0.65  # -35%
 PROMO_BONUS = 101    # Знижка за промокод
-PAYMENT_LINK = {
+"payment_url": PAYMENT_LINK
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3"
 }
@@ -257,8 +257,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/Kxmrpm1C/Fall-Tea.jpg", # Замінив на прямі лінки для стабільності
         "desc": "☕ <b>Осінній Чай</b>\nСпокійний, теплий аромат чаю з нотками лимону.\n⚖️ Ідеальний баланс."
-         "payment_url": PAYMENT_LINK
+       "payment_url": PAYMENT_LINK
     },
+    
     302: {
         "name": "👻 Mystery One",
         "category": "Chaser Balance",
@@ -267,8 +268,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/bMMVHXG6/Mystery-One.jpg",
         "desc": "🔮 <b>Ghost Edition</b>\nТаємничий фруктовий мікс. Секретний рецепт."
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
     303: {
         "name": "🍓 Strawberry Jelly",
         "category": "Chaser Balance",
@@ -277,8 +279,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/sd9ZSfyH/Strawberry-Jelly.jpg",
         "desc": "🍮 <b>Полуничне Желе</b>\nНіжний десертний смак, солодкий та легкий."
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
     
     # --- 1.2 Chaser Limited Edition Ultra ---
     304: {
@@ -289,8 +292,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/nMJ2VdQK/Grape-Black-Berry.jpg",
         "desc": "🍇 <b>Виноград-Ожина</b>\nВибух темних ягід. Кисло-солодкий баланс."
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
     305: {
         "name": "🥤 Cola Pomelo",
         "category": "Limited Ultra",
@@ -299,8 +303,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/zdpDg2K/Cola-Pomelo.jpg",
         "desc": "🍊 <b>Кола-Помело</b>\nНезвичне поєднання класичної коли та цитрусової гірчинки."
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
     306: {
         "name": "🌹 BlackCurrant Rose",
         "category": "Limited Ultra",
@@ -309,8 +314,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/0pLKnvx2/Black-Currant-Rose.jpg",
         "desc": "🥀 <b>Смородина-Троянда</b>\nВишуканий квітково-ягідний аромат для гурманів."
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
 
     # --- 1.3 Chaser Special Berry ---
     307: {
@@ -323,6 +329,7 @@ LIQUIDS = {
         "desc": "🍹 <b>Ягідний Лимонад</b>\nОсвіжаючий літній мікс з льодом."
          "payment_url": PAYMENT_LINK
     },
+    
     308: {
         "name": "⚡ Energetic",
         "category": "Special Berry",
@@ -331,8 +338,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/TBwR7NTP/Energetic.jpg",
         "desc": "🔋 <b>Енергетик</b>\nСмак твого улюбленого напою. Бадьорить!"
-         "payment_url": PAYMENT_LINK
+      "payment_url": PAYMENT_LINK
     },
+    
     309: {
         "name": "💊 Vitamin",
         "category": "Special Berry",
@@ -341,8 +349,9 @@ LIQUIDS = {
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/tTLrsGGT/Vitamin.jpg",
         "desc": "🍏 <b>Вітамін</b>\nМікс фруктів, що заряджає позитивом."
-         "payment_url": PAYMENT_LINK
-    }
+        "payment_url": PAYMENT_LINK
+    },
+    
 }
 
 # --- 2. HHC ВЕЙПИ (З ВИБОРОМ ПОДАРУНКУ) ---
@@ -355,8 +364,9 @@ HHC_VAPES = {
         "gift_liquid": True, # Активує вибір подарунку
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
         "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + легка ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
     101: {
         "name": "🍊 Packwoods Orange 1ml",
         "type": "hhc",
@@ -367,6 +377,7 @@ HHC_VAPES = {
         "desc": "🧠 <b>90% HHC | Сатіва</b>\n⚡ Бадьорить та фокусує\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
          "payment_url": PAYMENT_LINK
     },
+    
     102: {
         "name": "🌸 Packwoods Pink 1ml",
         "type": "hhc",
@@ -375,8 +386,9 @@ HHC_VAPES = {
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
         "desc": "🧠 <b>90% HHC | Індіка</b>\n😇 Спокій + підйом настрою\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
-         "payment_url": PAYMENT_LINK
+        "payment_url": PAYMENT_LINK
     },
+    
     103: {
         "name": "🌿 Whole Mint 2ml",
         "type": "hhc",
@@ -385,8 +397,9 @@ HHC_VAPES = {
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
         "desc": "🧠 <b>95% HHC | Сатіва</b>\n⚡ Енергія та ясність (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
-         "payment_url": PAYMENT_LINK
+       "payment_url": PAYMENT_LINK
     },
+    
     104: {
         "name": "🌴 Jungle Boys White 2ml",
         "type": "hhc",
@@ -396,7 +409,8 @@ HHC_VAPES = {
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
         "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>"
          "payment_url": PAYMENT_LINK
-    }
+    },
+    
 }
 
 # --- 3. POD-СИСТЕМИ ---
@@ -411,8 +425,9 @@ PODS = {
         "discount": True,
         "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg",
         "desc": "🔋 1000 mAh\n💨 MTL / RDL\n⚡ Type-C зарядка\n✨ Компактний та легкий\n😌 Мʼяка тяга, стабільний смак",
-        "payment_url": PAYMENT_LINK
+       "payment_url": PAYMENT_LINK
     },
+    
     501: {
         "name": "🔌 Vaporesso XROS 5 Mini",
         "type": "pod",
@@ -421,8 +436,9 @@ PODS = {
         "discount": True,
         "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg",
         "desc": "🔋 1000 mAh\n🔥 COREX 2.0\n⚡ Швидка зарядка\n🎯 Яскравий смак\n💎 Оновлений дизайн",
-        "payment_url": PAYMENT_LINK
+       "payment_url": PAYMENT_LINK
     },
+    
     502: {
         "name": "🔌 Vaporesso XROS Pro",
         "type": "pod",
@@ -431,8 +447,9 @@ PODS = {
         "discount": True,
         "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg",
         "desc": "🔋 1200 mAh\n⚡ Регулювання потужності\n💨 RDL / MTL\n🔥 Максимальний смак\n🚀 Професійний рівень",
-        "payment_url": PAYMENT_LINK
+"payment_url": PAYMENT_LINK
     },
+    
     503: {
         "name": "🔌 Vaporesso XROS Nano",
         "type": "pod",
@@ -443,6 +460,7 @@ PODS = {
         "desc": "🔋 1000 mAh\n💨 MTL\n🧱 Міцний корпус\n🎒 Ідеальний у дорогу\n😌 Спокійна, рівна тяга",
         "payment_url": PAYMENT_LINK
     },
+    
     504: {
         "name": "🔌 Vaporesso XROS 4",
         "type": "pod",
@@ -453,6 +471,7 @@ PODS = {
         "desc": "🔋 1000 mAh\n🔥 COREX\n🎨 Стильний дизайн\n👌 Баланс смаку та тяги\n✨ Щоденний комфорт",
         "payment_url": PAYMENT_LINK
     },
+    
     505: {
         "name": "🔌 Vaporesso XROS 5",
         "type": "pod",
@@ -461,8 +480,9 @@ PODS = {
         "discount": True,
         "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg",
         "desc": "🔋 1200 mAh\n⚡ Fast Charge\n💎 Преміальна збірка\n🔥 Максимум смаку\n🚀 Флагман серії",
-        "payment_url": PAYMENT_LINK
+       "payment_url": PAYMENT_LINK
     },
+    
     506: {
         "name": "🔌 Voopoo Vmate Mini Pod Kit",
         "type": "pod",
@@ -472,9 +492,7 @@ PODS = {
         "img": "https://i.ibb.co/8L0JNTHz/voopoo-vmate-mini.jpg",
         "desc": "🔋 1000 mAh\n💨 Автозатяжка\n🧲 Магнітний картридж\n🎯 Простий та надійний\n😌 Легкий старт для новачків",
         "payment_url": PAYMENT_LINK
-    }
-}
-
+    },
 
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
@@ -630,56 +648,89 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await _edit_or_reply(update.callback_query, text, keyboard)
 
+# =================================================================
+# 🔍 SECTION 15: ITEM DETAIL VIEW (COLOR & ATTRIBUTE LOGIC)
+# =================================================================
+
 async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
     """
-    PRO КАРТКА ТОВАРУ
-    - Фото, Динамічна ціна, Вибір міцності, Швидке замовлення.
+    Картка товару PRO 2.0:
+    - Підтримка вибору кольору (Pods)
+    - Підтримка вибору міцності (Liquids)
+    - Підтримка подарунків (HHC)
+    - Промокоди в описі
     """
     item = get_item_data(item_id)
-    if not item: 
+    if not item:
         await update.callback_query.answer("❌ Товар не знайдено")
         return
 
+    # Розрахунок ціни
     profile = context.user_data.get("profile", {})
     final_price, has_discount = calculate_final_price(item['price'], profile)
 
-    # 1. Візуалізація ціни
-    price_display = f"<b>{item['price']} UAH</b>"
+    # Форматування ціни
+    price_html = f"<b>{int(item['price'])} ₴</b>"
     if has_discount:
-        price_display = f"<s>{item['price']}</s> ➡️ <b>{final_price} UAH</b> 🔥"
-    
-    delivery_text = "🚚 <b>Безкоштовна доставка</b>" if has_discount else "🚚 Доставка за тарифами"
+        price_html = f"<s>{int(item['price'])}</s> ➡️ <b>{final_price} ₴</b> 🔥"
 
-    # 2. Опис
-    desc_extra = f"\n🏷 {item['category']}" if "category" in item else ""
+    # Текст промокодів
+    promo_block = (
+        "\n🎫 <b>Твої промокоди:</b>\n"
+        "▫️ <code>GHST2026</code> (-101 грн + VIP + Рідина)\n"
+        "▫️ <code>START35</code> (-35% на перше замовлення)"
+    )
+
     caption = (
         f"<b>{item['name']}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{item['desc']}{desc_extra}\n"
+        f"{item['desc']}\n"
+        f"{promo_block}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💰 Ціна: {price_display}\n"
-        f"{delivery_text}\n"
+        f"💰 Ціна: {price_html}"
     )
-    
+
     keyboard = []
-    
-    # 3. Кнопки
-    if "strengths" in item:
-        caption += "\n🧪 <b>Оберіть міцність (mg):</b>"
+
+    # --- ЛОГІКА КНОПОК ---
+
+    # 1. Якщо це POD -> Вибір кольору
+    if "colors" in item:
+        caption += "\n\n🎨 <b>Оберіть колір девайсу:</b>"
+        # Розбиваємо кольори по 2 в ряд
+        colors = item["colors"]
+        for i in range(0, len(colors), 2):
+            row = []
+            col1 = colors[i]
+            # data: add_ID_COLOR
+            row.append(InlineKeyboardButton(col1, callback_data=f"add_{item_id}_{col1}"))
+            if i + 1 < len(colors):
+                col2 = colors[i+1]
+                row.append(InlineKeyboardButton(col2, callback_data=f"add_{item_id}_{col2}"))
+            keyboard.append(row)
+
+    # 2. Якщо це Рідина -> Вибір міцності
+    elif "strengths" in item:
+        caption += "\n\n🧪 <b>Оберіть міцність нікотину:</b>"
         row = []
-        for s in item["strengths"]:
+        for s in item['strengths']:
             row.append(InlineKeyboardButton(f"{s}mg", callback_data=f"add_{item_id}_{s}"))
         keyboard.append(row)
-        
+
+    # 3. Якщо це HHC -> Кнопка з подарунком
     elif item.get("gift_liquid"):
         caption += "\n🎁 <b>+ РІДИНА У ПОДАРУНОК!</b>"
         keyboard.append([InlineKeyboardButton("🎁 Обрати бонус і купити", callback_data=f"add_{item_id}")])
-        
+
+    # 4. Звичайний товар (без опцій)
     else:
         keyboard.append([InlineKeyboardButton("🛒 Додати у кошик", callback_data=f"add_{item_id}")])
 
-    # Швидке замовлення
-    mgr_url = f"https://t.me/{MANAGER_USERNAME}?text=Привіт!%20Хочу%20замовити%20{item['name'].replace(' ', '%20')}"
+    # Кнопка швидкого зв'язку з менеджером (з назвою товару)
+    manager_text = f"Привіт! Хочу замовити {item['name']}"
+    manager_url = f"https://t.me/{MANAGER_USERNAME}?text={manager_text.replace(' ', '%20')}"
+    
+    keyboard.append([InlineKeyboardButton("👨‍💻 Замовити через менеджера", url=manager_url)])
     keyboard.append([InlineKeyboardButton("⚡ Купити в 1 клік", url=mgr_url)])
     keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="cat_all")])
 
@@ -1448,41 +1499,62 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await show_cart_logic(update, context)
 
 # =================================================================
-# 💳 SECTION 21: CHECKOUT ENGINE (STABLE FIXED)
+# 💳 SECTION 21: CHECKOUT ENGINE (SAFE & SECURE)
 # =================================================================
 
 async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Фіналізація замовлення перед оплатою."""
+    """
+    Фіналізація замовлення.
+    Генерує унікальний ID, рахує доставку та суму.
+    """
     query = update.callback_query
     cart = context.user_data.get("cart", [])
     profile = context.user_data.get("profile", {})
 
+    # 1. Перевірка кошика
     if not cart:
-        await _edit_or_reply(query, "🛒 Кошик порожній!", [[InlineKeyboardButton("🔙 Меню", callback_data="menu_start")]])
+        await _edit_or_reply(query, "🛒 <b>Кошик порожній!</b>", [[InlineKeyboardButton("🛍 В каталог", callback_data="cat_all")]])
         return
 
-    # Розрахунок точної суми (Тут виправлено помилку з ключем 'price')
+    # 2. Розрахунок
     total_sum = sum(item['price'] for item in cart)
     
-    # Додаємо унікальні копійки для ідентифікації платежу
+    # Додаємо вартість кур'єра
+    delivery_cost = 0
+    # Перевірка на None, щоб не впало
+    district = str(profile.get("district", ""))
+    if "Кур'єр" in district:
+        delivery_cost = 150
+        total_sum += delivery_cost
+
+    # 3. Генерація унікального ID (GH-TIMESTAMP-RANDOM)
+    # Це гарантує, що ID ніколи не повторяться
+    ts = int(datetime.now().timestamp()) % 10000
+    rnd = random.randint(10, 99)
+    order_id = f"GH-{ts}-{rnd}"
+
+    # Додаємо копійки для ідентифікації платежу (Anti-Fraud)
     cents = random.randint(1, 99) / 100
     final_amount = float(total_sum) + cents
-    
-    # Генеруємо ID замовлення
-    order_id = f"GHST{random.randint(1000, 9999)}"
 
-    # Зберігаємо дані замовлення
+    # Зберігаємо в сесію
     context.user_data["current_order_id"] = order_id
-    context.user_data["final_checkout_sum"] = final_amount # Зберігаємо для оплати
+    context.user_data["final_checkout_sum"] = final_amount 
 
+    # Текст чеку
+    courier_msg = f"\n🛵 Доставка кур'єром: <b>+150 грн</b>" if delivery_cost > 0 else ""
+    
     text = (
-        f"<b>📦 ЗАМОВЛЕННЯ #{order_id}</b>\n"
+        f"<b>📦 ЗАМОВЛЕННЯ <code>{order_id}</code></b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📍 <b>Локація:</b> {profile.get('city')}, {profile.get('district')}\n"
-        f"💰 <b>СУМА: {final_amount:.2f}₴</b>\n"
-        f"⚠️ <b>КОМЕНТАР ДО ПЛАТЕЖУ:</b> <code>{order_id}</code>\n"
+        f"📍 <b>Локація:</b> {profile.get('city', 'Не вказано')}, {district}\n"
+        f"{courier_msg}\n"
+        f"💰 <b>ДО СПЛАТИ: {final_amount:.2f} UAH</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Оберіть банк для отримання реквізитів:</i>"
+        f"⚠️ <b>ОБОВ'ЯЗКОВО вкажіть в коментарі до платежу:</b>\n"
+        f"👉 <code>{order_id}</code> 👈\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Оберіть банк:</i>"
     )
     
     keyboard = [
@@ -1493,72 +1565,6 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await _edit_or_reply(query, text, keyboard)
     
-
-# =================================================================
-# 🔑 SECTION 22: PROMOCODE & VIP LOGIC (FIXED)
-# =================================================================
-
-async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка промокоду з автоматичною активацією VIP."""
-    if not update.message or not update.message.text: return
-    
-    user_text = update.message.text.strip().upper()
-    user_id = update.effective_user.id
-    
-    # Ініціалізація профілю
-    profile = context.user_data.setdefault("profile", {})
-    
-    # 1. Генерація персонального коду (GHST + ID навпаки)
-    personal_promo = f"GHST{str(user_id)[::-1]}".upper()
-    
-    # Список кодів
-    VALID_PROMOS = {
-        "GHOSTY2026": {"type": "vip", "desc": "VIP на місяць"},
-        "GHST2026": {"type": "mega", "desc": "-101 грн + 35% знижка + Free Delivery"},
-        "START35": {"type": "discount", "desc": "-35% на перше замовлення"},
-        personal_promo: {"type": "personal", "desc": "Ваша персональна знижка"}
-    }
-
-    if user_text in VALID_PROMOS:
-        promo_data = VALID_PROMOS[user_text]
-        
-        # Активуємо бонуси в сесії
-        profile["promo_applied"] = True
-        profile["promo_code_active"] = user_text
-        profile["is_vip"] = True # Для спрощення даємо VIP всім промокодам
-        
-        # Зберігаємо в БД (щоб VIP залишився після перезапуску)
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cur = conn.cursor()
-            # Перевіряємо, чи є юзер
-            cur.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
-            cur.execute("UPDATE users SET is_vip = 1 WHERE user_id = ?", (user_id,))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logger.error(f"DB Promo Error: {e}")
-
-        text = (
-            f"🎉 <b>ПРОМОКОД {user_text} АКТИВОВАНО!</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🎁 <b>Бонус:</b> {promo_data['desc']}\n"
-            f"✅ Статус: <b>VIP</b> (Активний)\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🧪 <i>Знижка застосується автоматично в кошику!</i>"
-        )
-        
-        keyboard = [[InlineKeyboardButton("🛍 ДО КАТАЛОГУ", callback_data="cat_all")]]
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-        
-    else:
-        await update.message.reply_text(
-            "❌ <b>Невірний код.</b>\nСпробуйте ще раз або натисніть Назад.",
-            parse_mode='HTML'
-        )
-    
-    # Вимикаємо режим очікування
-    context.user_data['awaiting_promo'] = False
     
 # =================================================================
 # 💳 SECTION 25: PAYMENT GATEWAYS (MONO/PRIVAT)
@@ -1735,13 +1741,12 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['cart'] = []
         return
 
-    async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+ async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Меню вибору міста."""
-    text = "📍 <b>ОБЕРІТЬ ВАШЕ МІСТО</b>\n━━━━━━━━━━━━━━━━━━━━\nМи працюємо по всій Україні:"
+    text = "📍 <b>ОБЕРІТЬ ВАШЕ МІСТО</b>\n━━━━━━━━━━━━━━━━━━━━"
     keyboard = []
     cities = list(UKRAINE_CITIES.keys())
     
-    # Кнопки по 2 в ряд
     for i in range(0, len(cities), 2):
         row = [InlineKeyboardButton(cities[i], callback_data=f"sel_city_{cities[i]}")]
         if i + 1 < len(cities):
@@ -1749,14 +1754,14 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append(row)
         
     keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="menu_profile")])
-    await _edit_or_reply(update.callback_query, text, keyboard)
+    await _edit_or_reply(update.callback_query if update.callback_query else update, text, keyboard)
 
 async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Меню для Дніпра."""
     text = "🏙 <b>ДНІПРО: ТИП ДОСТАВКИ</b>\n━━━━━━━━━━━━━━━━━━━━\n1️⃣ Магніт/Прикоп\n2️⃣ Кур'єр (+150 грн)"
     kb = [
         [InlineKeyboardButton("📍 Район (Клад)", callback_data="set_del_type_klad")],
-        [InlineKeyboardButton("🛵 Кур'єр", callback_data="set_del_type_courier")],
+        [InlineKeyboardButton("🛵 Кур'єр (+150 грн)", callback_data="set_del_type_courier")],
         [InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")]
     ]
     await _edit_or_reply(update.callback_query, text, kb)
@@ -1782,12 +1787,20 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
     
     if is_courier:
         profile["district"] = "Кур'єр (+150 грн)"
+        # Важливо: встановлюємо стан для введення тексту
         context.user_data['state'] = "WAITING_ADDRESS"
-        await _edit_or_reply(update.callback_query, "🛵 <b>Напишіть адресу доставки (Текст):</b>", [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_profile")]])
-        return
-
-    if dist_name:
+        await _edit_or_reply(update.callback_query, 
+                             "🛵 <b>Введіть адресу доставки (Текст):</b>\n<i>Вулиця, дім, квартира, телефон</i>", 
+                             [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_profile")]])
+    else:
         profile["district"] = dist_name
+        # Очищуємо стан
+        context.user_data['state'] = None
+        await _edit_or_reply(update.callback_query, 
+                             f"✅ <b>Локацію {dist_name} збережено!</b>", 
+                             [[InlineKeyboardButton("🛒 В Кошик", callback_data="menu_cart"), 
+                               InlineKeyboardButton("🛍 Каталог", callback_data="cat_all")]])
+        
         # Зберігаємо в БД (опціонально)
         try:
             conn = sqlite3.connect(DB_PATH)
@@ -1834,66 +1847,65 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL CALLBACK DISPATCHER (FINAL)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL ROUTER)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Єдиний центр управління.
-    """
+    """Єдиний центр обробки кнопок."""
     query = update.callback_query
     data = query.data
     
     try:
-        await query.answer() # Стоп спіннер
+        await query.answer() # Щоб кнопка не крутилася вічно
         
-        # 1. ГОЛОВНЕ МЕНЮ
+        # --- 1. МЕНЮ ---
         if data == "menu_start": await start_command(update, context)
         elif data == "menu_profile": await show_profile(update, context)
         elif data == "menu_promo": 
             context.user_data['awaiting_promo'] = True
             await _edit_or_reply(query, "🎟 <b>Введіть промокод:</b>", [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
+        elif data == "ref_system": await show_ref_info(update, context)
 
-        # 2. ГЕОГРАФІЯ (Твій код інтегровано сюди)
-        elif data == "choose_city" or data == "menu_city":
+        # --- 2. ГЕОГРАФІЯ ---
+        elif data == "choose_city" or data == "menu_city": 
             await choose_city_menu(update, context)
         elif data.startswith("sel_city_"):
             city = data.replace("sel_city_", "")
             context.user_data.setdefault("profile", {})["city"] = city
             if city == "Дніпро": await choose_dnipro_delivery(update, context)
             else: await choose_district_menu(update, context, city)
-        elif data == "set_del_type_klad":
+        elif data == "set_del_type_klad": 
             await choose_district_menu(update, context, "Дніпро")
-        elif data == "set_del_type_courier":
+        elif data == "set_del_type_courier": 
             await save_location_handler(update, context, is_courier=True)
         elif data.startswith("sel_dist_"):
             dist = data.replace("sel_dist_", "")
             await save_location_handler(update, context, dist_name=dist)
 
-        # 3. МАГАЗИН
+        # --- 3. МАГАЗИН ---
         elif data in ["cat_all", "assortment"]: await catalog_main_menu(update, context)
         elif data == "cat_list_hhc": await show_category_items(update, context, "hhc")
         elif data == "cat_list_pods": await show_category_items(update, context, "pods")
         elif data == "cat_list_liquids": await show_category_items(update, context, "liquids")
         elif data.startswith("view_item_"): await view_item_details(update, context, int(data.split("_")[2]))
             
-        # 4. КОШИК
+        # --- 4. КОШИК ---
         elif data.startswith("add_"): await add_to_cart_handler(update, context)
         elif data.startswith("gift_sel_"): await gift_selection_handler(update, context)
         elif data == "menu_cart": await show_cart_logic(update, context)
         elif data.startswith("cart_"): await cart_action_handler(update, context)
         
-        # 5. ОФОРМЛЕННЯ
+        # --- 5. ОФОРМЛЕННЯ ---
         elif data == "checkout_init": await checkout_init(update, context)
         elif data in ["pay_mono", "pay_privat"]:
             method = "mono" if data == "pay_mono" else "privat"
             await payment_selection_handler(update, context, method)
         elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
 
-        # 6. АДМІНКА
+        # --- 6. АДМІНКА ---
         elif data.startswith("admin_approve_"):
             uid = int(data.split("_")[2])
-            await context.bot.send_message(uid, "✅ <b>Оплата підтверджена!</b>")
+            await context.bot.send_message(uid, "✅ <b>Оплата підтверджена!</b>\nДякуємо за покупку!")
             await query.edit_message_caption(caption=query.message.caption + "\n\n✅ [ОК]")
         elif data == "admin_broadcast": await start_broadcast(update, context)
 
