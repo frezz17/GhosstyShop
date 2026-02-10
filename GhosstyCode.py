@@ -1342,6 +1342,192 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     # Відправка
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
     
+# =================================================================
+# 🛒 SECTION 17: SMART CART HANDLER (COLORS, STRENGTHS & GIFTS)
+# =================================================================
+
+async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Розумний додавар.
+    Обробляє: add_ID_VARIANT (де VARIANT це колір або міцність).
+    """
+    query = update.callback_query
+    
+    try:
+        parts = query.data.split("_")
+        item_id = int(parts[1])
+        # Збираємо варіант (може містити пробіли, наприклад "Black Phantom")
+        variant = "_".join(parts[2:]) if len(parts) > 2 else None
+    except:
+        await query.answer("⚠️ Помилка даних товару")
+        return
+
+    item = get_item_data(item_id)
+    if not item: 
+        await query.answer("❌ Товар не знайдено")
+        return
+
+    # 1. ПЕРЕХОПЛЕННЯ: HHC ТОВАРИ (ПОТРІБЕН ПОДАРУНОК)
+    if item.get("gift_liquid", False):
+        context.user_data['pending_item_id'] = item_id
+        text = (
+            f"🎁 <b>ОБЕРІТЬ ВАШ ПОДАРУНОК!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"До <b>{item['name']}</b> йде безкоштовна рідина.\n"
+            f"👇 Оберіть смак зі списку:"
+        )
+        kb = []
+        # Кнопки подарунків по 1 в ряд для зручності
+        for gid, ginfo in GIFT_LIQUIDS.items():
+            kb.append([InlineKeyboardButton(ginfo['name'], callback_data=f"gift_sel_{gid}")])
+        
+        kb.append([InlineKeyboardButton("❌ Скасувати", callback_data=f"view_item_{item_id}")])
+        await _edit_or_reply(query, text, kb)
+        return
+
+    # 2. ФОРМУВАННЯ НАЗВИ (З ВАРІАНТОМ)
+    final_name = item['name']
+    
+    if variant:
+        # Якщо варіант - це число (міцність)
+        if variant.isdigit():
+            final_name += f" ({variant}mg)"
+        # Якщо варіант - це текст (колір)
+        else:
+            # Відновлюємо пробіли замість підкреслень, якщо були
+            variant_clean = variant.replace("_", " ") 
+            final_name += f" ({variant_clean})"
+
+    # 3. ФІНАЛІЗАЦІЯ
+    await _finalize_add_to_cart(update, context, item, gift=None, name=final_name)
+
+async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка вибору подарунка (gift_sel_ID)."""
+    query = update.callback_query
+    gift_id = int(query.data.split("_")[2])
+    
+    # Дістаємо "завислий" товар з пам'яті
+    main_id = context.user_data.get('pending_item_id')
+    if not main_id: return
+    
+    main_item = get_item_data(main_id)
+    gift_item = GIFT_LIQUIDS.get(gift_id)
+    gift_name = gift_item['name'] if gift_item else "Сюрприз"
+    
+    # Додаємо HHC + Подарунок
+    await _finalize_add_to_cart(update, context, main_item, gift=gift_name)
+    
+    # Чистимо буфер
+    context.user_data.pop('pending_item_id', None)
+
+async def _finalize_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE, item, gift=None, name=None):
+    """Фізичний запис у базу кошика."""
+    cart = context.user_data.setdefault("cart", [])
+    profile = context.user_data.setdefault("profile", {})
+    
+    # Рахуємо персональну ціну
+    price, _ = calculate_final_price(item['price'], profile)
+    
+    # Створюємо унікальний запис
+    cart.append({
+        "id": random.randint(100000, 999999), # ID для видалення саме цього екземпляру
+        "name": name if name else item['name'],
+        "price": price,
+        "gift": gift
+    })
+    
+    msg = f"✅ <b>{name or item['name']}</b> додано!\n💰 Ваша ціна: {price} грн"
+    if gift: msg += f"\n🎁 Бонус: {gift}"
+    
+    kb = [[InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart"), InlineKeyboardButton("🔙 Каталог", callback_data="cat_all")]]
+    await send_ghosty_message(update, msg, kb)
+
+# =================================================================
+# 🛒 SECTION 18: CART LOGIC (VISUALIZATION)
+# =================================================================
+
+async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Головний екран кошика.
+    Перевіряє наявність товарів та локації перед оформленням.
+    """
+    query = update.callback_query
+    cart = context.user_data.get("cart", [])
+    profile = context.user_data.setdefault("profile", {})
+    
+    # 1. Порожній кошик
+    if not cart:
+        await send_ghosty_message(
+            update, 
+            "🛒 <b>Ваш кошик порожній</b>\n\nЧас обрати щось топове! 👇",
+            [[InlineKeyboardButton("🛍 До Каталогу", callback_data="cat_all")],
+             [InlineKeyboardButton("🏠 Меню", callback_data="menu_start")]]
+        )
+        return
+
+    # 2. Формування списку
+    total_sum = 0
+    items_text = ""
+    keyboard = []
+
+    for idx, item in enumerate(cart):
+        total_sum += item['price']
+        
+        # Додаємо рядок подарунка, якщо є
+        gift_line = f"\n   └ 🎁 {item['gift']}" if item['gift'] else ""
+        
+        items_text += f"🔹 <b>{item['name']}</b>{gift_line}\n   💰 <code>{item['price']} грн</code>\n"
+        
+        # Кнопка видалення (по унікальному ID)
+        keyboard.append([InlineKeyboardButton(f"❌ Видалити: {item['name'][:15]}...", callback_data=f"cart_del_{item['id']}")])
+
+    # 3. Перевірка Географії (Важливо для Checkout)
+    city = profile.get("city")
+    district = profile.get("district")
+    
+    can_checkout = False
+    if city and district:
+        location_status = f"✅ <b>Доставка:</b> {city}, {district}"
+        can_checkout = True
+    else:
+        location_status = "⚠️ <b>Спочатку оберіть місто доставки!</b>"
+        # Кнопка вибору міста стає першою, якщо локації немає
+        keyboard.insert(0, [InlineKeyboardButton("📍 ОБРАТИ МІСТО/РАЙОН", callback_data="choose_city")])
+
+    text = (
+        f"🛒 <b>КОШИК ЗАМОВЛЕНЬ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{items_text}"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{location_status}\n"
+        f"💰 <b>РАЗОМ ДО СПЛАТИ: {total_sum} UAH</b>"
+    )
+
+    # 4. Кнопка Оформлення (тільки якщо є локація)
+    if can_checkout:
+        keyboard.insert(0, [InlineKeyboardButton("🚀 ОФОРМИТИ ЗАМОВЛЕННЯ", callback_data="checkout_init")])
+
+    keyboard.append([InlineKeyboardButton("🗑 Очистити все", callback_data="cart_clear")])
+    keyboard.append([InlineKeyboardButton("🔙 Меню", callback_data="menu_start")])
+
+    await send_ghosty_message(update, text, keyboard)
+
+async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Видалення товарів або очищення."""
+    query = update.callback_query
+    data = query.data
+    
+    if data == "cart_clear":
+        context.user_data["cart"] = []
+        await show_cart_logic(update, context)
+        
+    elif data.startswith("cart_del_"):
+        uid = int(data.split("_")[2])
+        cart = context.user_data.get("cart", [])
+        # Фільтруємо список, залишаючи все, крім цього ID
+        context.user_data["cart"] = [i for i in cart if i['id'] != uid]
+        await show_cart_logic(update, context)
+        
 
 # =================================================================
 # 🎁 SECTION 19: GIFT SELECTION SYSTEM (FOR HHC & OFFERS)
@@ -1407,96 +1593,6 @@ async def gift_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Логіка вже реалізована в add_to_cart_handler (Крок 3), 
     # але цей метод можна залишити як заглушку або для прямого виклику.
     pass
-
-# =================================================================
-# 🛒 SECTION 18: CART LOGIC (VISUALIZATION)
-# =================================================================
-
-async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Головна функція відображення кошика.
-    """
-    query = update.callback_query
-    cart = context.user_data.get('cart', [])
-    profile = context.user_data.get("profile", {})
-
-    # 1. Якщо кошик порожній
-    if not cart:
-        text = (
-            "🛒 <b>ТВІЙ КОШИК ПОРОЖНІЙ</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "Тут будуть твої покупки.\n"
-            "🎁 <i>Нагадуємо: при замовленні HHC рідина у подарунок!</i>"
-        )
-        keyboard = [[InlineKeyboardButton("🛍 ВІДКРИТИ КАТАЛОГ", callback_data="cat_all")],
-                    [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]]
-        
-        await _edit_or_reply(query, text, keyboard)
-        return
-
-    # 2. Формування списку товарів
-    total_sum = 0
-    items_text = ""
-    keyboard = []
-
-    for idx, item in enumerate(cart):
-        price = item['price']
-        total_sum += price
-        
-        # Якщо є подарунок, додаємо його в опис
-        gift_line = f"\n   └ 🎁 {item['gift']}" if item['gift'] else ""
-        
-        items_text += f"🔹 <b>{item['name']}</b>{gift_line}\n   💰 <code>{price} грн</code>\n"
-        
-        # Кнопка видалення
-        keyboard.append([InlineKeyboardButton(f"❌ Видалити: {item['name'][:15]}...", callback_data=f"cart_del_{item['id']}")])
-
-    # 3. Перевірка Геолокації
-    city = profile.get("city")
-    district = profile.get("district")
-    
-    can_checkout = False
-    
-    if city and district:
-        location_status = f"✅ <b>Доставка:</b> {city}, {district}"
-        can_checkout = True
-    else:
-        location_status = "⚠️ <b>Оберіть місто для замовлення!</b>"
-        keyboard.insert(0, [InlineKeyboardButton("📍 ОБРАТИ МІСТО/РАЙОН", callback_data="choose_city")])
-
-    # 4. Фінальний текст
-    text = (
-        f"🛒 <b>ВАШЕ ЗАМОВЛЕННЯ ({len(cart)} шт.)</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{items_text}"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{location_status}\n"
-        f"💰 <b>РАЗОМ ДО СПЛАТИ: {total_sum} UAH</b>\n"
-    )
-
-    # 5. Кнопка Checkout
-    if can_checkout:
-        keyboard.insert(0, [InlineKeyboardButton("🚀 ОФОРМИТИ ЗАМОВЛЕННЯ", callback_data="checkout_init")])
-
-    keyboard.append([InlineKeyboardButton("🗑 ОЧИСТИТИ ВСЕ", callback_data="cart_clear")])
-    keyboard.append([InlineKeyboardButton("🔙 МЕНЮ", callback_data="menu_start")])
-
-    await _edit_or_reply(query, text, keyboard)
-
-async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробляє видалення та очищення."""
-    query = update.callback_query
-    data = query.data
-    
-    if data == "cart_clear":
-        context.user_data["cart"] = []
-        await show_cart_logic(update, context)
-        
-    elif data.startswith("cart_del_"):
-        unique_id_to_delete = int(data.split("_")[2])
-        cart = context.user_data.get("cart", [])
-        context.user_data["cart"] = [item for item in cart if item['id'] != unique_id_to_delete]
-        await show_cart_logic(update, context)
 
 # =================================================================
 # 💳 SECTION 21: CHECKOUT ENGINE (SAFE & SECURE)
