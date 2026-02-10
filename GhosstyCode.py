@@ -52,7 +52,7 @@ PROMO_BONUS = 101    # Знижка за промокод
 "payment_url": PAYMENT_LINK
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3"
-}
+   
 
 # 4. Логування (В абсолютний файл + Консоль)
 logging.basicConfig(
