@@ -1,12 +1,20 @@
 version: '3.8'
 
 services:
-  telegram-bot:
+  ghosty-bot:
     build: .
-    container_name: ghosty-shop-bot
+    container_name: ghosty_shop_bot
     restart: always
-    environment:
-      - BOT_TOKEN=8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc
-      - TZ=Europe/Kiev
+    # Це важливо для SQLite, щоб дані зберігалися на хості
     volumes:
       - ./data:/app/data
+    environment:
+      # Токен передається сюди. У коді ми його зчитаємо.
+      - BOT_TOKEN=8351638507:AAFSnnmblizuK7xOEleDiRl4SE4VTpPJulc
+      - TZ=Europe/Kiev
+    # Обмеження ресурсів (корисно для стабільності на слабких хостингах)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
