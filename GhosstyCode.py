@@ -50,18 +50,13 @@ WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # 3. Економіка та Посилання
 VIP_EXPIRY = "25.03.2026"
+# ЗАЛИШ ТІЛЬКИ ЦЕЙ СЛОВНИК (з 3 посиланнями):
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3",
-    "ghossty": "https://heylink.me/GhosstyShop" # <-- Додано GhosstyPay
+    "ghossty": "https://heylink.me/GhosstyShop" # <-- Це обов'язково має бути!
 }
-PROMO_BONUS = 101    # Знижка за промокод
-
-# ВИПРАВЛЕНО ТУТ: Правильне оголошення словника
-PAYMENT_LINK = {
-    "mono": "https://lnk.ua/k4xJG21Vy",   
-    "privat": "https://lnk.ua/RVd0OW6V3"
-}
+PROMO_BONUS = 101
 
 # 4. Логування
 logging.basicConfig(
@@ -300,42 +295,6 @@ async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYP
         
     keyboard.append([InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")])
     await _edit_or_reply(update.callback_query, text, keyboard)
-
-async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, dist_name=None, is_courier=False):
-    """Збереження локації."""
-    profile = context.user_data.setdefault("profile", {})
-    
-    if is_courier:
-        profile["district"] = "Кур'єр (+150 грн)"
-        profile["delivery_type"] = "courier"
-        context.user_data['state'] = "WAITING_ADDRESS"
-        
-        await _edit_or_reply(
-            update.callback_query, 
-            "🛵 <b>Напишіть адресу доставки одним повідомленням:</b>\n<i>(Вулиця, дім, під'їзд, поверх, телефон)</i>", 
-            [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_profile")]]
-        )
-    else:
-        profile["district"] = dist_name
-        profile["delivery_type"] = "klad"
-        context.user_data['state'] = None # Скидаємо стан, щоб не перехоплювало текст
-        
-        # Оновлення в SQLite (безпечно)
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.execute("UPDATE users SET city = ?, district = ?, last_active = ? WHERE user_id = ?", 
-                        (profile.get("city"), dist_name, datetime.now(), update.effective_user.id))
-            conn.commit()
-            conn.close()
-        except Exception: pass # Ігноруємо помилки БД, щоб не ламати юзер-флоу
-        
-        await _edit_or_reply(
-            update.callback_query, 
-            f"✅ <b>Локацію збережено!</b>\n📍 {profile.get('city')}, {dist_name}", 
-            [[InlineKeyboardButton("🛒 Перейти до кошика", callback_data="menu_cart"), 
-              InlineKeyboardButton("🛍 Продовжити покупки", callback_data="cat_all")]]
-        )
-        
 
 # =================================================================
 # 🛍 SECTION 3: ТОВАРНА БАЗА (FIXED SYNTAX & COLORS)
@@ -919,7 +878,7 @@ async def send_ghosty_media(update, text, reply_markup, photo):
     
 
 # =================================================================
-# 🏠 SECTION 8: START & PROFILE (FINAL MERGED VERSION)
+# 🏠 SECTION 8: START & PROFILE (FINAL CORRECTED)
 # =================================================================
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -945,10 +904,14 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 4. Формуємо рядок адреси
     city = profile.get('city')
     address = profile.get('address_details')
+    district = profile.get('district')
+
     if city:
         loc_text = f"📍 {city}"
-        if address: loc_text += f", {address}"
-        elif profile.get('district'): loc_text += f", {profile['district']}"
+        if address: 
+            loc_text += f"\n🏠 {address}"
+        elif district: 
+            loc_text += f", {district}"
     else:
         loc_text = "⚠️ Не вказано (Натисніть кнопку нижче)"
 
@@ -966,12 +929,12 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📱 <b>Телефон:</b> {profile.get('phone', 'Не вказано')}"
     )
 
-    # 6. Клавіатура (Всі кнопки робочі)
+    # 6. Клавіатура
     kb = [
         [InlineKeyboardButton("📝 Змінити дані доставки", callback_data="fill_delivery_data")],
         [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
         [InlineKeyboardButton("🤝 Реферальна програма", callback_data="ref_system")],
-        [InlineKeyboardButton("🛍 До магазину", callback_data="cat_all")]
+        [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
     ]
 
     # 7. Відправка з фото (фолбек на текст, якщо помилка)
@@ -983,6 +946,26 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
     except:
         await send_ghosty_message(update, text, kb)
+
+async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Інформація про реферальну систему."""
+    user_id = update.effective_user.id
+    bot_username = context.bot.username
+    
+    ref_text = (
+        f"🤝 <b>ПАРТНЕРСЬКА ПРОГРАМА</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"Запрошуй друзів та отримуй бонуси!\n\n"
+        f"1️⃣ <b>Твій друг отримує:</b>\n"
+        f"   • Знижку -35% на перше замовлення\n"
+        f"2️⃣ <b>Ти отримуєш:</b>\n"
+        f"   • VIP-статус на 7 днів (Безкоштовна доставка)\n"
+        f"   • Секретний подарунок у наступному замовленні\n\n"
+        f"🔗 <b>Твоє посилання:</b>\n<code>https://t.me/{bot_username}?start={user_id}</code>"
+    )
+    
+    keyboard = [[InlineKeyboardButton("⬅️ Назад до профілю", callback_data="menu_profile")]]
+    await _edit_or_reply(update.callback_query, ref_text, keyboard)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Головне меню + Кнопка Адміна."""
@@ -1015,7 +998,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton("⚙️ АДМІН-ПАНЕЛЬ", callback_data="admin_main")])
 
     await send_ghosty_message(update, welcome_text, keyboard, photo=WELCOME_PHOTO)
-        
+    
     
 # =================================================================
 # ⚙️ SECTION 9: GLOBAL CALLBACK DISPATCHER (PARTIAL)
@@ -1091,150 +1074,46 @@ async def district_selection_menu(update: Update, context: ContextTypes.DEFAULT_
     keyboard.append([InlineKeyboardButton("⬅️ Назад до міст", callback_data="menu_city")])
     
     await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
-
-# =================================================================
-# 🚚 SECTION 11: ADDRESS DELIVERY & LOCATION SAVING
+    
+        # =================================================================
+# 🚚 SECTION 11: ADDRESS DELIVERY & LOCATION SAVING (FIXED)
 # =================================================================
 
 async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, dist_name: str = None, is_address: bool = False):
     """
     Зберігає обрану локацію в профіль користувача та базу SQLite.
     """
-    profile = context.user_data["profile"]
+    profile = context.user_data.setdefault("profile", {})
     user_id = update.effective_user.id
     
     if is_address:
         profile["district"] = "Адресна доставка"
         profile["delivery_type"] = "address"
-        msg = "✅ <b>Ви обрали адресну доставку по Дніпру!</b>\nВам потрібно буде вказати адресу при оформленні."
+        # Запускаємо збір повної адреси через Smart Data Collection або просто чекаємо текст
+        msg = "✅ <b>Ви обрали адресну доставку по Дніпру!</b>\nВам потрібно буде вказати адресу при оформленні замовлення."
     else:
         profile["district"] = dist_name
         profile["delivery_type"] = "klad"
-        msg = f"✅ <b>Локацію встановлено:</b> {profile['city']}, р-н {dist_name}"
+        msg = f"✅ <b>Локацію встановлено:</b> {profile.get('city')}, р-н {dist_name}"
 
-    # Оновлення в SQLite
+    # Оновлення в SQLite (ВИПРАВЛЕНО: Використовуємо глобальну DB_PATH)
     try:
-        conn = sqlite3.connect('data/ghosty_v3.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("UPDATE users SET city = ?, district = ? WHERE user_id = ?", 
-                 (profile["city"], profile["district"], user_id))
+                  (profile.get("city"), profile.get("district"), user_id))
         conn.commit()
         conn.close()
     except Exception as e:
         logger.error(f"Error saving location to DB: {e}")
 
+    # ВИПРАВЛЕНО: Кнопка веде на cat_all, а не cat_main
     keyboard = [
-        [InlineKeyboardButton("🛍 Перейти до покупок", callback_data="cat_main")],
+        [InlineKeyboardButton("🛍 Перейти до покупок", callback_data="cat_all")],
         [InlineKeyboardButton("🏠 В меню", callback_data="menu_start")]
     ]
     await send_ghosty_message(update, msg, InlineKeyboardMarkup(keyboard))
-
-# =================================================================
-# 👤 SECTION 10: USER PROFILE & REFERRAL SYSTEM (PRO UI)
-# =================================================================
-
-async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Відображення профілю користувача."""
-    query = update.callback_query
-    user = update.effective_user
-    user_id = user.id
     
-    # Ініціалізація профілю
-    profile = context.user_data.setdefault("profile", {})
-    
-    # Дані для відображення
-    ghst_id = f"GHST-{user_id}"
-    city = profile.get('city', 'Не обрано')
-    dist = profile.get('district', '')
-    location = f"{city}, {dist}" if city != 'Не обрано' else "❌ Не вказано"
-    
-    vip_status = "💎 АКТИВНИЙ" if profile.get('is_vip') else "🌑 Стандарт"
-    
-    # Текст
-    profile_text = (
-        f"👤 <b>ОСОБИСТИЙ КАБІНЕТ</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📛 <b>Ім'я:</b> {escape(user.first_name)}\n"
-        f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
-        f"🛡️ <b>Код клієнта:</b> <code>{ghst_id}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📍 <b>Доставка:</b>\n<i>{location}</i>\n\n"
-        f"🏆 <b>Статус:</b> {vip_status}\n"
-        f"📦 <b>Замовлень:</b> {profile.get('orders_count', 0)}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎟️ <b>Твоє реферальне посилання:</b>\n<code>https://t.me/{context.bot.username}?start={user_id}</code>"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton("📦 Змінити адресу доставки", callback_data="choose_city")],
-        [InlineKeyboardButton("🤝 Реферальна програма", callback_data="ref_system")],
-        [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
-        [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
-    ]
-
-    # Спроба відправити з фото профілю
-    try:
-        photos = await user.get_profile_photos(limit=1)
-        if photos.total_count > 0:
-            photo_file = photos.photos[0][-1].file_id
-            # Використовуємо універсальну функцію (треба переконатись, що вона підтримує photo)
-            await send_ghosty_message(update, profile_text, keyboard, photo=photo_file)
-        else:
-            await _edit_or_reply(query, profile_text, keyboard)
-    except Exception as e:
-        logger.error(f"Profile photo error: {e}")
-        await _edit_or_reply(query, profile_text, keyboard)
-
-async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Інформація про реферальну систему."""
-    query = update.callback_query
-    user_id = update.effective_user.id
-    
-    ref_text = (
-        f"🤝 <b>ПАРТНЕРСЬКА ПРОГРАМА</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Запрошуй друзів та отримуй бонуси!\n\n"
-        f"1️⃣ <b>Твій друг отримує:</b>\n"
-        f"   • Знижку -35% на перше замовлення\n"
-        f"2️⃣ <b>Ти отримуєш:</b>\n"
-        f"   • VIP-статус на 7 днів (Безкоштовна доставка)\n"
-        f"   • Секретний подарунок у наступному замовленні\n\n"
-        f"🔗 <b>Твоє посилання:</b>\n<code>https://t.me/{context.bot.username}?start={user_id}</code>"
-    )
-    keyboard = [[InlineKeyboardButton("⬅️ Назад до профілю", callback_data="menu_profile")]]
-    await _edit_or_reply(query, ref_text, keyboard)
-    
-
-
-# =================================================================
-# ⚙️ SECTION 13: CALLBACK DISPATCHER (CITIES & PROFILE)
-# =================================================================
-
-# Цей шматок коду додається до основного main_callback_handler у фінальній збірці
-async def process_geo_(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str):
-    """
-    Обробка географічних колбеків.
-    """
-    profile = context.user_data["profile"]
-    
-    if data == "menu_city":
-        await city_selection_menu(update, context)
-        
-    elif data.startswith("set_city_"):
-        city = data.replace("set_city_", "")
-        profile["city"] = city
-        await district_selection_menu(update, context, city)
-        
-    elif data.startswith("set_dist_"):
-        dist = data.replace("set_dist_", "")
-        await save_location_handler(update, context, dist_name=dist)
-        
-    elif data == "set_delivery_address":
-        await save_location_handler(update, context, is_address=True)
-        
-    elif data == "menu_profile":
-        await show_profile(update, context)
-        
 # =================================================================
 # 🛍 SECTION 14: CATALOG ENGINE (MENU)
 # =================================================================
@@ -1847,28 +1726,93 @@ async def payment_confirmation_handler(update: Update, context: ContextTypes.DEF
     
     keyboard = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
     await _edit_or_reply(query, text, keyboard)
-
+    
 # =================================================================
-# 🛒 SECTION 27: INTERFACE FUNCTIONS (UI HELPERS)
+# 📝 SECTION 16: SMART DATA COLLECTION (MANAGER & FAST ORDER)
 # =================================================================
 
-async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт оформлення."""
-    query = update.callback_query
-    cart = context.user_data.get("cart", [])
-    if not cart: return await show_cart_logic(update, context)
+async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action, item_id=None):
+    """Починає процес збору даних (ПІБ -> Телефон -> Місто -> Адреса)."""
+    context.user_data['data_flow'] = {
+        'step': 'name',
+        'next_action': next_action, # 'manager_order' або 'checkout'
+        'item_id': item_id
+    }
+    context.user_data['state'] = "COLLECTING_DATA"
+    
+    text = (
+        "📝 <b>ОФОРМЛЕННЯ ЗАМОВЛЕННЯ</b>\n\n"
+        "Для швидкої обробки нам потрібні дані отримувача.\n"
+        "1️⃣ Введіть <b>Прізвище та Ім'я</b>:"
+    )
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="cancel_data")]]
+    await _edit_or_reply(update.callback_query, text, kb)
 
-    profile = context.user_data.get("profile", {})
-    if not profile.get("city"):
-        return await _edit_or_reply(query, "⚠️ Оберіть місто!", [[InlineKeyboardButton("📍 Обрати", callback_data="choose_city")]])
+async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробляє введені користувачем дані крок за кроком."""
+    flow = context.user_data.get('data_flow')
+    if not flow: return
 
-    if "Кур'єр" in str(profile.get("district")) and not profile.get("address_details"):
-        context.user_data['state'] = "WAITING_ADDRESS"
-        await _edit_or_reply(query, "🚚 Напишіть адресу (Місто, Вулиця, Дім, Телефон):", [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_cart")]])
-        return
+    text = update.message.text
+    profile = context.user_data['profile']
+    step = flow['step']
 
-    await show_payment_methods(update, context)
+    if step == 'name':
+        profile['full_name'] = text
+        flow['step'] = 'phone'
+        await update.message.reply_text("2️⃣ Введіть ваш <b>Номер телефону</b>:")
+    
+    elif step == 'phone':
+        profile['phone'] = text
+        flow['step'] = 'city'
+        # Пропонуємо міста кнопками для зручності
+        kb = [[InlineKeyboardButton(c, callback_data=f"set_flow_city_{c}")] for c in list(UKRAINE_CITIES.keys())[:6]]
+        await update.message.reply_text("3️⃣ Оберіть або введіть <b>Місто</b> доставки:", reply_markup=InlineKeyboardMarkup(kb))
+    
+    elif step == 'address': # Цей крок викликається після вибору міста
+        profile['address_details'] = text
+        
+        # ФІНАЛ: Дані зібрано, виконуємо дію
+        context.user_data['state'] = None
+        action = flow['next_action']
+        
+        await update.message.reply_text("✅ <b>Дані успішно збережено!</b>")
+        
+        if action == 'manager_order':
+            await finalize_manager_order(update, context, flow['item_id'])
+        elif action == 'checkout':
+            await checkout_init(update, context)
 
+async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
+    """Генерує посилання на менеджера з усіма даними."""
+    import urllib.parse
+    item = get_item_data(item_id)
+    p = context.user_data['profile']
+    
+    # Формуємо текст для менеджера
+    msg_text = (
+        f"👋 Привіт! Замовлення #{random.randint(1000,9999)}\n"
+        f"📦 Товар: {item['name']}\n"
+        f"💰 Ціна: {item['price']} грн\n"
+        f"👤 {p['full_name']} | 📞 {p['phone']}\n"
+        f"📍 {p['city']}, {p['address_details']}"
+    )
+    encoded = urllib.parse.quote(msg_text)
+    link = f"https://t.me/{MANAGER_USERNAME}?text={encoded}"
+    
+    text = (
+        f"✅ <b>Замовлення сформовано!</b>\n"
+        f"📦 Товар: {item['name']}\n"
+        f"👤 Ваші дані збережено.\n\n"
+        f"👇 Натисніть кнопку, щоб надіслати замовлення менеджеру:"
+    )
+    kb = [[InlineKeyboardButton("✈️ НАДІСЛАТИ МЕНЕДЖЕРУ", url=link)],
+          [InlineKeyboardButton("🏠 В меню", callback_data="menu_start")]]
+    
+    if update.callback_query:
+        await _edit_or_reply(update.callback_query, text, kb)
+    else:
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
 # =================================================================
 # 📥 SECTION 28: INPUT HANDLER (TEXT & PHOTO - EXPANDED)
 # =================================================================
@@ -2110,7 +2054,38 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         try: await start_command(update, context)
         except: pass
             
-        
+# =================================================================
+# ➕ SECTION 29.1: MISSING HANDLERS (STATS & TERMS)
+# =================================================================
+
+async def terms_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показує угоду користувача."""
+    await _edit_or_reply(
+        update.callback_query, 
+        TERMS_TEXT, 
+        [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]]
+    )
+
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показує статистику (заглушка + реальні дані з БД)."""
+    user_count = 0
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        conn.close()
+    except: pass
+
+    text = (
+        f"📊 <b>СТАТИСТИКА БОТА</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 Користувачів у базі: <b>{user_count}</b>\n"
+        f"💎 VIP Клієнтів: (дані з БД)\n"
+        f"🚀 Бот працює стабільно."
+    )
+    kb = [[InlineKeyboardButton("🔙 Назад", callback_data="admin_main")]]
+    await _edit_or_reply(update.callback_query, text, kb)
+    
+
 # =================================================================
 # 👮‍♂️ SECTION 29.5: ADMIN PANEL (MISSING FUNCTIONS FIXED)
 # =================================================================
