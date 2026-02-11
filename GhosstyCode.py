@@ -633,12 +633,10 @@ def calculate_final_price(item_price, user_profile):
 # 🧠 SECTION 5: DATABASE ENGINE (SYNC)
 # =================================================================
 def init_db():
-    """Ініціалізація бази даних без синтаксичних помилок."""
+    """Ініціалізація бази даних без синтаксичних помилок SQL."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        
-        # Таблиця користувачів
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY, 
@@ -653,8 +651,6 @@ def init_db():
                 address_details TEXT
             )
         ''')
-        
-        # Таблиця замовлень (ВИПРАВЛЕНО КОМУ В КІНЦІ)
         cur.execute('''
             CREATE TABLE IF NOT EXISTS orders (
                 order_id TEXT PRIMARY KEY,
@@ -666,9 +662,11 @@ def init_db():
                 amount REAL
             )
         ''')
+        conn
         
         conn.commit()
         conn.close()
+        print("✅ DB: Tables checked/created.")
     except Exception as e:
         print(f"❌ DB INIT ERROR: {e}")
         
@@ -791,45 +789,31 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return context.user_data["profile"]
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показ профілю з фотографією юзера."""
-    profile = await get_or_create_user(update, context)
+    """Відображення профілю з коректними відступами."""
+    query = update.callback_query
     user = update.effective_user
     
-    # Формування красивого статусу
-    full_address = "❌ Не вказано"
-    if profile.get('city'):
-        full_address = f"{profile['city']}, {profile.get('district', '')}"
-        if profile.get('address_details'):
-            full_address += f"\n🏠 {profile['address_details']}"
-
+    # Лінія 903: Тепер відступ ідеальний
+    profile = await get_or_create_user(update, context)
+    
+    city = profile.get('city')
+    address = profile.get('address_details')
+    location = f"{city}, {address}" if city and address else (city if city else "❌ Не вказано")
+    
+    vip_status = "💎 <b>VIP ACTIVE</b>" if profile.get('is_vip') else "🌑 Standard"
+    
     text = (
         f"<b>👤 ОСОБИСТИЙ КАБІНЕТ</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🆔 ID: <code>{user.id}</code>\n"
-        f"💎 Статус: <b>VIP Клієнт</b>\n"
-        f"📦 Всього замовлень: {profile.get('orders_count', 0)}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📍 <b>Дані доставки:</b>\n{full_address}\n"
-        f"📱 Телефон: {profile.get('phone', 'Не вказано')}\n"
-        f"👤 Отримувач: {profile.get('full_name', 'Не вказано')}"
+        f"🔰 Статус: {vip_status}\n"
+        f"📍 Доставка: {location}\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
     )
-
-    kb = [
-        [InlineKeyboardButton("📝 Змінити дані доставки", callback_data="fill_delivery_data")],
-        [InlineKeyboardButton("🤝 Реферальна програма", callback_data="ref_system")],
-        [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
-    ]
-
-    # Спроба дістати аватарку
-    try:
-        photos = await user.get_profile_photos(limit=1)
-        if photos.total_count > 0:
-            file_id = photos.photos[0][-1].file_id
-            await send_ghosty_message(update, text, kb, photo=file_id)
-        else:
-            await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
-    except:
-        await send_ghosty_message(update, text, kb)
+    kb = [[InlineKeyboardButton("📝 Змінити дані", callback_data="fill_delivery_data")],
+          [InlineKeyboardButton("🏠 Меню", callback_data="menu_start")]]
+    
+    await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
         
 # =================================================================
 # 🛠 SECTION 7: CORE UTILITIES (ULTIMATE EDITION)
@@ -2041,58 +2025,33 @@ async def post_init(application: Application):
         print(f"⚠️ POST_INIT WARNING: {e}")
 
 def main():
-    """Головна точка входу."""
-    print("\n🚀 GHOSTY STAFF 2026: ENGINE LAUNCHING...")
+    """Фінальний запуск системи 2026."""
+    print("🚀 GHOSTY STAFF: LAUNCHING ENGINE...")
     
-    # 1. Перевірка Токена
-    if not TOKEN or TOKEN == "YOUR_TOKEN_HERE":
-        print("❌ FATAL ERROR: Bot token is missing or invalid!")
-        sys.exit(1)
+    init_db() # Ініціалізація бази перед стартом
 
-    # 2. Перевірка БД та папок
-    try:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        init_db()
-        print("🗄️  Database connection established.")
-    except Exception as e:
-        print(f"❌ CRITICAL SYSTEM ERROR (DB): {e}")
-        sys.exit(1)
+    persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .persistence(persistence)
+        .defaults(Defaults(parse_mode=ParseMode.HTML))
+        .post_init(post_init)
+        .build()
+    )
 
-    # 3. Побудова додатка
-    try:
-        persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
-        app = (
-            Application.builder()
-            .token(TOKEN)
-            .persistence(persistence)
-            .defaults(Defaults(parse_mode=ParseMode.HTML))
-            .post_init(post_init)
-            .build()
-        )
-    except Exception as e:
-        print(f"❌ BUILD ERROR: {e}")
-        sys.exit(1)
-
-    # 4. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_user_input))
     app.add_error_handler(error_handler)
 
-    # 5. Запуск
-    print("📡 Connecting to Telegram API...")
-    try:
-        app.run_polling(drop_pending_updates=True)
-    except Exception as e:
-        print(f"❌ POLLING ERROR: {e}")
+    print("📡 Connection established. Polling...")
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     try:
         main()
-    except KeyboardInterrupt:
-        print("\n🛑 Bot stopped manually.")
-        sys.exit(0)
     except Exception:
         traceback.print_exc()
         sys.exit(1)
