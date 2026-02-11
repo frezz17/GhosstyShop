@@ -771,8 +771,6 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     # Відправка (Фото береться з бази даних для конкретного товару)
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
     
-    
-    
 # =================================================================
 # 👤 SECTION 6: USER PROFILE ENGINE (PRO VERSION)
 # =================================================================
@@ -1401,10 +1399,7 @@ async def _finalize_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Головний екран кошика з повним функціоналом:
-    - Список товарів з цінами та подарунками
-    - Статус доставки (перевірка даних)
-    - Кнопки: Оформлення, Менеджер, Промокод, Очищення
+    Головний екран кошика з повним функціоналом.
     """
     query = update.callback_query
     cart = context.user_data.get("cart", [])
@@ -1423,7 +1418,7 @@ async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 2. ФОРМУВАННЯ СПИСКУ ТОВАРІВ
     total_sum = 0
     items_text = ""
-    keyboard = [] # Основна клавіатура (спочатку товари, потім управління)
+    keyboard = [] # Основна клавіатура
 
     for item in cart:
         total_sum += item['price']
@@ -1508,8 +1503,7 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         except Exception as e:
             logger.error(f"Cart delete error: {e}")
             await show_cart_logic(update, context)
-        
-
+            
 # =================================================================
 # 🎁 SECTION 19: GIFT SELECTION SYSTEM (FOR HHC & OFFERS)
 # =================================================================
@@ -1684,6 +1678,10 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
 # 🛡 SECTION 26: ORDER CONFIRMATION (ADMIN ALERT)
 # =================================================================
 
+# =================================================================
+# 🛡 SECTION 26: ORDER CONFIRMATION (ADMIN ALERT)
+# =================================================================
+
 async def payment_confirmation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Запит чека у користувача після натискання "Я оплатив".
@@ -1707,6 +1705,7 @@ async def payment_confirmation_handler(update: Update, context: ContextTypes.DEF
     keyboard = [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="menu_start")]]
     
     await _edit_or_reply(query, text, keyboard)
+    
     
 # =================================================================
 # 📝 SECTION 16: SMART DATA COLLECTION (MANAGER & FAST ORDER)
