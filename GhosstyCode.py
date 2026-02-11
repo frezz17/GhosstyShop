@@ -12,7 +12,7 @@ import asyncio
 import random
 import traceback
 from datetime import datetime
-from html import escape 
+from html import escape
 
 # Telegram Core
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
@@ -35,11 +35,14 @@ DB_PATH = os.path.join(DATA_DIR, 'ghosty_v3.db')
 PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state.pickle')
 LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
 
-# Створюємо папку data одразу, щоб уникнути помилок
+# Створюємо папку data одразу
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # 2. Налаштування Бота
-TOKEN = "8351638507:AAFEWRyQBANh2IjXV3NxBUT6CTya6vdgg5U"
+# Пріоритет: Змінна оточення (для безпеки) -> Жорстко прописаний (твоя резервна копія)
+ENV_TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = ENV_TOKEN if ENV_TOKEN else "8351638507:AAFEWRyQBANh2IjXV3NxBUT6CTya6vdgg5U"
+
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
@@ -49,12 +52,14 @@ WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 VIP_EXPIRY = "25.03.2026"
 VIP_DISCOUNT = 0.65  # -35%
 PROMO_BONUS = 101    # Знижка за промокод
-"payment_url": PAYMENT_LINK
+
+# ВИПРАВЛЕНО ТУТ: Правильне оголошення словника
+PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3"
-   
+}
 
-# 4. Логування (В абсолютний файл + Консоль)
+# 4. Логування
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -64,6 +69,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("GhostyCore")
+
 
 # =================================================================
 # 🛠 SECTION 2: ERROR HANDLING
