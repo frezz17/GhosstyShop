@@ -50,11 +50,10 @@ WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
 # 3. Економіка та Посилання
 VIP_EXPIRY = "25.03.2026"
-# ЗАЛИШ ТІЛЬКИ ЦЕЙ СЛОВНИК (з 3 посиланнями):
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3",
-    "ghossty": "https://heylink.me/GhosstyShop" # Посилання для кнопки "Замовити у менеджера" або загальне
+    "ghossty": "https://heylink.me/GhosstyShop" # <-- Це критично для кнопки менеджера
 }
 
 PROMO_BONUS = 101
@@ -906,77 +905,100 @@ async def send_ghosty_media(update, text, reply_markup, photo):
     
 
 # =================================================================
-# 🏠 SECTION 8: START & PROFILE (FINAL CORRECTED)
+# 🏠 SECTION 8: START & PROFILE (FINAL FIXED)
 # =================================================================
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Єдина функція профілю. Показує VIP, Промо, Адресу та Фото.
-    """
-    # 1. Гарантовано створюємо/отримуємо профіль
-    profile = await get_or_create_user(update, context)
+    """Відображення профілю користувача."""
+    query = update.callback_query
     user = update.effective_user
+    user_id = user.id
     
-    # 2. Визначаємо статус VIP
-    if profile.get('is_vip'):
-        vip_status = f"💎 <b>VIP ACTIVE</b> (до {VIP_EXPIRY})"
-    else:
-        vip_status = "👤 Standard"
-        
-    # 3. Визначаємо статус знижки
-    if profile.get('next_order_discount'):
-        bonus_text = "✅ <b>-101 грн</b> на наступне замовлення"
-    else:
-        bonus_text = "❌ Відсутні"
-
-    # 4. Формуємо рядок адреси
-    city = profile.get('city')
+    # Ініціалізація профілю
+    profile = context.user_data.setdefault("profile", {})
+    
+    # Дані для відображення
+    ghst_id = f"GHST-{user_id}"
+    city = profile.get('city', 'Не обрано')
     address = profile.get('address_details')
-    district = profile.get('district')
-
-    if city:
-        loc_text = f"📍 {city}"
-        if address: 
-            loc_text += f"\n🏠 {address}"
-        elif district: 
-            loc_text += f", {district}"
-    else:
-        loc_text = "⚠️ Не вказано (Натисніть кнопку нижче)"
-
-    # 5. Текст повідомлення
-    text = (
-        f"<b>👤 ОСОБИСТИЙ КАБІНЕТ</b>\n"
+    
+    # Формування рядка адреси
+    location = f"{city}"
+    if address: location += f", {address}"
+    elif profile.get('district'): location += f", {profile['district']}"
+    if city == 'Не обрано': location = "❌ Не вказано"
+    
+    vip_status = "💎 <b>VIP ACTIVE</b>" if profile.get('is_vip') else "🌑 Standard"
+    
+    # Текст
+    profile_text = (
+        f"👤 <b>ОСОБИСТИЙ КАБІНЕТ</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 ID: <code>{user.id}</code>\n"
-        f"👤 Юзер: @{user.username if user.username else 'Приховано'}\n"
-        f"🔰 Статус: {vip_status}\n"
-        f"🎟 Промокод: <code>{profile.get('promo_code', '---')}</code>\n"
-        f"🎁 Бонуси: {bonus_text}\n"
+        f"📛 <b>Ім'я:</b> {escape(user.first_name)}\n"
+        f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+        f"🛡️ <b>Код клієнта:</b> <code>{ghst_id}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📮 <b>Дані доставки:</b>\n{loc_text}\n"
-        f"📱 <b>Телефон:</b> {profile.get('phone', 'Не вказано')}"
+        f"📍 <b>Доставка:</b>\n<i>{location}</i>\n\n"
+        f"🏆 <b>Статус:</b> {vip_status}\n"
+        f"📦 <b>Замовлень:</b> {profile.get('orders_count', 0)}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🎟️ <b>Твоє реферальне посилання:</b>\n<code>https://t.me/{context.bot.username}?start={user_id}</code>"
     )
 
-    # 6. Клавіатура
-    kb = [
+    keyboard = [
         [InlineKeyboardButton("📝 Змінити дані доставки", callback_data="fill_delivery_data")],
-        [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
         [InlineKeyboardButton("🤝 Реферальна програма", callback_data="ref_system")],
+        [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
         [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
     ]
 
-    # 7. Відправка з фото (фолбек на текст, якщо помилка)
+    # Спроба відправити з фото профілю
     try:
         photos = await user.get_profile_photos(limit=1)
         if photos.total_count > 0:
-            await send_ghosty_message(update, text, kb, photo=photos.photos[0][-1].file_id)
+            photo_file = photos.photos[0][-1].file_id
+            await send_ghosty_message(update, profile_text, keyboard, photo=photo_file)
         else:
-            await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
-    except:
-        await send_ghosty_message(update, text, kb)
+            await send_ghosty_message(update, profile_text, keyboard, photo=WELCOME_PHOTO)
+    except Exception as e:
+        logger.error(f"Profile photo error: {e}")
+        await send_ghosty_message(update, profile_text, keyboard)
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головне меню."""
+    await get_or_create_user(update, context)
+    user = update.effective_user
+    ghst_id = f"GHST{user.id}"
+    
+    welcome_text = (
+        f"🌫️ <b>GHO$$TY STAFF LAB | УКРАЇНА</b> 🧪\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🧬 <b>HHC SHOP ВІДКРИТО!</b>\n"
+        f"🔥 Промокод на VIP: <code>GHST2026</code>\n"
+        f"🎁 + Рідина на вибір до кожного вейпу!\n"
+        f"👤 Твій ID код: <code>{ghst_id}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 <b>Оберіть розділ меню:</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🛍 АСОРТИМЕНТ", callback_data="cat_all")],
+        [InlineKeyboardButton("👤 ПРОФІЛЬ", callback_data="menu_profile"), 
+         InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],
+        [InlineKeyboardButton("📍 ЛОКАЦІЯ", callback_data="choose_city")],
+        [InlineKeyboardButton("📜 УГОДА", callback_data="menu_terms")],
+        [InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", url=f"https://t.me/{MANAGER_USERNAME}"),
+         InlineKeyboardButton("📢 КАНАЛ", url=CHANNEL_URL)]
+    ]
+    
+    if user.id == MANAGER_ID:
+        keyboard.append([InlineKeyboardButton("⚙️ АДМІН-ПАНЕЛЬ", callback_data="admin_main")])
+
+    await send_ghosty_message(update, welcome_text, keyboard, photo=WELCOME_PHOTO))
 
 async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Інформація про реферальну систему."""
+    query = update.callback_query
     user_id = update.effective_user.id
     bot_username = context.bot.username
     
@@ -991,48 +1013,32 @@ async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"   • Секретний подарунок у наступному замовленні\n\n"
         f"🔗 <b>Твоє посилання:</b>\n<code>https://t.me/{bot_username}?start={user_id}</code>"
     )
-    
     keyboard = [[InlineKeyboardButton("⬅️ Назад до профілю", callback_data="menu_profile")]]
-    await _edit_or_reply(update.callback_query, ref_text, keyboard)
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головне меню + Кнопка Каналу + Правильний ID."""
-    await get_or_create_user(update, context)
-    user = update.effective_user
-    
-    # Генеруємо правильний ID для копіювання
-    ghst_id = f"GHST{user.id}"
-    
-    welcome_text = (
-        f"🌫️ <b>GHO$$TY STAFF LAB | УКРАЇНА</b> 🧪\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🧬 <b>HHC SHOP ВІДКРИТО!</b>\n"
-        f"🔥 Промокод на VIP: <code>GHST2026</code>\n"
-        f"👤 Твій реферальний код: <code>{ghst_id}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👇 <b>Оберіть розділ меню:</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🛍 АСОРТИМЕНТ", callback_data="cat_all")],
-        [InlineKeyboardButton("👤 ПРОФІЛЬ", callback_data="menu_profile"), 
-         InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],
-        [InlineKeyboardButton("📍 ЛОКАЦІЯ", callback_data="choose_city")],
-        [InlineKeyboardButton("📜 УГОДА", callback_data="menu_terms")],
-        # ✅ ПОВЕРНУЛИ КНОПКУ КАНАЛУ
-        [InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", url=f"https://t.me/{MANAGER_USERNAME}"),
-         InlineKeyboardButton("📢 КАНАЛ", url=CHANNEL_URL)]
-    ]
-    
-    if user.id == MANAGER_ID:
-        keyboard.append([InlineKeyboardButton("⚙️ АДМІН-ПАНЕЛЬ", callback_data="admin_main")])
-
-    await send_ghosty_message(update, welcome_text, keyboard, photo=WELCOME_PHOTO)
+    await _edit_or_reply(query, ref_text, keyboard)
     
     
 # =================================================================
 # ⚙️ SECTION 9: GLOBAL CALLBACK DISPATCHER (PARTIAL)
 # =================================================================
+
+async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Інформація про реферальну систему."""
+    user_id = update.effective_user.id
+    bot_username = context.bot.username
+    
+    ref_text = (
+        f"🤝 <b>ПАРТНЕРСЬКА ПРОГРАМА</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"Запрошуй друзів та отримуй бонуси!\n\n"
+        f"1️⃣ <b>Твій друг отримує:</b>\n"
+        f"   • Знижку -35% на перше замовлення\n"
+        f"2️⃣ <b>Ти отримуєш:</b>\n"
+        f"   • VIP-статус на 7 днів\n"
+        f"   • Секретний подарунок\n\n"
+        f"🔗 <b>Твоє посилання:</b>\n<code>https://t.me/{bot_username}?start={user_id}</code>"
+    )
+    keyboard = [[InlineKeyboardButton("⬅️ Назад", callback_data="menu_profile")]]
+    await _edit_or_reply(update.callback_query, ref_text, keyboard)
 
 async def main_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1222,101 +1228,12 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     
 
 # =================================================================
-# 📝 SECTION: SMART DATA COLLECTION (MANAGER & FAST ORDER)
-# =================================================================
-
-async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action, item_id=None):
-    """Починає процес збору даних (ПІБ -> Телефон -> Місто -> Адреса)."""
-    context.user_data['data_flow'] = {
-        'step': 'name',
-        'next_action': next_action, # 'manager_order' або 'checkout'
-        'item_id': item_id
-    }
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = (
-        "📝 <b>ОФОРМЛЕННЯ ЗАМОВЛЕННЯ</b>\n\n"
-        "Для швидкої обробки нам потрібні дані отримувача.\n"
-        "1️⃣ Введіть <b>Прізвище та Ім'я</b>:"
-    )
-    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="cancel_data")]]
-    await _edit_or_reply(update.callback_query, text, kb)
-
-async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробляє введені користувачем дані крок за кроком."""
-    flow = context.user_data.get('data_flow')
-    if not flow: return
-
-    text = update.message.text
-    profile = context.user_data['profile']
-    step = flow['step']
-
-    if step == 'name':
-        profile['full_name'] = text
-        flow['step'] = 'phone'
-        await update.message.reply_text("2️⃣ Введіть ваш <b>Номер телефону</b>:")
-    
-    elif step == 'phone':
-        profile['phone'] = text
-        flow['step'] = 'city'
-        # Пропонуємо міста кнопками для зручності
-        kb = [[InlineKeyboardButton(c, callback_data=f"set_flow_city_{c}")] for c in list(UKRAINE_CITIES.keys())[:6]]
-        await update.message.reply_text("3️⃣ Оберіть або введіть <b>Місто</b> доставки:", reply_markup=InlineKeyboardMarkup(kb))
-    
-    elif step == 'address': # Цей крок викликається після вибору міста
-        profile['address_details'] = text
-        
-        # ФІНАЛ: Дані зібрано, виконуємо дію
-        context.user_data['state'] = None
-        action = flow['next_action']
-        
-        await update.message.reply_text("✅ <b>Дані успішно збережено!</b>")
-        
-        if action == 'manager_order':
-            await finalize_manager_order(update, context, flow['item_id'])
-        elif action == 'checkout':
-            await checkout_init(update, context)
-
-async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
-    """Генерує посилання на менеджера з усіма даними."""
-    import urllib.parse
-    item = get_item_data(item_id)
-    p = context.user_data['profile']
-    
-    # Формуємо текст для менеджера
-    msg_text = (
-        f"👋 Привіт! Замовлення #{random.randint(1000,9999)}\n"
-        f"📦 Товар: {item['name']}\n"
-        f"💰 Ціна: {item['price']} грн\n"
-        f"👤 {p['full_name']} | 📞 {p['phone']}\n"
-        f"📍 {p['city']}, {p['address_details']}"
-    )
-    encoded = urllib.parse.quote(msg_text)
-    link = f"https://t.me/{MANAGER_USERNAME}?text={encoded}"
-    
-    text = (
-        f"✅ <b>Замовлення сформовано!</b>\n"
-        f"📦 Товар: {item['name']}\n"
-        f"👤 Ваші дані збережено.\n\n"
-        f"👇 Натисніть кнопку, щоб надіслати замовлення менеджеру:"
-    )
-    kb = [[InlineKeyboardButton("✈️ НАДІСЛАТИ МЕНЕДЖЕРУ", url=link)],
-          [InlineKeyboardButton("🏠 В меню", callback_data="menu_start")]]
-    
-    if update.callback_query:
-        await _edit_or_reply(update.callback_query, text, kb)
-    else:
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
-        
-
-# =================================================================
 # 🛒 SECTION 17: ДОДАВАННЯ В КОШИК (ОБРОБКА КОЛЬОРІВ)
 # =================================================================
 
 async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Обробляє натискання на колір/міцність і додає в кошик.
-    Data: add_ITEMID_VARIANT (VARIANT = колір або міцність)
     """
     query = update.callback_query
     
@@ -1334,8 +1251,8 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("❌ Товар не знайдено")
         return
 
-    # Логіка HHC (вибір подарунка)
-    if item.get("gift_liquid", False):
+    # Логіка HHC (вибір подарунка) - Тільки якщо це НЕ вибір подарунка
+    if item.get("gift_liquid", False) and not variant and not query.data.startswith("gift_sel_"):
         context.user_data['pending_item_id'] = item_id
         text = f"🎁 <b>ОБЕРІТЬ ВАШ ПОДАРУНОК!</b>\nДо <b>{item['name']}</b> йде безкоштовна рідина:"
         kb = [[InlineKeyboardButton(g['name'], callback_data=f"gift_sel_{gid}")] for gid, g in GIFT_LIQUIDS.items()]
@@ -1392,7 +1309,6 @@ async def _finalize_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TY
     kb = [[InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart"), InlineKeyboardButton("🔙 Каталог", callback_data="cat_all")]]
     await send_ghosty_message(update, msg, kb)
     
-
 # =================================================================
 # 🛒 SECTION 18: CART LOGIC (PROFESSIONAL & FIXED)
 # =================================================================
@@ -1430,8 +1346,7 @@ async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Кнопка видалення конкретного товару
         keyboard.append([InlineKeyboardButton(f"❌ Видалити: {item['name'][:12]}...", callback_data=f"cart_del_{item['id']}")])
 
-    # 3. ПЕРЕВІРКА ДАНИХ (ГЕОГРАФІЯ ТА КОНТАКТИ)
-    # Щоб оформити замовлення, потрібні хоча б Місто та Телефон
+    # 3. ПЕРЕВІРКА ДАНИХ
     city = profile.get("city")
     phone = profile.get("phone")
     
@@ -1456,15 +1371,13 @@ async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     control_buttons = []
     
     if can_checkout:
-        # Якщо дані є -> Одразу оформлення
         control_buttons.append(InlineKeyboardButton("🚀 ОФОРМИТИ ЗАМОВЛЕННЯ", callback_data="checkout_init"))
     else:
-        # Якщо даних немає -> Кнопка заповнення (веде на Smart Data Collection)
         control_buttons.append(InlineKeyboardButton("📝 ЗАПОВНИТИ ДАНІ", callback_data="fill_delivery_data"))
     
-    keyboard.append(control_buttons)
+    keyboard.insert(0, control_buttons) # Додаємо кнопки перед видаленням
 
-    # Додаткові опції (Менеджер та Промокод)
+    # Додаткові опції
     keyboard.append([InlineKeyboardButton("👨‍💻 ЗАМОВИТИ У МЕНЕДЖЕРА", url=f"https://t.me/{MANAGER_USERNAME}")])
     
     # Показуємо кнопку промокоду, тільки якщо він ще не введений
@@ -1478,24 +1391,20 @@ async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_ghosty_message(update, text, keyboard)
 
 async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Обробляє дії всередині кошика: видалення одного товару або очищення всього.
-    """
+    """Обробляє дії всередині кошика."""
     query = update.callback_query
     data = query.data
     
-    # Очищення всього кошика
     if data == "cart_clear":
         context.user_data["cart"] = []
         await query.answer("🗑 Кошик очищено!")
         await show_cart_logic(update, context)
         
-    # Видалення конкретного товару по ID
     elif data.startswith("cart_del_"):
         try:
             uid = int(data.split("_")[2])
             cart = context.user_data.get("cart", [])
-            # Створюємо новий список без цього товару
+            # Фільтруємо список
             context.user_data["cart"] = [i for i in cart if i['id'] != uid]
             
             await query.answer("❌ Товар видалено")
@@ -1503,6 +1412,7 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         except Exception as e:
             logger.error(f"Cart delete error: {e}")
             await show_cart_logic(update, context)
+            
             
 # =================================================================
 # 🎁 SECTION 19: GIFT SELECTION SYSTEM (FOR HHC & OFFERS)
@@ -1568,7 +1478,72 @@ async def gift_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Логіка вже реалізована в add_to_cart_handler (Крок 3), 
     # але цей метод можна залишити як заглушку або для прямого виклику.
     pass
+    
+# =================================================================
+# 💳 SECTION 21: SMART CHECKOUT (FINAL)
+# =================================================================
 
+async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Перевірка даних -> Розрахунок -> Оплата."""
+    query = update.callback_query
+    cart = context.user_data.get("cart", [])
+    profile = context.user_data.setdefault("profile", {})
+
+    # 1. Перевірка кошика
+    if not cart: return await show_cart_logic(update, context)
+
+    # 2. ПЕРЕВІРКА ДАНИХ (Якщо немає - просимо ввести)
+    if not profile.get("full_name") or not profile.get("phone") or not profile.get("city"):
+        await start_data_collection(update, context, next_action='checkout')
+        return
+
+    # 3. Перевірка адреси для Кур'єра
+    district_info = str(profile.get("district", ""))
+    if "Кур'єр" in district_info and not profile.get("address_details"):
+        await _edit_or_reply(query, "⚠️ <b>Вкажіть точну адресу для кур'єра!</b>", [])
+        await start_data_collection(update, context, next_action='checkout')
+        return
+
+    # 4. Розрахунок
+    total_sum = 0
+    for item in cart:
+        # Перераховуємо ціну (щоб врахувати промокод, якщо його ввели в кошику)
+        p, _ = calculate_final_price(item['price'], profile)
+        total_sum += p
+
+    # Доставка
+    delivery_cost = 0
+    if "Кур'єр" in district_info:
+        # Безкоштовно для VIP/Promo, інакше 150
+        delivery_cost = 0 if profile.get("is_vip") else 150
+        total_sum += delivery_cost
+
+    context.user_data["current_order_id"] = f"GH-{random.randint(1000,9999)}"
+    context.user_data["final_checkout_sum"] = float(total_sum) + (random.randint(1, 99) / 100)
+
+    # Текст чека
+    promo_status = "✅ Активовано" if profile.get("next_order_discount") else "❌ Немає"
+    del_txt = f"\n🛵 Доставка: {delivery_cost} грн" if delivery_cost > 0 else "\n🛵 Доставка: <b>БЕЗКОШТОВНО</b>"
+
+    text = (
+        f"<b>📦 ПІДТВЕРДЖЕННЯ ЗАМОВЛЕННЯ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📍 {profile['city']}, {profile.get('address_details', district_info)}\n"
+        f"👤 {profile['full_name']} | 📞 {profile['phone']}\n"
+        f"🎟 Промокод: {promo_status}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>ДО СПЛАТИ: {context.user_data['final_checkout_sum']:.2f}₴</b>{del_txt}\n"
+        f"👇 Оберіть банк:"
+    )
+    
+    kb = [
+        [InlineKeyboardButton("💳 Monobank", callback_data="pay_mono"), 
+         InlineKeyboardButton("💳 Privat24", callback_data="pay_privat")],
+        [InlineKeyboardButton("🌐 GhosstyPay", url=PAYMENT_LINK['ghossty'])],
+        [InlineKeyboardButton("🔙 Назад", callback_data="menu_cart")]
+    ]
+    await _edit_or_reply(query, text, kb)
+    
 # =================================================================
 # 🔑 SECTION 22: ПРОМОКОДИ (GHST2026 & ID SYSTEM)
 # =================================================================
@@ -1762,6 +1737,9 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await finalize_manager_order(update, context, flow['item_id'])
         elif action == 'checkout':
             await checkout_init(update, context)
+        # Якщо action='none' (просто редагування профілю)
+        else:
+            await show_profile(update, context)
 
 async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
     """Генерує посилання на менеджера з усіма даними."""
@@ -1789,10 +1767,12 @@ async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_T
     kb = [[InlineKeyboardButton("✈️ НАДІСЛАТИ МЕНЕДЖЕРУ", url=link)],
           [InlineKeyboardButton("🏠 В меню", callback_data="menu_start")]]
     
+    # Перевірка контексту виклику (callback чи message)
     if update.callback_query:
         await _edit_or_reply(update.callback_query, text, kb)
     else:
         await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
+        
 # =================================================================
 # 📥 SECTION 28: INPUT HANDLER (TEXT & PHOTO - EXPANDED)
 # =================================================================
