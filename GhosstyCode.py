@@ -25,49 +25,39 @@ from telegram.ext import (
 from telegram.error import NetworkError, BadRequest
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (BOTHOST FIXED)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION
 # =================================================================
 
-# 1. Абсолютні шляхи (Критично для Docker/BotHost)
+# 1. Шляхи (Абсолютні для BotHost)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
-DB_PATH = os.path.join(DATA_DIR, 'ghosty_v3.db')
-PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state.pickle')
+DB_PATH = os.path.join(DATA_DIR, 'ghosty_v10.db')
+PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state_v10.pickle')
 LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
 
-# Створюємо папку data одразу
+# Створюємо папку даних
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (FIXED)
-# =================================================================
+# 2. Налаштування ТОКЕНА (КРИТИЧНО ВАЖЛИВО!)
+# 👇👇👇 ВСТАВ НОВИЙ ТОКЕН ВІД BOTFATHER ВНИЗУ МІЖ ЛАПКАМИ 👇👇👇
+ENV_TOKEN = os.getenv("8351638507:AAG92-sCV5encyb5rGlCTmafxlsosTyBQS4") 
 
-# 1. Абсолютні шляхи
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-DB_PATH = os.path.join(DATA_DIR, 'ghosty_v3.db')
-PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state.pickle')
-LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
+# ЯКЩО ЗМІННІ НЕ ПРАЦЮЮТЬ, БОТ ВІЗЬМЕ ТОКЕН З РЯДКА НИЖЧЕ:
+TOKEN = ENV_TOKEN if ENV_TOKEN else "8351638507:AAG92-sCV5encyb5rGlCTmafxlsosTyBQS4" 
 
-os.makedirs(DATA_DIR, exist_ok=True)
 
-# 2. Налаштування (ВСТАВТЕ ВАШ ТОКЕН)
-TOKEN = "8351638507:AAEEbCkrYI4X7m-Rflqesxo9PBGSYWlt_Ww"
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 VIP_EXPIRY = "25.03.2026"
 
-# 3. Посилання оплати (ЄДИНИЙ СЛОВНИК)
+# 3. Посилання оплати
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3",
     "ghossty": "https://heylink.me/GhosstyShop"
 }
-
-
-PROMO_BONUS = 101
 
 # 4. Логування
 logging.basicConfig(
@@ -79,7 +69,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("GhostyCore")
-
 
 # =================================================================
 # 🛠 SECTION 2: ERROR HANDLING
