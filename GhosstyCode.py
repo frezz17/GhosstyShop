@@ -418,7 +418,7 @@ HHC_VAPES = {
         "price": 699.77,
         "discount": True,
         "gift_liquid": True,
-        "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
+        "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg",
         "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
         "payment_url": PAYMENT_LINK
     },
