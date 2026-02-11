@@ -103,6 +103,16 @@ GIFT_LIQUIDS = {
     9008: {"name": "🎁 Wild Berries 30ml", "desc": "Класичний мікс лісових ягід."}
 }
 
+# --- ДОДАТИ ЦЕЙ БЛОК ПІСЛЯ GIFT_LIQUIDS ---
+
+# Виправлення відсутнього словника SETS (щоб не ламався пошук товарів)
+SETS = {}
+
+# Аліаси для сумісності старих функцій з новим словником міст
+# (Це виправить помилку в city_selection_menu)
+CITIES_LIST = list(UKRAINE_CITIES.keys())
+CITY_DISTRICTS = UKRAINE_CITIES
+
 # --- ЗАГЛУШКИ ДЛЯ ІНШИХ КАТЕГОРІЙ (ЩОБ КОД НЕ ЛАМАВСЯ) ---
 # (Сюди ти вставиш свої HHC_VAPES, PODS, LIQUIDS, SETS з попередніх версій)
 HHC_VAPES = {} 
@@ -1951,6 +1961,12 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         # МЕНЮ ТА ПРОФІЛЬ
         if data == "menu_start": await start_command(update, context)
         elif data == "menu_profile": await show_profile(update, context)
+            
+# --- ДОДАТИ ЦЕЙ БЛОК В global_callback_handler ---
+        elif data == "admin_main": await admin_menu(update, context)
+        elif data == "admin_stats": await admin_stats(update, context)
+        # ------------------------------------------------
+        
         elif data == "ref_system": await show_ref_info(update, context)
         elif data == "menu_promo": 
             context.user_data['awaiting_promo'] = True
@@ -1999,7 +2015,67 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     except Exception as e:
         logger.error(f"Dispatcher Error: {e}")
         
-        
+# =================================================================
+# 👮‍♂️ SECTION 29.5: ADMIN PANEL (MISSING FUNCTIONS FIXED)
+# =================================================================
+
+async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головне меню адміністратора (Команда /admin)."""
+    user_id = update.effective_user.id
+    if user_id != MANAGER_ID:
+        # Ігноруємо або тролимо, якщо не адмін
+        return
+
+    text = (
+        "🕴️ <b>GHOSTY CONTROL PANEL</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Система працює стабільно.\n"
+        "Оберіть дію:"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("📢 Розсилка всім", callback_data="admin_broadcast")],
+        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton("🔙 Вихід", callback_data="menu_start")]
+    ]
+    
+    # Відправляємо або редагуємо
+    if update.message:
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await _edit_or_reply(update.callback_query, text, keyboard)
+
+async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Початок розсилки повідомлень."""
+    if update.effective_user.id != MANAGER_ID: return
+    
+    context.user_data['awaiting_broadcast'] = True
+    context.user_data['state'] = "BROADCAST_MODE"
+    
+    text = (
+        "📢 <b>РЕЖИМ РОЗСИЛКИ</b>\n\n"
+        "Надішліть текст або фото з описом, яке отримають <b>УСІ</b> користувачі бота.\n"
+        "Для скасування натисніть кнопку."
+    )
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+    await _edit_or_reply(update.callback_query if update.callback_query else update, text, kb)
+
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показ статистики (заглушка)."""
+    # Тут можна підключити реальний підрахунок з БД
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    except:
+        user_count = 0
+    conn.close()
+
+    text = f"📊 <b>СТАТИСТИКА</b>\n👥 Користувачів у базі: {user_count}"
+    kb = [[InlineKeyboardButton("🔙 Назад", callback_data="admin_menu")]]
+    await _edit_or_reply(update.callback_query, text, kb)
+    
+
+
 # =================================================================
 # 🚀 SECTION 30: FINAL RUNNER (SYSTEM STARTUP)
 # =================================================================
@@ -2062,16 +2138,18 @@ def main():
         print(f"❌ BUILD ERROR: Не вдалося створити додаток. Помилка: {e}")
         sys.exit(1)
 
-    # 5. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (МАРШРУТИЗАЦІЯ)
+   # 5. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (МАРШРУТИЗАЦІЯ)
     # -----------------------------------------------------------
     # А) Команди
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("admin", admin_menu))
+    # Тепер admin_menu існує, тому це спрацює:
+    app.add_handler(CommandHandler("admin", admin_menu)) 
     
-    # Б) Кнопки (Callback Queries) - Головний мозок
+    # Б) Кнопки (Callback Queries)
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # В) Текст та Медіа (Має бути останнім перед помилками)
+    # В) Текст та Медіа
+    # Додаємо фільтр для адмінської розсилки
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
         handle_user_input
