@@ -632,38 +632,46 @@ def calculate_final_price(item_price, user_profile):
 # =================================================================
 # 🧠 SECTION 5: DATABASE ENGINE (SYNC)
 # =================================================================
-
 def init_db():
-    """Створення таблиць SQLite."""
-    if not os.path.exists('data'): os.makedirs('data')
-    
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    
-    # Таблиця юзерів
-    cur.execute('''CREATE TABLE IF NOT EXISTS users 
-                   (user_id INTEGER PRIMARY KEY, 
-                    username TEXT, 
-                    first_name TEXT,
-                    city TEXT, 
-                    district TEXT, 
-                    is_vip INTEGER DEFAULT 0, 
-                    reg_date TEXT,
-                    last_active TEXT)''')
-                    
-    # Таблиця замовлень
-    cur.execute('''CREATE TABLE IF NOT EXISTS orders 
-                   (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                    user_id INTEGER, 
-                    amount REAL, 
-                    status TEXT, 
-                    date TEXT)''')
-                    
-    conn.commit()
-    conn.close()
-    logger.info("✅ DATABASE SYNCHRONIZED")
-    
-
+    """Ініціалізація бази даних без синтаксичних помилок."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        
+        # Таблиця користувачів
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY, 
+                username TEXT, 
+                full_name TEXT,
+                city TEXT, 
+                district TEXT, 
+                phone TEXT, 
+                is_vip INTEGER DEFAULT 1, 
+                reg_date TEXT,
+                promo_code TEXT,
+                address_details TEXT
+            )
+        ''')
+        
+        # Таблиця замовлень (ВИПРАВЛЕНО КОМУ В КІНЦІ)
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS orders (
+                order_id TEXT PRIMARY KEY,
+                user_id INTEGER,
+                items TEXT,
+                total_price REAL,
+                status TEXT,
+                created_at TEXT,
+                amount REAL
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"❌ DB INIT ERROR: {e}")
+        
 # =================================================================
 # 📱 SECTION 5.1: CATALOG UI (MENU & ITEMS)
 # =================================================================
@@ -908,7 +916,7 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     address = profile.get('address_details')
     district = profile.get('district')
     
-    # Формування рядка адреси (безпечно)
+    # Формування рядка адреси (безпечно, без помилок ключів)
     if city:
         location = f"{city}"
         if address: 
@@ -921,10 +929,10 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vip_status = "💎 <b>VIP ACTIVE</b>" if profile.get('is_vip') else "🌑 Standard"
     orders_count = profile.get('orders_count', 0)
     
-    # Безпечне отримання імені бота для посилання
+    # Безпечне отримання імені бота (на випадок лагів Telegram API)
     bot_username = context.bot.username if context.bot.username else "GhostyShopBot"
 
-    # Текст
+    # Текст профілю
     profile_text = (
         f"👤 <b>ОСОБИСТИЙ КАБІНЕТ</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -955,8 +963,7 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await send_ghosty_message(update, profile_text, keyboard, photo=WELCOME_PHOTO)
     except Exception as e:
-        logger.error(f"Profile photo error: {e}")
-        # Якщо помилка з фото - відправляємо просто текст (або з дефолтним фото)
+        # Якщо помилка (наприклад, юзер заблокував доступ до фото) - шлемо дефолтне
         await send_ghosty_message(update, profile_text, keyboard, photo=WELCOME_PHOTO)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1010,7 +1017,6 @@ async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = [[InlineKeyboardButton("⬅️ Назад до профілю", callback_data="menu_profile")]]
     await _edit_or_reply(query, ref_text, keyboard)
-    
     
 # =================================================================
 # ⚙️ SECTION 9: GLOBAL CALLBACK DISPATCHER (PARTIAL)
@@ -2019,33 +2025,40 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =================================================================
 
 async def post_init(application: Application):
-    """Повідомлення про успішний старт."""
+    """
+    Хук після успішного підключення до Telegram.
+    """
     try:
         bot = await application.bot.get_me()
         print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print(f"🤖 BOT STARTED: @{bot.username}")
-        print(f"✅ SYSTEM ONLINE. WAITING FOR UPDATES...")
+        print(f"🆔 BOT ID:       {bot.id}")
+        print(f"📅 START TIME:  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"💾 DATA DIR:    {DATA_DIR}")
         print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"✅ SYSTEM ONLINE. WAITING FOR UPDATES...")
     except Exception as e:
-        print(f"⚠️ INIT WARNING: {e}")
+        print(f"⚠️ POST_INIT WARNING: {e}")
 
 def main():
     """Головна точка входу."""
-    print("🚀 GHOSTY STAFF: ENGINE LAUNCHING...")
+    print("\n🚀 GHOSTY STAFF 2026: ENGINE LAUNCHING...")
     
-    # Перевірка токена
+    # 1. Перевірка Токена
     if not TOKEN or TOKEN == "YOUR_TOKEN_HERE":
-        print("❌ FATAL ERROR: Bot token is missing!")
+        print("❌ FATAL ERROR: Bot token is missing or invalid!")
         sys.exit(1)
 
-    # Ініціалізація БД
+    # 2. Перевірка БД та папок
     try:
+        os.makedirs(DATA_DIR, exist_ok=True)
         init_db()
-        print("🗄️  Database connected.")
+        print("🗄️  Database connection established.")
     except Exception as e:
-        print(f"❌ DB ERROR: {e}")
+        print(f"❌ CRITICAL SYSTEM ERROR (DB): {e}")
+        sys.exit(1)
 
-    # Побудова додатку
+    # 3. Побудова додатка
     try:
         persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
         app = (
@@ -2060,21 +2073,25 @@ def main():
         print(f"❌ BUILD ERROR: {e}")
         sys.exit(1)
 
-    # Реєстрація хендлерів
+    # 4. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_user_input))
     app.add_error_handler(error_handler)
-    
-    # Запуск
+
+    # 5. Запуск
     print("📡 Connecting to Telegram API...")
-    app.run_polling(drop_pending_updates=True)
+    try:
+        app.run_polling(drop_pending_updates=True)
+    except Exception as e:
+        print(f"❌ POLLING ERROR: {e}")
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
+        print("\n🛑 Bot stopped manually.")
         sys.exit(0)
     except Exception:
         traceback.print_exc()
