@@ -11,8 +11,9 @@ import sqlite3
 import asyncio
 import random
 import traceback
-from datetime import datetime
 from html import escape
+timedelta:
+from datetime import datetime, timedelta
 
 # Telegram Core
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
@@ -104,13 +105,21 @@ GIFT_LIQUIDS = {
 
 
 # =================================================================
-# 📍 SECTION 4: GEOGRAPHY DATA (FIXED ORDER)
+# 📍 SECTION 4: DATA (UKRAINE MAP PRO 2026)
 # =================================================================
 
-# 1. Спочатку створюємо словник міст (Щоб Python знав, що це таке)
+# Топ-10 Міст + Реальні райони + Спец. точки
 UKRAINE_CITIES = {
-    "Київ": ["Печерський", "Шевченківський", "Голосіївський", "Оболонський", "Подільський", "Дарницький", "Дніпровський", "Солом'янський"],
-    "Дніпро": ["Центральний", "Соборний (Нагірка)", "Індустріальний", "Амур-Нижньодніпровський", "Новокодацький", "Чечелівський", "Самарський", "Шевченківський (Тополя)"],
+    "Київ": [
+        "Печерський", "Шевченківський", "Голосіївський", "Оболонський", 
+        "Подільський", "Дарницький", "Солом'янський", "Деснянський (Троєщина)"
+    ],
+    "Дніпро": [
+        "Центральний (Мост-Сіті)", "Соборний (Нагірка)", "Індустріальний", 
+        "Шевченківський", "Чечелівський", "Лівобережний-3 (ТЦ Караван)", 
+        "Перемога 1-6", "Придніпровськ", 
+        "🚀 Адресна доставка кур'єром (+150 грн)"
+    ],
     "Кам'янське": ["Центральний (Заводський)", "Дніпровський (Лівий)", "Південний (БАМ/Соцмісто)"],
     "Харків": ["Шевченківський", "Київський", "Салтівський", "Немишлянський", "Холодногірський", "Новобаварський"],
     "Одеса": ["Приморський (Центр)", "Київський (Таїрова)", "Малиновський (Черемушки)", "Суворовський (Котовського)"],
@@ -120,6 +129,7 @@ UKRAINE_CITIES = {
     "Вінниця": ["Центр", "Вишенька", "Замостя", "Старе місто", "Поділля", "Слов'янка"],
     "Полтава": ["Шевченківський", "Київський", "Подільський"]
 }
+
 CITIES_LIST = list(UKRAINE_CITIES.keys())
 
 # 2. Додаємо порожні категорії, щоб не було помилок
@@ -207,37 +217,38 @@ def get_item_data(item_id):
             return db[iid]
     return None
 
+# =================================================================
+# 🛠 SECTION 3: UTILITY & CALCULATION (DISCOUNT CORE)
+# =================================================================
+
 def calculate_final_price(item_price, user_profile):
     """
-    Розрахунок ціни з урахуванням GHST2026 та VIP.
-    1. Перевіряє знижку -101 грн (GHST2026).
-    2. Застосовує VIP знижку 35%.
+    Розрахунок ціни з урахуванням STACKING-ефекту:
+    1. Промокод GHST2026 (-101 грн)
+    2. VIP/Перше замовлення (-35%)
     """
     is_vip = user_profile.get('is_vip', False)
-    # Перевіряємо, чи є фіксована знижка (від GHST2026)
-    fixed_discount = user_profile.get('next_order_discount', 0) 
+    promo_fixed = user_profile.get('next_order_discount', 0) # Це 101 грн
     
-    final_price = float(item_price)
+    price = float(item_price)
     discounted = False
 
-    # 1. Застосування фіксованої знижки (101 грн)
-    # Знижка діє, якщо ціна товару більша за розмір знижки + 50 грн (маржа)
-    if fixed_discount > 0 and final_price > (fixed_discount + 50):
-        final_price -= fixed_discount
+    # 1. Застосовуємо фіксовану знижку (GHST2026)
+    if promo_fixed > 0:
+        price -= promo_fixed
         discounted = True
-
-    # 2. Застосування VIP знижки (35%)
+    
+    # 2. Застосовуємо VIP знижку (-35%) на залишок
     if is_vip:
-        final_price = final_price * 0.65
+        price = price * 0.65  # -35%
         discounted = True
     
-    # Захист: ціна не може бути менше 1 грн
-    if final_price < 1: final_price = 1.0
+    # Ціна не може бути менше собівартості упаковки (наприклад 50 грн)
+    if price < 50: price = 50.0
         
-    return round(final_price, 2), discounted
-    
-    
-    
+    return round(price, 2), discounted
+
+# ... (інші функції: error_handler, send_ghosty_message, get_item_data залишаються) ...
 
 # --- МЕНЮ ВИБОРУ МІСТА ---
 async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -795,31 +806,111 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return context.user_data["profile"]
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Відображення профілю з коректними відступами."""
     query = update.callback_query
     user = update.effective_user
-    
-    # Лінія 903: Тепер відступ ідеальний
     profile = await get_or_create_user(update, context)
     
+    # Дані
     city = profile.get('city')
+    district = profile.get('district')
     address = profile.get('address_details')
-    location = f"{city}, {address}" if city and address else (city if city else "❌ Не вказано")
+    phone = profile.get('phone')
     
-    vip_status = "💎 <b>VIP ACTIVE</b>" if profile.get('is_vip') else "🌑 Standard"
+    # Смарт-відображення локації
+    if city:
+        loc_str = f"🏙 <b>{city}</b>"
+        if district: loc_str += f"\n   └ 🏘 {district}"
+        if address: loc_str += f"\n   └ 📍 {address}"
+    else:
+        loc_str = "❌ Не налаштовано (Тисни кнопку нижче)"
+
+    # Розрахунок дати закінчення VIP
+    vip_date = profile.get('vip_expiry', '25.03.2026')
+    
+    # Статус знижок
+    promo_active = "✅ <b>GHST2026:</b> -101 грн активовано" if profile.get('next_order_discount') else "❌ GHST2026 не активний"
     
     text = (
-        f"<b>👤 ОСОБИСТИЙ КАБІНЕТ</b>\n"
+        f"👽 <b>ПРОФІЛЬ КОРИСТУВАЧА</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 ID: <code>{user.id}</code>\n"
-        f"🔰 Статус: {vip_status}\n"
-        f"📍 Доставка: {location}\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
+        f"👤 <b>User:</b> @{user.username}\n"
+        f"🆔 <b>ID:</b> <code>{user.id}</code>\n"
+        f"💳 <b>Рахунок:</b> 0.00 UAH\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🧬 <b>ТВІЙ СТАТУС: VIP PRO</b> 🌿\n"
+        f"⏳ Дійсний до: <b>{vip_date}</b>\n"
+        f"📉 Знижка: <b>-35%</b> на весь стафф\n"
+        f"🎁 Промокод: {promo_active}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📮 <b>ДАНІ ДЛЯ ДРОПУ:</b>\n"
+        f"{loc_str}\n"
+        f"📱 <b>Зв'язок:</b> {phone if phone else 'Не вказано'}"
     )
-    kb = [[InlineKeyboardButton("📝 Змінити дані", callback_data="fill_delivery_data")],
-          [InlineKeyboardButton("🏠 Меню", callback_data="menu_start")]]
+
+    kb = [
+        [InlineKeyboardButton("📝 Налаштувати дані доставки", callback_data="fill_delivery_data")],
+        [InlineKeyboardButton("🤝 Реферальна Система (+7 днів)", callback_data="ref_system")],
+        [InlineKeyboardButton("🎟 Активувати GHST2026", callback_data="menu_promo")],
+        [InlineKeyboardButton("🛸 Головне Меню", callback_data="menu_start")]
+    ]
+
+    try:
+        photos = await user.get_profile_photos(limit=1)
+        photo = photos.photos[0][-1].file_id if photos.total_count > 0 else WELCOME_PHOTO
+        await send_ghosty_message(update, text, kb, photo=photo)
+    except:
+        await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Привітання в стилі PRO CANNABIS SHOP."""
+    user = update.effective_user
     
-    await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
+    # Авто-створення профілю з бонусами
+    profile = await get_or_create_user(update, context)
+    
+    # Перевірка рефералки (args)
+    args = context.args
+    if args and len(args) > 0:
+        referrer_id = args[0]
+        # Тут можна додати логіку нарахування рефереру
+        # А новому юзеру даємо бонуси:
+    
+    # АВТО-АКТИВАЦІЯ GHST2026 ДЛЯ НОВИХ
+    if not profile.get('promo_applied'):
+        profile['next_order_discount'] = 101
+        profile['is_vip'] = True
+        profile['vip_expiry'] = "25.03.2026"
+        profile['promo_applied'] = True
+
+    welcome_text = (
+        f"🌫️ <b>GHO$$TY STAFF LAB | 2026</b> 🛸\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👋 Йо, <b>{escape(user.first_name)}</b>! Ласкаво просимо в сім'ю.\n\n"
+        f"🎁 <b>ТВІЙ ВЕЛКОМ-ПАК АКТИВОВАНО:</b>\n"
+        f"✅ <b>PROMO:</b> GHST2026 (Автоматично)\n"
+        f"📉 <b>ЗНИЖКА:</b> -35% на перше замовлення\n"
+        f"💸 <b>БОНУС:</b> -101 грн додатково!\n"
+        f"🚚 <b>ДОСТАВКА:</b> Безкоштовно по VIP\n\n"
+        f"🧠 <i>HHC, THC, Pods, Liquids - тільки топ якість.</i>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 <b>Залітай в меню:</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🛍 ВІДКРИТИ КАТАЛОГ 🍀", callback_data="cat_all")],
+        [InlineKeyboardButton("👤 МІЙ КАБІНЕТ", callback_data="menu_profile"), 
+         InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],
+        [InlineKeyboardButton("📍 ЗМІНИТИ МІСТО", callback_data="choose_city")],
+        [InlineKeyboardButton("📜 ПРАВИЛА", callback_data="menu_terms")],
+        [InlineKeyboardButton("👨‍💻 САППОРТ (24/7)", url=f"https://t.me/{MANAGER_USERNAME}"),
+         InlineKeyboardButton("📢 КАНАЛ", url=CHANNEL_URL)]
+    ]
+    
+    if user.id == MANAGER_ID:
+        keyboard.append([InlineKeyboardButton("⚙️ GOD MODE", callback_data="admin_main")])
+
+    await send_ghosty_message(update, welcome_text, keyboard, photo=WELCOME_PHOTO)
+    
         
 # =================================================================
 # 🛠 SECTION 7: CORE UTILITIES (ULTIMATE EDITION)
@@ -1449,29 +1540,69 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _edit_or_reply(query, text, kb)
     
 # =================================================================
-# 🔑 SECTION 22: ПРОМОКОДИ (GHST2026 & ID SYSTEM)
+# ⚙️ SECTION 8: PROMO & REFERRAL LOGIC
 # =================================================================
 
 async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка GHST2026 та GHST + ID."""
+    """Обробка кодів: GHST2026 та Реферальних."""
     if not update.message or not update.message.text: return
-    text = update.message.text.strip().upper() 
+    
+    text = update.message.text.strip().upper()
     user = update.effective_user
     profile = context.user_data.setdefault("profile", {})
     
+    msg = ""
+    
+    # 1. GHST2026 (Основний)
     if text == "GHST2026":
-        profile.update({"next_order_discount": 101, "is_vip": True})
-        msg = "✅ <b>GHST2026 активовано!</b>\n🎁 -101 грн + VIP статус."
+        if profile.get('next_order_discount') == 101:
+            msg = "⚠️ <b>Цей код вже активовано!</b>\nЗнижка -101 грн та -35% вже чекають у кошику."
+        else:
+            profile["next_order_discount"] = 101
+            profile["is_vip"] = True
+            profile["vip_expiry"] = "25.03.2026"
+            msg = "✅ <b>GHST2026 АКТИВОВАНО!</b>\n\n🎁 -101 грн до замовлення\n📉 VIP статус до 25.03.2026\n🚀 Безкоштовна доставка"
+
+    # 2. Реферальні коди (GHST + ID)
     elif text.startswith("GHST") and text[4:].isdigit():
         target_id = int(text[4:])
-        if target_id != user.id:
-            profile.update({"is_vip": True, "promo_applied": True})
-            msg = f"🤝 <b>Реферальний код прийнято!</b>\n🔥 Знижка -35% активована."
-        else: msg = "❌ Неможна вводити свій код!"
-    else: msg = "❌ Невірний код."
+        if target_id == user.id:
+            msg = "❌ <b>Свій код вводити не можна.</b>"
+        else:
+            # Логіка +7 днів
+            current_expiry = datetime.strptime(profile.get('vip_expiry', '25.03.2026'), "%d.%m.%Y")
+            new_expiry = current_expiry + timedelta(days=7)
+            profile['vip_expiry'] = new_expiry.strftime("%d.%m.%Y")
+            
+            msg = f"🤝 <b>Реферал прийнято!</b>\n\n✅ Вам додано <b>+7 днів</b> VIP статусу.\n📅 Нова дата: {profile['vip_expiry']}"
+            
+    else:
+        msg = "❌ <b>Невірний код.</b> Спробуй ще раз."
 
-    await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛒 В кошик", callback_data="menu_cart")]]), parse_mode='HTML')
+    kb = [[InlineKeyboardButton("👤 В профіль", callback_data="menu_profile"), 
+           InlineKeyboardButton("🛍 В магазин", callback_data="cat_all")]]
+    
+    await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
     context.user_data['awaiting_promo'] = False
+
+async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    bot_name = context.bot.username
+    
+    ref_text = (
+        f"🤝 <b>ПАРТНЕРСЬКА ПРОГРАМА PRO</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"Запрошуй кентів та фарми VIP!\n\n"
+        f"1️⃣ <b>Твій друг отримує:</b>\n"
+        f"   • Знижку -35% на перше замовлення\n"
+        f"   • Доступ до закритого меню\n\n"
+        f"2️⃣ <b>Ти отримуєш:</b>\n"
+        f"   • <b>+7 днів VIP</b> за кожного друга\n"
+        f"   • Секретний стафф при замовленні від 2к\n\n"
+        f"🔗 <b>Твоє посилання:</b>\n<code>https://t.me/{bot_name}?start={user_id}</code>\n"
+        f"🔑 <b>Твій код:</b> <code>GHST{user_id}</code>"
+    )
+    await _edit_or_reply(update.callback_query, ref_text, [[InlineKeyboardButton("🔙 Назад", callback_data="menu_profile")]])
     
 # =================================================================
 # 💳 SECTION 5: CHECKOUT & PAYMENT ENGINE (UNIFIED PRO)
