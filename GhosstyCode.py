@@ -41,7 +41,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # 2. Налаштування Бота
 # Пріоритет: Змінна оточення (для безпеки) -> Жорстко прописаний (твоя резервна копія)
 ENV_TOKEN = os.getenv("BOT_TOKEN")
-TOKEN = ENV_TOKEN if ENV_TOKEN else "8351638507:AAEEbCkrYI4X7m-Rflqesxo9PBGSYWlt_Ww"
+TOKEN = ENV_TOKEN if ENV_TOKEN else "8351638507:AAF_GE13z4AlHpChBObGpOD7uolnhRqF7cg"
 
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydp"
