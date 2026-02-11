@@ -979,7 +979,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id == MANAGER_ID:
         keyboard.append([InlineKeyboardButton("⚙️ АДМІН-ПАНЕЛЬ", callback_data="admin_main")])
 
-    await send_ghosty_message(update, welcome_text, keyboard, photo=WELCOME_PHOTO))
+    await send_ghosty_message(update, welcome_text, keyboard, photo=WELCOME_PHOTO)
 
 async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Інформація про реферальну систему."""
