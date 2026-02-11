@@ -552,6 +552,10 @@ PODS = {
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
 # =================================================================
+# Таймер старту для розрахунку Uptime (ставимо на початку)
+START_TIME = datetime.now()
+
+# НЕЗМІННА УГОДА КОРИСТУВАЧА
 TERMS_TEXT = (
     "📜 <b>Умови, правила, відповідальність</b>\n\n"
     "1️⃣ Проєкт має навчально-демонстраційний характер.\n"
@@ -1870,72 +1874,269 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =================================================================
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головне меню GOD-MODE."""
+    """Головне меню GOD-MODE з показниками системи."""
     user = update.effective_user
     if user.id != MANAGER_ID: return 
 
-    # Розрахунок пінгу та аптайму
-    ping = random.randint(10, 25) # Емуляція затримки мережі
-    uptime = datetime.now() - START_TIME
+    # 1. Розрахунок метрик системи
+    # Пінг: імітація часу відгуку бази/API
+    ping = random.randint(12, 28) 
     
-    # Завантаженість (емуляція на основі активних діалогів)
-    load = len(context.application.user_data) % 100
-
+    # Аптайм: час роботи з моменту ініціалізації START_TIME
+    uptime_delta = datetime.now() - START_TIME
+    uptime_str = str(uptime_delta).split('.')[0] # Прибираємо мілісекунди
+    
+    # Завантаженість: на основі кількості активних об'єктів у пам'яті
+    active_sessions = len(context.application.user_data)
+    cpu_load = random.randint(2, 8) # Базова нагрузка скрипта
+    
+    # 2. Формування елітного звіту
     text = (
-        f"🕴️ <b>GHOSTY GOD-MODE v5.0</b>\n"
+        f"🕴️ <b>GHOSTY GOD-MODE v5.5</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📡 <b>System Status:</b>\n"
+        f"🛰 <b>SYSTEM STATUS:</b>\n"
         f"⏱ Пінг: <code>{ping}ms</code>\n"
-        f"🆙 Uptime: <code>{str(uptime).split('.')[0]}</code>\n"
-        f"📊 Завантаженість: <code>{load}%</code>\n"
+        f"🆙 Uptime: <code>{uptime_str}</code>\n"
+        f"📊 Завантаження: <code>{cpu_load}%</code>\n"
+        f"👥 Активних сесій: <code>{active_sessions}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Оберіть інструмент:"
+        f"⚡️ <b>КЕРУВАННЯ:</b>"
     )
+    
     kb = [
         [InlineKeyboardButton("👥 БАЗА КЛІЄНТІВ (LIVE)", callback_data="admin_view_users")],
         [InlineKeyboardButton("💰 ФІНАНСОВИЙ ЗВІТ", callback_data="admin_stats")],
-        [InlineKeyboardButton("📢 РОЗСИЛКА", callback_data="admin_broadcast")],
-        [InlineKeyboardButton("🔙 ВИХІД", callback_data="menu_start")]
+        [InlineKeyboardButton("📢 МАСОВА РОЗСИЛКА", callback_data="admin_broadcast")],
+        [InlineKeyboardButton("🔙 ВИХІД В МАГАЗИН", callback_data="menu_start")]
     ]
+    
     await send_ghosty_message(update, text, kb)
 
 async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Детальний перегляд даних користувачів та їх замовлень."""
+    """
+    Перегляд бази клієнтів (Останні 10 реєстрацій).
+    Відображає ПІБ, телефон, місто та статус оплати останнього замовлення.
+    """
+    query_call = update.callback_query
+    
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         
-        # Беремо останніх 10 користувачів з їх даними та статусом останнього замовлення
-        query = """
-            SELECT u.username, u.user_id, u.phone, u.city, 
-                   (SELECT amount FROM orders WHERE user_id = u.user_id ORDER BY created_at DESC LIMIT 1),
-                   (SELECT status FROM orders WHERE user_id = u.user_id ORDER BY created_at DESC LIMIT 1)
-            FROM users u LIMIT 10
+        # SQL запит: Беремо основні дані юзера + дані його останнього замовлення (якщо є)
+        # Використовуємо LEFT JOIN, щоб бачити навіть тих, хто ще не робив замовлень
+        sql_query = """
+            SELECT 
+                u.username, 
+                u.user_id, 
+                u.phone, 
+                u.city,
+                o.amount,
+                o.status
+            FROM users u
+            LEFT JOIN orders o ON o.user_id = u.user_id 
+            AND o.created_at = (SELECT MAX(created_at) FROM orders WHERE user_id = u.user_id)
+            ORDER BY u.reg_date DESC
+            LIMIT 10
         """
-        cur.execute(query)
+        cur.execute(sql_query)
         users_data = cur.fetchall()
         conn.close()
 
-        report = "👥 <b>ОСТАННІ КЛІЄНТИ:</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        if not users_data:
+            await _edit_or_reply(query_call, "📭 База даних поки що порожня.", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+            return
+
+        report = "👥 <b>БАЗА КЛІЄНТІВ (Останні 10):</b>\n━━━━━━━━━━━━━━━━━━━━\n"
         
         for row in users_data:
             username, uid, phone, city, amount, status = row
-            # Статус-іконка
-            st_icon = "✅" if status == 'paid' else "❌"
-            amt = f"{amount}₴" if amount else "0₴"
+            
+            # Логіка іконок статусу
+            # ✅ - Сплачено (status == 'paid' або 'confirmed')
+            # ❌ - Немає оплати або замовлення
+            st_icon = "✅" if status in ['paid', 'confirmed', '✅'] else "❌"
+            
+            # Форматування юзернейму
+            user_tag = f"@{username}" if username and username != "Hidden" else "No-User"
+            
+            # Форматування суми
+            amt_display = f"<b>{amount}₴</b>" if amount else "0₴"
             
             report += (
-                f"👤 {username} (<code>{uid}</code>)\n"
-                f"📞 {phone or '—'} | 📍 {city or '—'}\n"
-                f"💰 {amt} | Статус: {st_icon}\n"
+                f"👤 {user_tag} (<code>{uid}</code>)\n"
+                f"📞 {phone or '—'} | 🏙 {city or '—'}\n"
+                f"💰 {amt_display} | Сплачено: {st_icon}\n"
                 f"--------------------\n"
             )
 
-        kb = [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]]
-        await _edit_or_reply(update.callback_query, report, kb)
+        kb = [
+            [InlineKeyboardButton("🔄 ОНОВИТИ", callback_data="admin_view_users")],
+            [InlineKeyboardButton("🔙 НАЗАД ДО ПАНЕЛІ", callback_data="admin_main")]
+        ]
+        
+        await _edit_or_reply(query_call, report, kb)
+
     except Exception as e:
-        await _edit_or_reply(update.callback_query, f"❌ Помилка бази: {e}")
+        logger.error(f"Admin View Users Error: {e}")
+        await _edit_or_reply(query_call, f"🆘 <b>Помилка доступу до БД:</b>\n<code>{e}</code>", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+        
+    # =================================================================
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (STABLE & EXTENDED v5.0)
+# =================================================================
+
+async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Центральний маршрутизатор натискань на кнопки.
+    Опрацьовує всі CallbackQuery з урахуванням асинхронності та стейтів.
+    """
+    query = update.callback_query
+    data = query.data
     
+    # Обов'язкова відповідь Telegram, щоб прибрати іконку завантаження на кнопці
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    # --- 1. ГОЛОВНЕ МЕНЮ ТА ПРОФІЛЬ ---
+    if data == "menu_start":
+        await start_command(update, context)
+    
+    elif data == "menu_profile":
+        await show_profile(update, context)
+    
+    elif data == "menu_cart":
+        await show_cart_logic(update, context)
+    
+    elif data == "ref_system":
+        await show_ref_info(update, context)
+    
+    elif data == "menu_promo": 
+        context.user_data['awaiting_promo'] = True
+        await _edit_or_reply(query, "🎟 <b>ВВЕДІТЬ ПРОМОКОД:</b>\n\nВпишіть ваш код повідомленням у чат 👇", 
+                             [[InlineKeyboardButton("🔙 НАЗАД", callback_data="menu_profile")]])
+    
+    elif data == "menu_terms": 
+        # Використовує константу TERMS_TEXT, яку ми поставили в початок файлу
+        await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 ЗРОЗУМІЛО", callback_data="menu_profile")]])
+
+    # --- 2. МАГАЗИН (КАТАЛОГ) ---
+    elif data == "cat_all":
+        await catalog_main_menu(update, context)
+    
+    elif data.startswith("cat_list_"):
+        await show_category_items(update, context, data.replace("cat_list_", ""))
+    
+    elif data.startswith("view_item_"): 
+        try:
+            item_id = int(data.split("_")[2])
+            await view_item_details(update, context, item_id)
+        except Exception:
+            await catalog_main_menu(update, context)
+    
+    elif data.startswith("add_"):
+        await add_to_cart_handler(update, context)
+    
+    elif data.startswith("gift_sel_"):
+        await gift_selection_handler(update, context)
+    
+    elif data == "cart_clear" or data.startswith("cart_del_"):
+        await cart_action_handler(update, context)
+
+    # --- 3. ШВИДКЕ ЗАМОВЛЕННЯ ТА МЕНЕДЖЕР ---
+    elif data.startswith("fast_order_"):
+        try:
+            item_id = int(data.split("_")[2])
+            item = get_item_data(item_id)
+            if item:
+                # Тимчасово очищуємо кошик для швидкої покупки одного товару
+                context.user_data['cart'] = [{"id": 999, "name": item['name'], "price": item['price'], "gift": None}]
+                # Запускаємо збір даних, який перекине на checkout
+                await start_data_collection(update, context, next_action='checkout', item_id=item_id)
+        except Exception:
+            pass
+
+    elif data.startswith("mgr_pre_"):
+        try:
+            item_id = int(data.split("_")[2])
+            # Збираємо дані перед відправкою до менеджера
+            await start_data_collection(update, context, next_action='manager_order', item_id=item_id)
+        except Exception:
+            pass
+
+    # --- 4. ОФОРМЛЕННЯ ТА ОПЛАТА ---
+    elif data == "checkout_init":
+        await checkout_init(update, context)
+    
+    elif data.startswith("pay_"):
+        method = data.split("_")[1]
+        await payment_selection_handler(update, context, method)
+    
+    elif data == "confirm_payment_start":
+        await payment_confirmation_handler(update, context)
+
+    # --- 5. ЗБІР ДАНИХ (SMART FLOW) ---
+    elif data == "fill_delivery_data":
+        # Звичайне оновлення профілю без подальших дій
+        await start_data_collection(update, context, next_action='none')
+    
+    elif data == "cancel_data": 
+        context.user_data['state'] = None
+        context.user_data['data_flow'] = None
+        await show_profile(update, context)
+    
+    elif data == "choose_city": 
+        # Виклик списку міст (використовує UKRAINE_CITIES)
+        context.user_data['data_flow'] = {'step': 'city_selection'}
+        kb = []
+        row = []
+        for city in UKRAINE_CITIES.keys():
+            row.append(InlineKeyboardButton(city, callback_data=f"set_city_{city}"))
+            if len(row) == 2:
+                kb.append(row)
+                row = []
+        if row: kb.append(row)
+        kb.append([InlineKeyboardButton("🔙 НАЗАД", callback_data="menu_profile")])
+        await _edit_or_reply(query, "🏙 <b>ОБЕРІТЬ ВАШЕ МІСТО:</b>", kb)
+
+    elif data.startswith("set_city_"):
+        city_name = data.replace("set_city_", "")
+        await district_selection_handler(update, context, city_name)
+
+    elif data.startswith("set_dist_"):
+        dist_name = data.replace("set_dist_", "")
+        await address_request_handler(update, context, dist_name)
+
+    # --- 6. АДМІН-ПАНЕЛЬ (GOD-MODE) ---
+    elif data == "admin_main":
+        await admin_menu(update, context)
+    
+    elif data == "admin_broadcast":
+        await start_broadcast(update, context)
+    
+    elif data == "admin_stats":
+        # Виклик розширеної статистики (виручка за 7 днів, пінг тощо)
+        await admin_stats(update, context)
+    
+    elif data == "admin_view_users":
+        # Перегляд бази клієнтів з іконками статусів
+        await admin_view_users(update, context)
+    
+    elif data == "admin_cancel_action":
+        context.user_data['state'] = None
+        context.user_data.pop('awaiting_broadcast', None)
+        await admin_menu(update, context)
+
+    # Логіка підтвердження оплати адміном (якщо потрібно)
+    elif data.startswith("admin_approve_"):
+        try:
+            target_id = int(data.split("_")[2])
+            await context.bot.send_message(chat_id=target_id, text="✅ <b>Вашу оплату підтверджено!</b>\nОчікуйте на ТТН у найближчий час.")
+            await query.edit_message_caption(caption=query.message.caption + "\n\n🟢 ПІДТВЕРДЖЕНО")
+        except Exception:
+            pass
+            
     
 # =================================================================
 # 🎮 SECTION 30: STABLE MESSAGE HANDLER
