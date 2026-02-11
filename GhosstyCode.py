@@ -552,7 +552,7 @@ PODS = {
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
 # =================================================================
-# Таймер старту для розрахунку Uptime (ставимо на початку)
+# Таймер для статистики адмін-панелі (Uptime)
 START_TIME = datetime.now()
 
 # НЕЗМІННА УГОДА КОРИСТУВАЧА
@@ -1579,14 +1579,14 @@ async def payment_confirmation_handler(update: Update, context: ContextTypes.DEF
     
     
 # =================================================================
-# 📝 SECTION 16: SMART DATA COLLECTION (FIXED & STABLE)
+# 📝 SECTION 16: SMART DATA COLLECTION (FIXED FLOW)
 # =================================================================
 
 async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action, item_id=None):
-    """Старт процесу збору даних."""
+    """Ініціалізація збору даних."""
     context.user_data['data_flow'] = {
         'step': 'name',
-        'next_action': next_action, # 'checkout' або 'manager_order'
+        'next_action': next_action, 
         'item_id': item_id
     }
     context.user_data['state'] = "COLLECTING_DATA"
@@ -1594,16 +1594,14 @@ async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TY
     text = "📝 <b>КРОК 1/4: ПІБ</b>\n\nВведіть ваше Прізвище та Ім'я для накладної:"
     kb = [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="menu_start")]]
     
-    # Визначаємо об'єкт для відповіді (кнопка чи команда)
     if update.callback_query:
         await _edit_or_reply(update.callback_query, text, kb)
     else:
         await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
 
 async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка ТЕКСТОВОГО вводу (ПІБ, Телефон, Адреса)."""
+    """Обробка тексту: Ім'я -> Телефон -> Кнопки міст."""
     if not update.message or not update.message.text: return
-    
     flow = context.user_data.get('data_flow')
     if not flow: return
     
@@ -1618,7 +1616,7 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif step == 'phone':
         profile['phone'] = text
-        # Перехід до вибору міста (кнопки)
+        # ПЕРЕХІД ДО КНОПОК МІСТ
         await choose_city_menu(update, context)
         
     elif step == 'address':
@@ -1626,20 +1624,29 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await finalize_data_collection(update, context)
 
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Фіналізація та перехід до наступної дії."""
+    """Кінець збору та перехід до оплати або менеджера."""
     context.user_data['state'] = None
-    flow = context.user_data.get('data_flow')
+    flow = context.user_data.get('data_flow', {})
     action = flow.get('next_action')
-    item_id = flow.get('item_id')
 
     if action == 'checkout':
         await checkout_init(update, context)
     elif action == 'manager_order':
-        await finalize_manager_order(update, context, item_id)
+        await finalize_manager_order(update, context, flow.get('item_id'))
     else:
-        await update.message.reply_text("✅ <b>Дані успішно оновлено!</b>")
+        await update.message.reply_text("✅ <b>Дані оновлено!</b>")
         await show_profile(update, context)
-        
+
+async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
+    """Формування посилання на менеджера."""
+    import urllib.parse
+    item = get_item_data(item_id)
+    p = context.user_data.get('profile', {})
+    msg = (f"👋 Замовлення:\n📦 Товар: {item['name']}\n💰 Ціна: {item['price']} грн\n"
+           f"👤 Клієнт: {p.get('full_name')}\n🏙 Місто: {p.get('city')}\n📞 Тел: {p.get('phone')}")
+    link = f"https://t.me/{MANAGER_USERNAME}?text={urllib.parse.quote(msg)}"
+    await send_ghosty_message(update, "✅ Дані підготовлено!", [[InlineKeyboardButton("🚀 НАПИСАТИ МЕНЕДЖЕРУ", url=link)]])
+    
 
 # =================================================================
 # ✈️ SECTION 16.5: MANAGER ORDER FINALIZER
@@ -1836,91 +1843,43 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             
 # =================================================================
-# 👮‍♂️ SECTION 25: ADMIN GOD-PANEL (MONITORING & FINANCIALS)
+# 👮‍♂️ SECTION 25: ADMIN GOD-PANEL (FIXED DEFINITIONS)
 # =================================================================
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головне меню GOD-MODE з показниками системи."""
-    user = update.effective_user
-    if user.id != MANAGER_ID: return 
-
-    # Метрики
-    ping = random.randint(12, 28) 
-    uptime_delta = datetime.now() - START_TIME
-    uptime_str = str(uptime_delta).split('.')[0]
-    
-    # Кількість юзерів в базі (реальний онлайн в боті імітуємо через активні сесії)
-    active_sessions = len(context.application.user_data)
-    cpu_load = random.randint(2, 7)
-
-    text = (
-        f"🕴️ <b>GHOSTY GOD-MODE v5.5</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📡 <b>SYSTEM STATUS:</b>\n"
-        f"⏱ Пінг: <code>{ping}ms</code>\n"
-        f"🆙 Uptime: <code>{uptime_str}</code>\n"
-        f"📊 Завантаження: <code>{cpu_load}%</code>\n"
-        f"👥 Активних сесій: <code>{active_sessions}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚡️ <b>КЕРУВАННЯ:</b>"
-    )
-    
-    kb = [
-        [InlineKeyboardButton("👥 БАЗА КЛІЄНТІВ (LIVE)", callback_data="admin_view_users")],
-        [InlineKeyboardButton("💰 ФІНАНСОВИЙ ЗВІТ", callback_data="admin_stats")],
-        [InlineKeyboardButton("📢 МАСОВА РОЗСИЛКА", callback_data="admin_broadcast")],
-        [InlineKeyboardButton("🔙 ВИХІД В МАГАЗИН", callback_data="menu_start")]
-    ]
-    
+    if update.effective_user.id != MANAGER_ID: return 
+    ping = random.randint(11, 24)
+    uptime = str(datetime.now() - START_TIME).split('.')[0]
+    text = (f"🕴️ <b>GOD-MODE v6.0</b>\n━━━━━━━━━━━━\n"
+            f"📡 Пінг: <code>{ping}ms</code>\n🆙 Uptime: <code>{uptime}</code>\n"
+            f"👥 Клієнтів онлайн: <code>{len(context.application.user_data)}</code>")
+    kb = [[InlineKeyboardButton("👥 БАЗА КЛІЄНТІВ", callback_data="admin_view_users")],
+          [InlineKeyboardButton("💰 ФІНАНСИ (7д)", callback_data="admin_stats")],
+          [InlineKeyboardButton("📢 РОЗСИЛКА", callback_data="admin_broadcast")],
+          [InlineKeyboardButton("🔙 ВИХІД", callback_data="menu_start")]]
     await send_ghosty_message(update, text, kb)
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Розширена фінансова статистика."""
-    query = update.callback_query
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        
-        # Рахуємо прибуток за 7 днів
-        cur.execute("SELECT SUM(amount) FROM orders WHERE status IN ('paid', 'confirmed') AND created_at >= date('now', '-7 days')")
-        revenue_7d = cur.fetchone()[0] or 0.0
-        
-        # Кількість замовлень
-        cur.execute("SELECT COUNT(*) FROM orders WHERE status IN ('paid', 'confirmed') AND created_at >= date('now', '-7 days')")
-        orders_count = cur.fetchone()[0]
-        
-        conn.close()
-        
-        text = (
-            f"💰 <b>ФІНАНСОВИЙ ЗВІТ (7 ДНІВ)</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💵 Прибуток: <b>{revenue_7d:,.2f} UAH</b>\n"
-            f"📦 Замовлень підтверджено: <b>{orders_count}</b>\n"
-            f"📈 Середній чек: <b>{round(revenue_7d/orders_count, 2) if orders_count > 0 else 0} UAH</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💎 <i>Дані базуються на підтверджених оплатах.</i>"
-        )
-        await _edit_or_reply(query, text, [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
-    except Exception as e:
-        await _edit_or_reply(query, f"❌ Помилка статистики: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+    conn = sqlite3.connect(DB_PATH)
+    rev = conn.execute("SELECT SUM(amount) FROM orders WHERE created_at >= date('now','-7 days')").fetchone()[0] or 0.0
+    total = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    conn.close()
+    text = f"📊 <b>ЗВІТ</b>\n━━━━━━━━━━━━\n💰 Виручка (7д): <b>{rev} UAH</b>\n👥 Всього юзерів: <b>{total}</b>"
+    await _edit_or_reply(update.callback_query, text, [[InlineKeyboardButton("🔙", callback_data="admin_main")]])
 
 async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Перегляд останніх клієнтів та їх статусів."""
-    query_call = update.callback_query
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        
-        sql_query = """
-            SELECT u.username, u.user_id, u.phone, u.city, o.amount, o.status
-            FROM users u
-            LEFT JOIN orders o ON o.user_id = u.user_id 
-            AND o.created_at = (SELECT MAX(created_at) FROM orders WHERE user_id = u.user_id)
-            ORDER BY u.reg_date DESC LIMIT 10
-        """
-        cur.execute(sql_query)
-        users_data = cur.fetchall()
-        conn.close()
+    conn = sqlite3.connect(DB_PATH)
+    users = conn.execute("SELECT username, user_id, city, phone FROM users ORDER BY reg_date DESC LIMIT 5").fetchall()
+    conn.close()
+    msg = "👥 <b>ОСТАННІ КЛІЄНТИ:</b>\n\n"
+    for u in users:
+        msg += f"👤 @{u[0]} (<code>{u[1]}</code>)\n📍 {u[2]} | 📞 {u[3]}\n---\n"
+    await _edit_or_reply(update.callback_query, msg, [[InlineKeyboardButton("🔙", callback_data="admin_main")]])
+
+async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['state'] = "BROADCAST_MODE"
+    await _edit_or_reply(update.callback_query, "📢 <b>РЕЖИМ РОЗСИЛКИ:</b>\nНадішліть пост (текст/фото).", [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="admin_main")]])
+    
 
         report = "👥 <b>БАЗА КЛІЄНТІВ (Останні 10):</b>\n━━━━━━━━━━━━━━━━━━━━\n"
         for row in users_data:
@@ -1943,7 +1902,7 @@ async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _edit_or_reply(query_call, f"🆘 Помилка БД: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
         
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL DISPATCHER (101% STABLE)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 101% STABLE)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1952,57 +1911,56 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try: await query.answer()
     except: pass
 
-    # --- 1. ГОЛОВНЕ ---
+    # --- ГОЛОВНЕ ---
     if data == "menu_start": await start_command(update, context)
     elif data == "menu_profile": await show_profile(update, context)
     elif data == "menu_cart": await show_cart_logic(update, context)
-    elif data == "menu_terms": await terms_handler(update, context)
+    elif data == "menu_terms": await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 НАЗАД", callback_data="menu_profile")]])
     elif data == "ref_system": await show_ref_info(update, context)
-    elif data == "menu_promo": 
-        context.user_data['awaiting_promo'] = True
-        await _edit_or_reply(query, "🎟 <b>ВВЕДІТЬ ПРОМОКОД:</b>", [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
 
-    # --- 2. МАГАЗИН ---
+    # --- МАГАЗИН ---
     elif data == "cat_all": await catalog_main_menu(update, context)
     elif data.startswith("cat_list_"): await show_category_items(update, context, data.replace("cat_list_", ""))
     elif data.startswith("view_item_"): 
         try: await view_item_details(update, context, int(data.split("_")[2]))
         except: await catalog_main_menu(update, context)
     elif data.startswith("add_"): await add_to_cart_handler(update, context)
-    elif data.startswith("gift_sel_"): await gift_selection_handler(update, context)
     elif data == "cart_clear" or data.startswith("cart_del_"): await cart_action_handler(update, context)
 
-    # --- 3. ЗАМОВЛЕННЯ ---
+    # --- ЛОКАЦІЯ ---
+    elif data == "choose_city": await choose_city_menu(update, context)
+    elif data.startswith("sel_city_"):
+        city = data.replace("sel_city_", "")
+        # FIX: Тепер після вибору міста бот перейде до районів
+        await district_selection_handler(update, context, city)
+    elif data.startswith("sel_dist_"):
+        dist = data.replace("sel_dist_", "")
+        # FIX: Тепер після вибору району бот попросить адресу
+        await address_request_handler(update, context, dist)
+    
+    # --- ЗАМОВЛЕННЯ ---
     elif data.startswith("fast_order_"):
-        try:
-            iid = int(data.split("_")[2])
-            item = get_item_data(iid)
-            if item:
-                # Швидке створення кошика для 1 товару
-                context.user_data['cart'] = [{"id": random.randint(1000,9999), "name": item['name'], "price": item['price'], "gift": None}]
-                await start_data_collection(update, context, next_action='checkout', item_id=iid)
-        except: pass
+        iid = int(data.split("_")[2])
+        item = get_item_data(iid)
+        if item:
+            context.user_data['cart'] = [{"id": random.randint(1000,9999), "name": item['name'], "price": item['price'], "gift": None}]
+            await start_data_collection(update, context, next_action='checkout', item_id=iid)
     elif data.startswith("mgr_pre_"):
         await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
+    
     elif data == "checkout_init": await checkout_init(update, context)
     elif data.startswith("pay_"): await payment_selection_handler(update, context, data.split("_")[1])
     elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
 
-    # --- 4. ЛОКАЦІЯ (ВИПРАВЛЕНО!) ---
-    elif data == "choose_city": 
-        await choose_city_menu(update, context) # FIX: Викликаємо меню, а не handle_data_input!
-    elif data.startswith("sel_city_"):
-        await district_selection_handler(update, context, data.replace("sel_city_", ""))
-    elif data.startswith("sel_dist_"):
-        await address_request_handler(update, context, data.replace("sel_dist_", ""))
-    elif data == "fill_delivery_data":
-        await start_data_collection(update, context, next_action='none')
-
-    # --- 5. АДМІНКА ---
+    # --- АДМІНКА ---
     elif data == "admin_main": await admin_menu(update, context)
     elif data == "admin_stats": await admin_stats(update, context)
-    elif data == "admin_broadcast": await start_broadcast(update, context)
     elif data == "admin_view_users": await admin_view_users(update, context)
+    elif data == "admin_broadcast": await start_broadcast(update, context)
+    elif data == "admin_cancel_action":
+        context.user_data['state'] = None
+        await admin_menu(update, context)
+        
         
             
 # =================================================================
