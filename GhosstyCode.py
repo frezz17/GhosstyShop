@@ -1029,87 +1029,45 @@ async def main_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # Інші гілки (Каталог, Кошик, Профіль) будуть у наступних частинах
 
 # =================================================================
-# 📍 SECTION 10: GEOGRAPHY LOGIC (CITIES & DISTRICTS)
+# 📍 SECTION 10-11: GEOGRAPHY & FLOW HELPERS (MASTER FIX)
 # =================================================================
 
-async def city_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    КРОК 3/4 (Старт): Виводить список міст для вибору.
-    """
-    text = (
-        "📍 <b>Оберіть ваше місто</b>\n\n"
-        "Ми працюємо у найбільших містах України. "
-        "Оберіть локацію, щоб побачити доступні райони та методи отримання 👇"
-    )
-    
-    keyboard = []
-    # Формуємо сітку кнопок (по 2 в ряд)
-    # Використовуємо UKRAINE_CITIES для отримання списку ключів
-    city_list = list(UKRAINE_CITIES.keys())
-    for i in range(0, len(city_list), 2):
-        row = []
-        city1 = city_list[i]
-        row.append(InlineKeyboardButton(city1, callback_data=f"sel_city_{city1}"))
-        if i + 1 < len(city_list):
-            city2 = city_list[i+1]
-            row.append(InlineKeyboardButton(city2, callback_data=f"sel_city_{city2}"))
-        keyboard.append(row)
-    
-    keyboard.append([InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")])
-    
-    await send_ghosty_message(update, text, keyboard)
-
 async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """
-    КРОК 3/4 (Обробка): Опрацьовує вибір міста та генерує кнопки районів.
-    Викликається з диспетчера при отриманні 'sel_city_'.
-    """
+    """Опрацьовує вибір міста та генерує кнопки районів."""
     query = update.callback_query
-    # Зберігаємо місто в профілі користувача
     context.user_data.setdefault('profile', {})['city'] = city
     
     districts = UKRAINE_CITIES.get(city, [])
     if districts:
         kb = []
-        # Генеруємо кнопки районів по 2 в ряд
         for i in range(0, len(districts), 2):
             row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
             if i + 1 < len(districts):
                 row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
             kb.append(row)
-            
         kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
         
-        # Оновлюємо дані поточного потоку збору інформації
         context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
-        
-        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію для отримання 👇", kb)
+        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію 👇", kb)
     else:
-        # Якщо районів немає (інше місто) - одразу на фінальний крок
+        # Якщо районів немає - переходимо до кроку 4 (текст)
         await address_request_handler(update, context, "Центр")
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """
-    КРОК 4/4: Активує очікування тексту для фінальної адреси.
-    Викликається з диспетчера при отриманні 'sel_dist_'.
-    """
+    """Активує очікування тексту для фінальної адреси."""
     query = update.callback_query
-    # Зберігаємо район в профілі
     context.user_data.setdefault('profile', {})['district'] = district
     
-    # Встановлюємо стан очікування тексту (handle_data_input підхопить наступне повідомлення)
+    # КРИТИЧНО: Встановлюємо стан для handle_user_input
     context.user_data.setdefault('data_flow', {})['step'] = 'address'
     context.user_data['state'] = "COLLECTING_DATA"
     
     text = (
         f"✅ <b>Локація збережена:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
-        f"📍 <b>КРОК 4/4: АДРЕСА ДОСТАВКИ</b>\n"
+        f"📍 <b>КРОК 4/4: АДРЕСА</b>\n"
         f"Напишіть у чат номер відділення Нової Пошти або повну адресу 👇"
     )
-    
-    kb = [[InlineKeyboardButton("❌ Скасувати замовлення", callback_data="menu_start")]]
-    
-    await _edit_or_reply(query, text, kb)
+    await _edit_or_reply(query, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
     
         # =================================================================
 # 🚚 SECTION 11: ADDRESS DELIVERY & LOCATION SAVING (FIXED)
@@ -2053,10 +2011,13 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         await admin_menu(update, context)
 
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP (STABLE RUNNER)
+# 🚀 SECTION 31: ENGINE STARTUP (STABLE DOCKER MODE)
 # =================================================================
 
 def main():
+    # Використовуємо ваш новий токен
+    TOKEN = "8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ"
+    
     if not TOKEN or "ВСТАВ" in TOKEN:
         print("❌ FATAL: Bot token is missing!"); sys.exit(1)
         
@@ -2070,7 +2031,7 @@ def main():
         .build()
     )
 
-    # Реєстрація хендлерів (Суворий порядок!)
+    # Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
@@ -2078,6 +2039,19 @@ def main():
     
     app.add_error_handler(error_handler)
     
-    print("🚀 GHOSTY ENGINE ONLINE. READY TO SELL.")
-    # drop_pending_updates=True вирішує проблему Conflict 409
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("🚀 GHOSTY STAFF: ENGINE STARTED SUCCESSFULLY")
+    print("🛰  DOCKER REBUILD COMPLETE | MODE: PRO 2026")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    
+    # drop_pending_updates=True ВИРІШУЄ ПРОБЛЕМУ CONFLICT ТА WEBHOOK НАЗАВЖДИ
     app.run_polling(drop_pending_updates=True, close_loop=False)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
