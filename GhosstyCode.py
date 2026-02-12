@@ -201,14 +201,12 @@ async def send_ghosty_message(update, text, keyboard=None, photo=None):
         await _edit_or_reply(target, text, reply_markup)
 
 def get_item_data(item_id):
-    """
-    Шукає товар за ID у всіх категоріях.
-    FIX: Примусова конвертація в int, щоб уникнути помилок типів.
-    """
     try:
-        iid = int(item_id) # <--- ВИПРАВЛЕНО: str -> int
-    except (ValueError, TypeError):
-        return None
+        iid = int(item_id)
+        for db in [HHC_VAPES, PODS, LIQUIDS, GIFT_LIQUIDS]:
+            if iid in db: return db[iid]
+    except: return None
+    return None
 
     # Додано SETS у пошук
     for db in [HHC_VAPES, PODS, LIQUIDS, GIFT_LIQUIDS, SETS]:
@@ -1030,59 +1028,88 @@ async def main_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await terms_handler(update, context)
     # Інші гілки (Каталог, Кошик, Профіль) будуть у наступних частинах
 
-    # =================================================================
+# =================================================================
 # 📍 SECTION 10: GEOGRAPHY LOGIC (CITIES & DISTRICTS)
 # =================================================================
 
 async def city_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Виводить список 11 міст для вибору.
+    КРОК 3/4 (Старт): Виводить список міст для вибору.
     """
     text = (
         "📍 <b>Оберіть ваше місто</b>\n\n"
-        "Ми працюємо у 10 найбільших містах України та Кам'янському. "
-        "Оберіть локацію, щоб побачити доступні райони та методи отримання:"
+        "Ми працюємо у найбільших містах України. "
+        "Оберіть локацію, щоб побачити доступні райони та методи отримання 👇"
     )
     
     keyboard = []
-    # Формуємо сітку кнопок 2 в ряд
-    for i in range(0, len(CITIES_LIST), 2):
+    # Формуємо сітку кнопок (по 2 в ряд)
+    # Використовуємо UKRAINE_CITIES для отримання списку ключів
+    city_list = list(UKRAINE_CITIES.keys())
+    for i in range(0, len(city_list), 2):
         row = []
-        city1 = CITIES_LIST[i]
-        row.append(InlineKeyboardButton(city1, callback_data=f"set_city_{city1}"))
-        if i + 1 < len(CITIES_LIST):
-            city2 = CITIES_LIST[i+1]
-            row.append(InlineKeyboardButton(city2, callback_data=f"set_city_{city2}"))
+        city1 = city_list[i]
+        row.append(InlineKeyboardButton(city1, callback_data=f"sel_city_{city1}"))
+        if i + 1 < len(city_list):
+            city2 = city_list[i+1]
+            row.append(InlineKeyboardButton(city2, callback_data=f"sel_city_{city2}"))
         keyboard.append(row)
     
     keyboard.append([InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")])
     
-    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
+    await send_ghosty_message(update, text, keyboard)
 
-async def district_selection_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, city_name: str):
+async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
     """
-    Виводить 8 районів для обраного міста.
+    КРОК 3/4 (Обробка): Опрацьовує вибір міста та генерує кнопки районів.
+    Викликається з диспетчера при отриманні 'sel_city_'.
     """
-    districts = CITY_DISTRICTS.get(city_name, [])
-    text = f"📍 <b>Місто: {city_name}</b>\n\nОберіть район для отримання замовлення:"
+    query = update.callback_query
+    # Зберігаємо місто в профілі користувача
+    context.user_data.setdefault('profile', {})['city'] = city
     
-    keyboard = []
-    for i in range(0, len(districts), 2):
-        row = []
-        d1 = districts[i]
-        row.append(InlineKeyboardButton(d1, callback_data=f"set_dist_{d1}"))
-        if i + 1 < len(districts):
-            d2 = districts[i+1]
-            row.append(InlineKeyboardButton(d2, callback_data=f"set_dist_{d2}"))
-        keyboard.append(row)
+    districts = UKRAINE_CITIES.get(city, [])
+    if districts:
+        kb = []
+        # Генеруємо кнопки районів по 2 в ряд
+        for i in range(0, len(districts), 2):
+            row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
+            if i + 1 < len(districts):
+                row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
+            kb.append(row)
+            
+        kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
+        
+        # Оновлюємо дані поточного потоку збору інформації
+        context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
+        
+        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію для отримання 👇", kb)
+    else:
+        # Якщо районів немає (інше місто) - одразу на фінальний крок
+        await address_request_handler(update, context, "Центр")
+
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """
+    КРОК 4/4: Активує очікування тексту для фінальної адреси.
+    Викликається з диспетчера при отриманні 'sel_dist_'.
+    """
+    query = update.callback_query
+    # Зберігаємо район в профілі
+    context.user_data.setdefault('profile', {})['district'] = district
     
-    # Спеціальна логіка для Дніпра (Адресна доставка)
-    if city_name == "Дніпро":
-        keyboard.append([InlineKeyboardButton("🏠 АДРЕСНА ДОСТАВКА (+50 грн)", callback_data="set_delivery_address")])
+    # Встановлюємо стан очікування тексту (handle_data_input підхопить наступне повідомлення)
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
     
-    keyboard.append([InlineKeyboardButton("⬅️ Назад до міст", callback_data="menu_city")])
+    text = (
+        f"✅ <b>Локація збережена:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: АДРЕСА ДОСТАВКИ</b>\n"
+        f"Напишіть у чат номер відділення Нової Пошти або повну адресу 👇"
+    )
     
-    await send_ghosty_message(update, text, InlineKeyboardMarkup(keyboard))
+    kb = [[InlineKeyboardButton("❌ Скасувати замовлення", callback_data="menu_start")]]
+    
+    await _edit_or_reply(query, text, kb)
     
         # =================================================================
 # 🚚 SECTION 11: ADDRESS DELIVERY & LOCATION SAVING (FIXED)
@@ -1928,7 +1955,8 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _edit_or_reply(update.callback_query, f"🆘 Помилка статистики: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
 
 async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Перегляд останніх клієнтів зі статусами."""
+    """Перегляд останніх клієнтів зі статусами (Виправлено відступи)."""
+    query_call = update.callback_query
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
@@ -1943,11 +1971,21 @@ async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         report = "👥 <b>БАЗА КЛІЄНТІВ (Останні 10):</b>\n━━━━━━━━━━━━\n"
         for row in data:
             st = "✅" if row[5] in ['paid', 'confirmed'] else "❌"
-            report += f"👤 @{row[0]} (<code>{row[1]}</code>)\n📞 {row[2] or '—'} | 🏙 {row[3] or '—'}\n💰 {row[4] or 0}₴ | {st}\n---\n"
+            username = f"@{row[0]}" if row[0] else "Hidden"
+            report += (
+                f"👤 {username} (<code>{row[1]}</code>)\n"
+                f"📞 {row[2] or '—'} | 🏙 {row[3] or '—'}\n"
+                f"💰 {row[4] or 0}₴ | Оплата: {st}\n"
+                f"--------------------\n"
+            )
         
-        await _edit_or_reply(update.callback_query, report, [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+        kb = [[InlineKeyboardButton("🔄 ОНОВИТИ", callback_data="admin_view_users")],
+              [InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]]
+        await _edit_or_reply(query_call, report, kb)
     except Exception as e:
-        await _edit_or_reply(update.callback_query, f"🆘 Помилка БД: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+        logger.error(f"Admin DB Error: {e}")
+        await _edit_or_reply(query_call, f"🆘 Помилка БД: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+        
 
 async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Запуск режиму розсилки."""
@@ -2020,12 +2058,10 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
 def main():
     if not TOKEN or "ВСТАВ" in TOKEN:
-        print("❌ FATAL: Bot token is missing in SECTION 1!"); sys.exit(1)
-
-    # 1. Створюємо базу, якщо вона видалена
+        print("❌ FATAL: Bot token is missing!"); sys.exit(1)
+        
     init_db()
     
-    # 2. Побудова додатку зPersistence
     app = (
         Application.builder()
         .token(TOKEN)
@@ -2034,34 +2070,14 @@ def main():
         .build()
     )
 
-    # 3. Реєстрація хендлерів
+    # Реєстрація хендлерів (Суворий порядок!)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    
-    # Хендлер тексту, фото та промокодів
-    app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
-        handle_user_input
-    ))
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_user_input))
     
     app.add_error_handler(error_handler)
     
-    # 4. ЗАПУСК
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🚀 GHOSTY STAFF: ENGINE STARTED SUCCESSFULLY")
-    print("🛰  REBUILD COMPLETE | MODE: PRO 2026")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    
-    # drop_pending_updates=True ВИРІШУЄ ПРОБЛЕМУ CONFLICT 409 НАЗАВЖДИ
+    print("🚀 GHOSTY ENGINE ONLINE. READY TO SELL.")
+    # drop_pending_updates=True вирішує проблему Conflict 409
     app.run_polling(drop_pending_updates=True, close_loop=False)
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        sys.exit(0)
-    except Exception:
-        traceback.print_exc()
-        sys.exit(1)
-        
