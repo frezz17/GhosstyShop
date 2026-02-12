@@ -218,35 +218,25 @@ def get_item_data(item_id):
 # 🛠 SECTION 3: MATH (DISCOUNT LOGIC)
 # =================================================================
 def calculate_final_price(item_price, user_profile):
-    """
-    Математика лояльності:
-    1. Віднімаємо фіксований бонус (101 грн).
-    2. Застосовуємо VIP-знижку (35%).
-    """
+    """Математика: (Ціна - 101 грн) * 0.65 (якщо VIP)."""
     try:
         is_vip = user_profile.get('is_vip', False)
         promo_fixed = user_profile.get('next_order_discount', 0)
         
         price = float(item_price)
-        discounted = False
-
-        # 1. Застосування промокоду (фіксована знижка)
+        
+        # 1. Мінус 101 грн
         if promo_fixed > 0 and price > promo_fixed:
             price -= promo_fixed
-            discounted = True
         
-        # 2. Застосування VIP-статусу (відсоткова знижка)
+        # 2. Мінус 35% (VIP)
         if is_vip:
             price = price * 0.65 
-            discounted = True
-        
-        # Захист: ціна не може бути менше 10 грн
-        if price < 10: price = 10.0
-        
-        return round(price, 2), discounted
-    except Exception as e:
-        logger.error(f"Math Error: {e}")
+            
+        return round(max(price, 10.0), 2), True
+    except:
         return float(item_price), False
+        
         
 
 # --- МЕНЮ ВИБОРУ МІСТА ---
@@ -1035,11 +1025,11 @@ async def main_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # Інші гілки (Каталог, Кошик, Профіль) будуть у наступних частинах
 
 # =================================================================
-# 📍 SECTION 16.1: DISTRICT & ADDRESS (FIXED FLOW 2026)
+# 📍 SECTION 16: DISTRICT & ADDRESS (FIXED MASTER FLOW)
 # =================================================================
 
 async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """КРОК 3/4: Опрацьовує місто та виводить райони."""
+    """КРОК 3/4: Опрацьовує місто та показує райони."""
     query = update.callback_query
     context.user_data.setdefault('profile', {})['city'] = city
     
@@ -1053,11 +1043,10 @@ async def district_selection_handler(update: Update, context: ContextTypes.DEFAU
             kb.append(row)
         kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
         
-        # Ставимо крок для відстеження
         context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
-        await _edit_or_reply(query, f"🏘 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію для отримання 👇", kb)
+        await _edit_or_reply(query, f"🏘 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію 👇", kb)
     else:
-        # Якщо місто без районів — одразу на крок 4 (текст)
+        # Якщо районів немає - одразу на крок 4 (текст адреси)
         await address_request_handler(update, context, "Центр")
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
@@ -1065,14 +1054,14 @@ async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     context.user_data.setdefault('profile', {})['district'] = district
     
-    # АКТИВУЄМО РЕЖИМ ОЧІКУВАННЯ ТЕКСТУ для handle_user_input
+    # ВМИКАЄМО РЕЖИМ ОЧІКУВАННЯ ТЕКСТУ для handle_user_input
     context.user_data.setdefault('data_flow', {})['step'] = 'address'
     context.user_data['state'] = "COLLECTING_DATA"
     
     text = (
-        f"✅ <b>Локація:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
+        f"✅ <b>Локація збережена:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
         f"📍 <b>КРОК 4/4: ФІНАЛЬНА АДРЕСА</b>\n"
-        f"Напишіть у чат номер відділення Нової Пошти або адресу 👇"
+        f"Напишіть у чат номер відділення Нової Пошти або повну адресу 👇"
     )
     await _edit_or_reply(query, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
     
@@ -1256,7 +1245,6 @@ async def _finalize_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TY
     cart = context.user_data.setdefault("cart", [])
     profile = context.user_data.setdefault("profile", {})
     
-    price, _ = calculate_final_price(item['price'], profile)
     
     cart.append({
         "id": random.randint(100000, 999999),
@@ -1374,7 +1362,26 @@ async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_T
         profile = context.user_data.setdefault("profile", {})
         
         # Рахуємо ціну зі знижками
-        final_price, _ = calculate_final_price(main_item['price'], profile)
+      def calculate_final_price(item_price, user_profile):
+    """Математика: (Ціна - 101 грн) * 0.65 (якщо VIP)."""
+    try:
+        is_vip = user_profile.get('is_vip', False)
+        promo_fixed = user_profile.get('next_order_discount', 0)
+        
+        price = float(item_price)
+        
+        # 1. Мінус 101 грн
+        if promo_fixed > 0 and price > promo_fixed:
+            price -= promo_fixed
+        
+        # 2. Мінус 35% (VIP)
+        if is_vip:
+            price = price * 0.65 
+            
+        return round(max(price, 10.0), 2), True
+    except:
+        return float(item_price), False
+        
         
         # Унікальний ID для видалення
         unique_id = random.randint(100000, 999999)
@@ -2000,24 +2007,18 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try: await query.answer()
     except: pass
 
-    # --- 1. СИСТЕМНІ ТА ПРОФІЛЬ ---
+    # --- 1. ГОЛОВНЕ ---
     if data == "menu_start": await start_command(update, context)
     elif data == "menu_profile": await show_profile(update, context)
     elif data == "menu_cart": await show_cart_logic(update, context)
     elif data == "menu_terms": await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
-    elif data == "ref_system": await show_ref_info(update, context)
-    elif data == "menu_promo": 
-        context.user_data['awaiting_promo'] = True
-        await _edit_or_reply(query, "🎟 <b>ВВЕДІТЬ КОД:</b>", [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
 
-    # --- 2. МАГАЗИН ТА КОШИК ---
+    # --- 2. МАГАЗИН ---
     elif data == "cat_all": await catalog_main_menu(update, context)
     elif data.startswith("cat_list_"): await show_category_items(update, context, data.replace("cat_list_", ""))
     elif data.startswith("view_item_"): 
         try: await view_item_details(update, context, int(data.split("_")[2]))
         except: await catalog_main_menu(update, context)
-    elif data.startswith("add_"): await add_to_cart_handler(update, context)
-    elif data.startswith("gift_sel_"): await gift_selection_handler(update, context)
     elif data == "cart_clear" or data.startswith("cart_del_"): await cart_action_handler(update, context)
 
     # --- 3. ЛОКАЦІЯ ---
@@ -2027,7 +2028,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     elif data.startswith("sel_dist_"):
         await address_request_handler(update, context, data.replace("sel_dist_", ""))
 
-    # --- 4. ЗАМОВЛЕННЯ ТА ОПЛАТА ---
+    # --- 4. ЗАМОВЛЕННЯ ---
     elif data.startswith("fast_order_"):
         try:
             iid = int(data.split("_")[2])
@@ -2037,22 +2038,20 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         except: pass
     elif data.startswith("mgr_pre_"):
         await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
-    elif data == "checkout_init": await checkout_init(update, context)
-    elif data.startswith("pay_"): await payment_selection_handler(update, context, data.split("_")[1])
     elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
 
     # --- 5. АДМІНКА ---
     elif data == "admin_main": await admin_menu(update, context)
     elif data == "admin_stats": await admin_stats(update, context)
     elif data == "admin_view_users": await admin_view_users(update, context)
-    elif data == "admin_broadcast": await start_broadcast(update, context)
+        
 
 # =================================================================
 # 🚀 SECTION 31: ENGINE STARTUP (STABLE DOCKER MODE)
 # =================================================================
 
 def main():
-    # Фінальний токен
+    # Твій токен
     TOKEN = "8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ"
     
     if not TOKEN or "ВСТАВ" in TOKEN:
@@ -2068,25 +2067,20 @@ def main():
         .build()
     )
 
-    # Реєстрація хендлерів
+    # Реєстрація хендлерів (СУВОРИЙ ПОРЯДОК)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    
-    # Обробник текстових повідомлень (ПІБ, телефон, адреса, промокоди)
-    app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
-        handle_user_input
-    ))
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_user_input))
     
     app.add_error_handler(error_handler)
     
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🚀 GHOSTY STAFF: ENGINE STARTED SUCCESSFULLY")
+    print("🚀 GHOSTY ENGINE ONLINE. READY TO SELL.")
     print("🛰  DOCKER REBUILD COMPLETE | MODE: PRO 2026")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
-    # drop_pending_updates=True вирішує проблему Conflict 409
+    # drop_pending_updates=True ВИДАЛЯЄ КОНФЛІКТИ СЕСІЙ ТА WEBHOOK
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
