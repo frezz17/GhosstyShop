@@ -829,64 +829,11 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     
     
 # =================================================================
-# 👤 SECTION 5: USER CABINET & DATA FLOW (FIXED & EXTENDED)
+# 👤 SECTION 5: USER CABINET & DATA FLOW (CERTIFIED FIX 2026)
 # =================================================================
 
-async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Відображення кабінету з персональним кодом та локацією."""
-    user = update.effective_user
-    profile = await get_or_create_user(update, context)
-    
-    city = profile.get('city')
-    district = profile.get('district')
-    address = profile.get('address_details')
-    
-    if city:
-        loc_str = f"🏙 <b>{city}</b>"
-        if district: loc_str += f"\n   └ 🏘 {district}"
-        if address: loc_str += f"\n   └ 📍 {address}"
-    else:
-        loc_str = "❌ <b>Дані не заповнені</b>"
-
-    text = (
-        f"👤 <b>КАБІНЕТ КОРИСТУВАЧА</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 ID: <code>{user.id}</code>\n"
-        f"🔰 Статус: {'💎 VIP ACTIVE' if profile.get('is_vip') else '🌑 Standard'}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📮 <b>ДАНІ ДОСТАВКИ:</b>\n"
-        f"{loc_str}\n"
-        f"📱 Тел: {profile.get('phone', 'Не вказано')}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎁 Твій персональний код: <code>GHST{user.id}</code>\n"
-        f"<i>(Дає -35% знижки твоїм друзям)</i>"
-    )
-
-    kb = [
-        [InlineKeyboardButton("📝 Змінити дані доставки", callback_data="fill_delivery_data")],
-        [InlineKeyboardButton("🤝 Реферальна програма", callback_data="ref_system")],
-        [InlineKeyboardButton("🎟 Активувати промокод", callback_data="menu_promo")],
-        [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
-    ]
-    await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
-
-async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action, item_id=None):
-    """Початок розумного збору даних (Крок 1/4)."""
-    context.user_data['data_flow'] = {
-        'step': 'name',
-        'next_action': next_action, 
-        'item_id': item_id
-    }
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = "📝 <b>КРОК 1/4: ПІБ</b>\n\nВведіть ваше Прізвище та Ім'я для накладної:"
-    kb = [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="menu_start")]]
-    
-    target = update.callback_query if update.callback_query else update
-    await _edit_or_reply(target, text, kb)
-
 async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка тексту: Ім'я -> Телефон -> Перехід до кнопок міст."""
+    """Обробка тексту: Ім'я -> Телефон -> (Тут пауза на кнопки) -> Адреса."""
     if not update.message or not update.message.text: return
     
     flow = context.user_data.get('data_flow')
@@ -896,69 +843,71 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = context.user_data.setdefault('profile', {})
     step = flow.get('step')
 
+    # КРОК 1: ПІБ
     if step == 'name':
         profile['full_name'] = text
         flow['step'] = 'phone'
         await update.message.reply_text("📱 <b>КРОК 2/4: ТЕЛЕФОН</b>\n\nВведіть ваш номер телефону:")
         
+    # КРОК 2: ТЕЛЕФОН
     elif step == 'phone':
         profile['phone'] = text
-        # Автоматично перекидаємо на вибір міста кнопками
+        # ПЕРЕХІД ДО КНОПОК: Ми не міняємо step тут на 'address', 
+        # бо місто/район обираються КНОПКАМИ. 
+        # Крок змінить обробник кнопок (CallbackQueryHandler).
         await choose_city_menu(update, context)
         
+    # КРОК 4: АДРЕСА (Сюди бот потрапить ТІЛЬКИ після вибору міста/району в кнопках)
     elif step == 'address':
         profile['address_details'] = text
         await finalize_data_collection(update, context)
 
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Збереження даних у БД та перехід до замовлення."""
-    context.user_data['state'] = None
+    user = update.effective_user
     flow = context.user_data.get('data_flow', {})
-    action = flow.get('next_action')
+    p = context.user_data.get('profile', {})
     
-    # Оновлення бази даних
+    # Скидаємо стани, щоб бот знову реагував на команди
+    context.user_data['state'] = None
+    
+    # Оновлення бази даних (Виправлено ID та параметри)
     try:
-        p = context.user_data['profile']
         conn = sqlite3.connect(DB_PATH)
-        conn.execute("UPDATE users SET full_name=?, phone=?, city=?, district=?, address_details=? WHERE user_id=?",
-                     (p.get('full_name'), p.get('phone'), p.get('city'), p.get('district'), p.get('address_details'), p.get('uid')))
+        # Використовуємо user.id прямо, щоб уникнути помилок з p.get('uid')
+        conn.execute("""
+            UPDATE users 
+            SET full_name=?, phone=?, city=?, district=?, address_details=? 
+            WHERE user_id=?
+        """, (p.get('full_name'), p.get('phone'), p.get('city'), 
+              p.get('district'), p.get('address_details'), user.id))
         conn.commit()
         conn.close()
-    except: pass
+    except Exception as e:
+        logger.error(f"SQL Error in finalize: {e}")
 
+    action = flow.get('next_action')
     if action == 'checkout':
         await checkout_init(update, context)
     elif action == 'manager_order':
         await finalize_manager_order(update, context, flow.get('item_id'))
     else:
-        await update.message.reply_text("✅ <b>Дані успішно збережено!</b>")
+        await update.message.reply_text("✅ <b>Дані успішно збережено в базі!</b>")
         await show_profile(update, context)
 
-async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
-    """Генерація посилання для менеджера з усіма даними."""
-    import urllib.parse
-    item = get_item_data(item_id)
-    p = context.user_data.get('profile', {})
-    user = update.effective_user
+# КРИТИЧНО: Ця функція має бути в CallbackQueryHandler (Section 29)
+# Вона — ключ до того, щоб крок 4/4 запрацював!
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """Ця функція викликається ПІСЛЯ натискання кнопки району."""
+    query = update.callback_query
+    context.user_data.setdefault('profile', {})['district'] = district
     
-    msg = (f"👋 Привіт! Хочу замовити:\n"
-           f"📦 Товар: {item['name']}\n"
-           f"💰 Ціна: {item['price']} грн\n"
-           f"------------------\n"
-           f"👤 Клієнт: {p.get('full_name')} (@{user.username})\n"
-           f"🏙 Місто: {p.get('city')}\n"
-           f"🏘 Район: {p.get('district') or 'Не вказано'}\n"
-           f"📍 Адреса: {p.get('address_details')}\n"
-           f"📞 Тел: {p.get('phone')}")
+    # ОСЬ ТУТ МИ ВКЛЮЧАЄМО ОЧІКУВАННЯ ТЕКСТУ АДРЕСИ
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
     
-    link = f"https://t.me/{MANAGER_USERNAME}?text={urllib.parse.quote(msg)}"
+    await _edit_or_reply(query, "📍 <b>КРОК 4/4: АДРЕСА</b>\n\nНапишіть номер відділення НП або адресу:")
     
-    text = "✅ <b>ЗАМОВЛЕННЯ ПІДГОТОВЛЕНО!</b>\n\nНатисніть кнопку нижче, щоб відправити дані менеджеру в особисті повідомлення 👇"
-    kb = [[InlineKeyboardButton("🚀 НАПИСАТИ МЕНЕДЖЕРУ", url=link)],
-          [InlineKeyboardButton("🏠 Повернутись в меню", callback_data="menu_start")]]
-    
-    if update.callback_query: await _edit_or_reply(update.callback_query, text, kb)
-    else: await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
         
 # =================================================================
 # 🛍 SECTION 6: CATALOG (WITH WELCOME PHOTO)
