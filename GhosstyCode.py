@@ -40,8 +40,8 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 # 2. ТОКЕН (ОБОВ'ЯЗКОВО НОВИЙ!)
 # 👇 Встав токен між лапками 👇
-ENV_TOKEN = os.getenv("8351638507:AAFfWSkjM03qwIrQRo_7WqbSBuaLWBZ6kcU") 
-TOKEN = ENV_TOKEN if ENV_TOKEN else "8351638507:AAFfWSkjM03qwIrQRo_7WqbSBuaLWBZ6kcU"
+ENV_TOKEN = os.getenv("8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ") 
+TOKEN = ENV_TOKEN if ENV_TOKEN else "8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ"
 # 👆 Наприклад: "754321:AAHk..."
 
 MANAGER_ID = 7544847872
