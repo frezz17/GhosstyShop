@@ -552,26 +552,18 @@ PODS = {
 # =================================================================
 # 📜 SECTION 4: УГОДА ТА ПРАВИЛА
 # =================================================================
-# Таймер для статистики адмін-панелі (Uptime)
+# Таймер для статистики (Uptime)
 START_TIME = datetime.now()
 
-# Таймер для статистики адмін-панелі (Uptime)
-START_TIME = datetime.now()
-
-# НЕЗМІННА УГОДА КОРИСТУВАЧА
+# НЕЗМІННА УГОДА (PRO-VERSION)
 TERMS_TEXT = (
     "📜 <b>Умови, правила, відповідальність</b>\n\n"
     "1️⃣ Проєкт має навчально-демонстраційний характер.\n"
-    "2️⃣ Інформація подається виключно з ознайомчою метою.\n"
-    "3️⃣ Матеріали не є рекомендацією до придбання чи використання.\n"
-    "4️⃣ Користувач самостійно несе відповідальність за свої дії.\n"
-    "5️⃣ Адміністрація не зберігає персональні дані.\n"
-    "6️⃣ Участь у взаємодії є добровільною.\n\n"
+    "2️⃣ Матеріали не є рекомендацією до придбання чи використання.\n"
+    "3️⃣ Користувач самостійно несе відповідальність за свої дії.\n"
+    "4️⃣ Магазин не здійснює продаж реальних товарів.\n\n"
     "⚠️ <b>Важливо:</b>\n"
-    "7️⃣ Магазин не є реальним та не здійснює продаж товарів.\n"
-    "8️⃣ Жоден товар не буде доставлений.\n"
-    "9️⃣ Усі переказані кошти вважаються добровільним подарунком.\n"
-    "🔟 Грошові операції — подарунок розробнику Gho$$tyyy/"
+    "5️⃣ Усі переказані кошти вважаються добровільним подарунком розробнику Gho$$tyyy/"
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1691,64 +1683,55 @@ async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_T
     
 
 # =================================================================
-# 📍 SECTION 16.1: DISTRICT & ADDRESS HANDLERS (FIX NameError)
+# 📍 SECTION 16: DISTRICT & ADDRESS (FIXED FLOW)
 # =================================================================
 
 async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """
-    Опрацьовує вибір міста та показує райони. 
-    Виправляє помилку NameError: district_selection_handler.
-    """
+    """Опрацьовує вибір міста та показує райони."""
     query = update.callback_query
     context.user_data.setdefault('profile', {})['city'] = city
     
     districts = UKRAINE_CITIES.get(city, [])
-    
     if districts:
-        # Генеруємо кнопки районів (по 2 в ряд)
         kb = []
         for i in range(0, len(districts), 2):
             row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
             if i + 1 < len(districts):
                 row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
             kb.append(row)
-        
         kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
         
-        await _edit_or_reply(query, f"🏘 <b>Оберіть район у місті {city}:</b>", kb)
+        context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
+        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>", kb)
     else:
-        # Якщо районів немає (інше місто) - переходимо до кроку адреси
         context.user_data.setdefault('data_flow', {})['step'] = 'address'
         context.user_data['state'] = "COLLECTING_DATA"
         await _edit_or_reply(query, f"✅ Місто: {city}\n\n📍 <b>КРОК 4/4:</b>\nВведіть номер відділення НП або адресу доставки:")
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """
-    Опрацьовує вибір району та запитує фінальну адресу текстом.
-    Виправляє помилку NameError: address_request_handler.
-    """
+    """Активує очікування тексту для фінальної адреси."""
     query = update.callback_query
     context.user_data.setdefault('profile', {})['district'] = district
-    
-    # Встановлюємо крок 'address' для handle_data_input
     context.user_data.setdefault('data_flow', {})['step'] = 'address'
     context.user_data['state'] = "COLLECTING_DATA"
     
-    await _edit_or_reply(query, f"✅ Район: {district}\n\n📍 <b>КРОК 4/4:</b>\nВведіть номер відділення Нової Пошти або адресу для кур'єра:")
-    
+    text = (
+        f"✅ <b>Локація:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: АДРЕСА</b>\nНапишіть у чат відділення Нової Пошти 👇"
+    )
+    await _edit_or_reply(query, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
+)
 
 # =================================================================
-# 📍 SECTION 16: SMART DATA COLLECTION (FIXED FLOW 3/4 & 4/4)
+# 📍 SECTION 16: DISTRICT & ADDRESS (FIXED FLOW)
 # =================================================================
 
 async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """КРОК 3/4: Опрацьовує вибір міста та показує райони."""
+    """Опрацьовує вибір міста та показує райони."""
     query = update.callback_query
-    profile = context.user_data.setdefault('profile', {})
-    profile['city'] = city
+    context.user_data.setdefault('profile', {})['city'] = city
     
     districts = UKRAINE_CITIES.get(city, [])
-    
     if districts:
         kb = []
         for i in range(0, len(districts), 2):
@@ -1756,37 +1739,28 @@ async def district_selection_handler(update: Update, context: ContextTypes.DEFAU
             if i + 1 < len(districts):
                 row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
             kb.append(row)
+        kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
         
-        kb.append([InlineKeyboardButton("🔙 Назад до вибору міста", callback_data="choose_city")])
-        
-        # Оновлюємо крок flow
         context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
-        
-        await _edit_or_reply(query, f"🏘 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію для отримання 👇", kb)
+        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>", kb)
     else:
-        # Якщо районів немає
-        profile['district'] = "Центр"
         context.user_data.setdefault('data_flow', {})['step'] = 'address'
         context.user_data['state'] = "COLLECTING_DATA"
-        await _edit_or_reply(query, f"✅ Місто: {city}\n\n📍 <b>КРОК 4/4: АДРЕСА</b>\nВведіть номер відділення Нової Пошти або повну адресу:")
+        await _edit_or_reply(query, f"✅ Місто: {city}\n\n📍 <b>КРОК 4/4:</b>\nВведіть номер відділення НП або адресу доставки:")
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """КРОК 4/4: Опрацьовує вибір району та вмикає очікування тексту."""
+    """Активує очікування тексту для фінальної адреси."""
     query = update.callback_query
-    profile = context.user_data.setdefault('profile', {})
-    profile['district'] = district
-    
-    # Вмикаємо режим очікування тексту для handle_user_input
+    context.user_data.setdefault('profile', {})['district'] = district
     context.user_data.setdefault('data_flow', {})['step'] = 'address'
     context.user_data['state'] = "COLLECTING_DATA"
     
     text = (
-        f"✅ <b>Локація збережена:</b> {profile.get('city')}, {district}\n\n"
-        f"📍 <b>КРОК 4/4: ФІНАЛЬНА АДРЕСА</b>\n"
-        f"Напишіть у чат номер відділення НП або адресу для кур'єра 👇"
+        f"✅ <b>Локація:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: АДРЕСА</b>\nНапишіть у чат відділення Нової Пошти 👇"
     )
-    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
-    await _edit_or_reply(query, text, kb)
+    await _edit_or_reply(query, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
+    
     
 # =================================================================
 # ✈️ SECTION 16.5: MANAGER ORDER (DETAILED & ENCODED)
@@ -2016,6 +1990,51 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _edit_or_reply(update.callback_query, "📢 <b>РЕЖИМ РОЗСИЛКИ:</b>\nНадішліть текст або фото.", [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="admin_main")]])
 
 # =================================================================
+# 📍 SECTION 28.5: LOCATION HELPERS (PRE-DISPATCHER)
+# =================================================================
+
+async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
+    """Обробка вибору міста -> Показ районів."""
+    query = update.callback_query
+    context.user_data.setdefault('profile', {})['city'] = city
+    
+    districts = UKRAINE_CITIES.get(city, [])
+    if districts:
+        kb = []
+        for i in range(0, len(districts), 2):
+            row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
+            if i + 1 < len(districts):
+                row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
+            kb.append(row)
+        kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
+        
+        # Встановлюємо крок очікування вибору району
+        context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
+        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію 👇", kb)
+    else:
+        # Якщо районів немає - одразу на крок 4 (текст)
+        context.user_data.setdefault('data_flow', {})['step'] = 'address'
+        context.user_data['state'] = "COLLECTING_DATA"
+        await _edit_or_reply(query, f"✅ Місто: {city}\n\n📍 <b>КРОК 4/4: АДРЕСА</b>\nВведіть номер відділення НП або адресу:")
+
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """Обробка вибору району -> Запит тексту адреси."""
+    query = update.callback_query
+    context.user_data.setdefault('profile', {})['district'] = district
+    
+    # ВМИКАЄМО РЕЖИМ ОЧІКУВАННЯ ТЕКСТУ
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
+    
+    text = (
+        f"✅ <b>Локація:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: ФІНАЛЬНА АДРЕСА</b>\n"
+        f"Напишіть у чат номер відділення Нової Пошти або повну адресу для кур'єра 👇"
+    )
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+    await _edit_or_reply(query, text, kb)
+
+# =================================================================
 # ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 101% STABLE)
 # =================================================================
 
@@ -2025,14 +2044,14 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try: await query.answer()
     except: pass
 
-    # --- ГОЛОВНЕ ---
+    # --- 1. ГОЛОВНЕ ---
     if data == "menu_start": await start_command(update, context)
     elif data == "menu_profile": await show_profile(update, context)
     elif data == "menu_cart": await show_cart_logic(update, context)
     elif data == "menu_terms": await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 НАЗАД", callback_data="menu_profile")]])
     elif data == "ref_system": await show_ref_info(update, context)
 
-    # --- МАГАЗИН ---
+    # --- 2. МАГАЗИН ---
     elif data == "cat_all": await catalog_main_menu(update, context)
     elif data.startswith("cat_list_"): await show_category_items(update, context, data.replace("cat_list_", ""))
     elif data.startswith("view_item_"): 
@@ -2041,23 +2060,23 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     elif data.startswith("add_"): await add_to_cart_handler(update, context)
     elif data == "cart_clear" or data.startswith("cart_del_"): await cart_action_handler(update, context)
 
-    # --- ЛОКАЦІЯ (ВИПРАВЛЕНО!) ---
+    # --- 3. ЛОКАЦІЯ ---
     elif data == "choose_city": await choose_city_menu(update, context)
     elif data.startswith("sel_city_"):
         await district_selection_handler(update, context, data.replace("sel_city_", ""))
     elif data.startswith("sel_dist_"):
-        context.user_data.setdefault('profile', {})['district'] = data.replace("sel_dist_", "")
-        context.user_data['state'] = "COLLECTING_DATA"
-        context.user_data.setdefault('data_flow', {})['step'] = 'address'
-        await _edit_or_reply(query, "📍 <b>КРОК 4/4:</b> Введіть номер відділення НП або адресу:")
+        await address_request_handler(update, context, data.replace("sel_dist_", ""))
+    elif data == "fill_delivery_data":
+        await start_data_collection(update, context, next_action='none')
 
-    # --- ЗАМОВЛЕННЯ ---
+    # --- 4. ЗАМОВЛЕННЯ ---
     elif data.startswith("fast_order_"):
         try:
             iid = int(data.split("_")[2])
             item = get_item_data(iid)
-            context.user_data['cart'] = [{"id": random.randint(1000,9999), "name": item['name'], "price": item['price'], "gift": None}]
-            await start_data_collection(update, context, next_action='checkout', item_id=iid)
+            if item:
+                context.user_data['cart'] = [{"id": random.randint(1000,9999), "name": item['name'], "price": item['price'], "gift": None}]
+                await start_data_collection(update, context, next_action='checkout', item_id=iid)
         except: pass
     elif data.startswith("mgr_pre_"):
         await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
@@ -2066,7 +2085,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     elif data.startswith("pay_"): await payment_selection_handler(update, context, data.split("_")[1])
     elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
 
-    # --- АДМІНКА ---
+    # --- 5. АДМІНКА ---
     elif data == "admin_main": await admin_menu(update, context)
     elif data == "admin_stats": await admin_stats(update, context)
     elif data == "admin_view_users": await admin_view_users(update, context)
@@ -2076,22 +2095,53 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         await admin_menu(update, context)
 
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP
+# 🚀 SECTION 31: ENGINE STARTUP (PRO PRODUCTION)
 # =================================================================
 
 def main():
     if not TOKEN or "ВСТАВ" in TOKEN:
         print("❌ FATAL: Bot token is missing!"); sys.exit(1)
+    
+    # 1. Ініціалізація БД
     init_db()
-    app = Application.builder().token(TOKEN).persistence(PicklePersistence(filepath=PERSISTENCE_PATH)).defaults(Defaults(parse_mode=ParseMode.HTML)).build()
+    
+    # 2. Побудова додатку
+    persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .persistence(persistence)
+        .defaults(Defaults(parse_mode=ParseMode.HTML))
+        .build()
+    )
+
+    # 3. Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_user_input))
+    
+    # Обробник тексту, фото та промокодів
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
+        handle_user_input
+    ))
+    
     app.add_error_handler(error_handler)
-    app.run_polling(drop_pending_updates=True)
+    
+    # 4. ЗАПУСК
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("🚀 GHOSTY STAFF: ENGINE STARTED SUCCESSFULLY")
+    print("🛰  REBUILD COMPLETE | MODE: PRO 2026")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    
+    # drop_pending_updates=True вирішує проблему Conflict 409
+    app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
-    try: main()
-    except KeyboardInterrupt: sys.exit(0)
-    except Exception: traceback.print_exc(); sys.exit(1)
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
