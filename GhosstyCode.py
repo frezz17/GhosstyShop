@@ -215,89 +215,6 @@ def get_item_data(item_id):
     return None
 
 # =================================================================
-# 🛠 SECTION 3: MATH (DISCOUNT LOGIC)
-# =================================================================
-def calculate_final_price(item_price, user_profile):
-    """Математика: (Ціна - 101 грн) * 0.65 (якщо VIP)."""
-    try:
-        is_vip = user_profile.get('is_vip', False)
-        promo_fixed = user_profile.get('next_order_discount', 0)
-        
-        price = float(item_price)
-        
-        # 1. Мінус 101 грн
-        if promo_fixed > 0 and price > promo_fixed:
-            price -= promo_fixed
-        
-        # 2. Мінус 35% (VIP)
-        if is_vip:
-            price = price * 0.65 
-            
-        return round(max(price, 10.0), 2), True
-    except:
-        return float(item_price), False
-        
-        
-
-# --- МЕНЮ ВИБОРУ МІСТА ---
-async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Меню вибору міста."""
-    # Отримуємо об'єкт для відповіді (або query, або message)
-    target = update.callback_query if update.callback_query else update
-    
-    profile = context.user_data.get("profile", {})
-    current_city = profile.get("city")
-
-    text = "📍 <b>ОБЕРІТЬ ВАШЕ МІСТО</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-    if current_city:
-        text += f"✅ Ви обрали: <b>{current_city}</b>\n"
-    text += "👇 <i>Натисніть на місто нижче:</i>"
-
-    keyboard = []
-    city_list = list(UKRAINE_CITIES.keys())
-    
-    # Генерація кнопок (по 2 в ряд)
-    for i in range(0, len(city_list), 2):
-        row = [InlineKeyboardButton(city_list[i], callback_data=f"sel_city_{city_list[i]}")]
-        if i + 1 < len(city_list):
-            row.append(InlineKeyboardButton(city_list[i+1], callback_data=f"sel_city_{city_list[i+1]}"))
-        keyboard.append(row)
-    
-    keyboard.append([InlineKeyboardButton("🔙 Назад до профілю", callback_data="menu_profile")])
-    
-    await _edit_or_reply(target, text, keyboard)
-
-async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Спеціальне меню для Дніпра."""
-    text = (
-        "🏙 <b>ДНІПРО: ТИП ДОСТАВКИ</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━\n"
-        "1️⃣ <b>Район (Клад)</b> — магніт/прикоп.\n"
-        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка до дверей."
-    )
-    kb = [
-        [InlineKeyboardButton("📍 Обрати район (Клад)", callback_data="set_del_type_klad")],
-        [InlineKeyboardButton("🛵 Кур'єр (+150 грн)", callback_data="set_del_type_courier")],
-        [InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")]
-    ]
-    await _edit_or_reply(update.callback_query, text, kb)
-
-async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """Меню районів."""
-    districts = UKRAINE_CITIES.get(city, [])
-    text = f"📍 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>"
-    
-    keyboard = []
-    for i in range(0, len(districts), 2):
-        row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
-        if i + 1 < len(districts):
-            row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
-        keyboard.append(row)
-        
-    keyboard.append([InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")])
-    await _edit_or_reply(update.callback_query, text, keyboard)
-
-# =================================================================
 # 🛍 SECTION 3: ТОВАРНА БАЗА (FIXED SYNTAX & COLORS)
 # =================================================================
 
@@ -635,35 +552,47 @@ async def calculate_final_sum(context: ContextTypes.DEFAULT_TYPE):
     return float(total + cents)
 
 # =================================================================
-# 🧮 SECTION 4.5: PRICE ENGINE PRO 2026
+# 🧮 SECTION 4.5: PRICE ENGINE PRO 2026 (FIXED LOGIC)
 # =================================================================
 
 def calculate_final_price(item_price, user_profile):
     """
-    Розрахунок ціни:
-    1. Базова ціна.
-    2. Якщо є Промокод/VIP: (Ціна - 101 грн) * 0.65 (Знижка 35%).
-    3. Повертає нову ціну і статус знижки.
+    Розрахунок фінальної ціни:
+    1. Перевірка на дурня (float).
+    2. Якщо є VIP/Промо: 
+       - Спочатку віднімаємо 101 грн (якщо ціна > 150).
+       - Потім від отриманого даємо -35%.
+    3. Повертає: (Нова ціна, Чи була знижка).
     """
-    is_vip = user_profile.get('is_vip', False)
-    promo_code = user_profile.get('promo_applied', False) # Перевіряємо, чи введено промо
-    
-    final_price = float(item_price)
-    discounted = False
-
-    # Логіка знижки (Приклад комбінованої знижки)
-    if is_vip or promo_code:
-        # Спочатку віднімаємо бонус 101 грн, якщо ціна дозволяє
-        if final_price > 200:
-            final_price -= 101
-        # Потім даємо знижку 35%
-        final_price = final_price * 0.65
-        discounted = True
-    
-    # Захист: ціна не може бути менше 1 грн
-    if final_price < 1: final_price = 1.0
+    try:
+        # Безпечне перетворення типів
+        price = float(item_price)
         
-    return round(final_price, 2), discounted
+        is_vip = user_profile.get('is_vip', False)
+        promo_bonus = user_profile.get('next_order_discount', 0) # Наприклад 101
+        
+        discounted = False
+
+        # Логіка "Комбо-Знижки"
+        if is_vip or promo_bonus > 0:
+            # КРОК 1: Мінус 101 грн (Bonus)
+            if promo_bonus > 0 and price > 150: # 150 - мінімальний поріг для бонусу
+                price -= promo_bonus
+                discounted = True
+            
+            # КРОК 2: Мінус 35% (VIP Rate)
+            if is_vip:
+                price = price * 0.65 
+                discounted = True
+        
+        # Захист від від'ємних цін (Safety Fuse)
+        if price < 10.0: price = 10.0
+        
+        return round(price, 2), discounted
+
+    except Exception as e:
+        print(f"⚠️ Price Engine Error: {e}")
+        return float(item_price), False
 
 # =================================================================
 # ⚙️ SECTION 4: DATABASE & AUTH (SQL FIXED)
@@ -812,88 +741,6 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     keyboard.append([InlineKeyboardButton("🔙 ДО СПИСКУ", callback_data="cat_all")])
 
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
-    
-    
-# =================================================================
-# 👤 SECTION 5: USER CABINET & DATA FLOW (CERTIFIED FIX 2026)
-# =================================================================
-
-async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка тексту: Ім'я -> Телефон -> (Тут пауза на кнопки) -> Адреса."""
-    if not update.message or not update.message.text: return
-    
-    flow = context.user_data.get('data_flow')
-    if not flow: return
-    
-    text = update.message.text.strip()
-    profile = context.user_data.setdefault('profile', {})
-    step = flow.get('step')
-
-    # КРОК 1: ПІБ
-    if step == 'name':
-        profile['full_name'] = text
-        flow['step'] = 'phone'
-        await update.message.reply_text("📱 <b>КРОК 2/4: ТЕЛЕФОН</b>\n\nВведіть ваш номер телефону:")
-        
-    # КРОК 2: ТЕЛЕФОН
-    elif step == 'phone':
-        profile['phone'] = text
-        # ПЕРЕХІД ДО КНОПОК: Ми не міняємо step тут на 'address', 
-        # бо місто/район обираються КНОПКАМИ. 
-        # Крок змінить обробник кнопок (CallbackQueryHandler).
-        await choose_city_menu(update, context)
-        
-    # КРОК 4: АДРЕСА (Сюди бот потрапить ТІЛЬКИ після вибору міста/району в кнопках)
-    elif step == 'address':
-        profile['address_details'] = text
-        await finalize_data_collection(update, context)
-
-async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Збереження даних у БД та перехід до замовлення."""
-    user = update.effective_user
-    flow = context.user_data.get('data_flow', {})
-    p = context.user_data.get('profile', {})
-    
-    # Скидаємо стани, щоб бот знову реагував на команди
-    context.user_data['state'] = None
-    
-    # Оновлення бази даних (Виправлено ID та параметри)
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        # Використовуємо user.id прямо, щоб уникнути помилок з p.get('uid')
-        conn.execute("""
-            UPDATE users 
-            SET full_name=?, phone=?, city=?, district=?, address_details=? 
-            WHERE user_id=?
-        """, (p.get('full_name'), p.get('phone'), p.get('city'), 
-              p.get('district'), p.get('address_details'), user.id))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        logger.error(f"SQL Error in finalize: {e}")
-
-    action = flow.get('next_action')
-    if action == 'checkout':
-        await checkout_init(update, context)
-    elif action == 'manager_order':
-        await finalize_manager_order(update, context, flow.get('item_id'))
-    else:
-        await update.message.reply_text("✅ <b>Дані успішно збережено в базі!</b>")
-        await show_profile(update, context)
-
-# КРИТИЧНО: Ця функція має бути в CallbackQueryHandler (Section 29)
-# Вона — ключ до того, щоб крок 4/4 запрацював!
-async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """Ця функція викликається ПІСЛЯ натискання кнопки району."""
-    query = update.callback_query
-    context.user_data.setdefault('profile', {})['district'] = district
-    
-    # ОСЬ ТУТ МИ ВКЛЮЧАЄМО ОЧІКУВАННЯ ТЕКСТУ АДРЕСИ
-    context.user_data.setdefault('data_flow', {})['step'] = 'address'
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    await _edit_or_reply(query, "📍 <b>КРОК 4/4: АДРЕСА</b>\n\nНапишіть номер відділення НП або адресу:")
-    
         
 # =================================================================
 # 🛍 SECTION 6: CATALOG (WITH WELCOME PHOTO)
@@ -1025,45 +872,76 @@ async def main_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # Інші гілки (Каталог, Кошик, Профіль) будуть у наступних частинах
 
 # =================================================================
-# 📍 SECTION 16: DISTRICT & ADDRESS (FIXED MASTER FLOW)
+# 📍 SECTION 16: DATA COLLECTION & LOCATION FLOW (MASTER FIX)
 # =================================================================
 
 async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
-    """КРОК 3/4: Опрацьовує місто та показує райони."""
+    """
+    КРОК 3/4: Отримує місто -> Показує райони.
+    Виправляє помилку 'NameError' при виклику з диспетчера.
+    """
     query = update.callback_query
+    # Зберігаємо місто
     context.user_data.setdefault('profile', {})['city'] = city
     
     districts = UKRAINE_CITIES.get(city, [])
+    
     if districts:
         kb = []
+        # Генеруємо кнопки по 2 в ряд
         for i in range(0, len(districts), 2):
             row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
             if i + 1 < len(districts):
                 row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
             kb.append(row)
-        kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
         
+        kb.append([InlineKeyboardButton("🔙 Назад", callback_data="choose_city")])
+        
+        # Встановлюємо стан (хоча тут він не критичний, бо далі кнопки)
         context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
-        await _edit_or_reply(query, f"🏘 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію 👇", kb)
+        
+        await _edit_or_reply(query, f"🏘 <b>{city}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nКуди веземо стафф? 👇", kb)
     else:
-        # Якщо районів немає - одразу на крок 4 (текст адреси)
+        # Якщо районів немає (інші міста) -> Одразу на введення адреси
         await address_request_handler(update, context, "Центр")
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """КРОК 4/4: Опрацьовує район та вмикає очікування тексту адреси."""
+    """
+    КРОК 4/4: Отримує район -> Вмикає введення тексту.
+    """
     query = update.callback_query
     context.user_data.setdefault('profile', {})['district'] = district
     
-    # ВМИКАЄМО РЕЖИМ ОЧІКУВАННЯ ТЕКСТУ для handle_user_input
+    # 🔥 КРИТИЧНО: Вмикаємо стан очікування тексту для handle_user_input
     context.user_data.setdefault('data_flow', {})['step'] = 'address'
     context.user_data['state'] = "COLLECTING_DATA"
     
     text = (
-        f"✅ <b>Локація збережена:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
-        f"📍 <b>КРОК 4/4: ФІНАЛЬНА АДРЕСА</b>\n"
-        f"Напишіть у чат номер відділення Нової Пошти або повну адресу 👇"
+        f"✅ <b>Локація:</b> {context.user_data['profile'].get('city')}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: АДРЕСА</b>\n"
+        f"Напишіть у чат номер відділення НП або повну адресу для кур'єра 👇"
     )
-    await _edit_or_reply(query, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
+    # Кнопка скасування
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+    await _edit_or_reply(query, text, kb)
+
+async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
+    """Формує фінальне посилання на менеджера."""
+    import urllib.parse
+    item = get_item_data(item_id)
+    p = context.user_data.get('profile', {})
+    
+    # Генерація ID замовлення
+    order_id = f"G-{random.randint(1000,9999)}"
+    
+    msg = (f"👋 ЗАМОВЛЕННЯ #{order_id}\n📦 {item['name']}\n💰 {item['price']} грн\n"
+           f"👤 {p.get('full_name')}\nPhone: {p.get('phone')}\n📍 {p.get('city')}, {p.get('address_details')}")
+    
+    link = f"https://t.me/{MANAGER_USERNAME}?text={urllib.parse.quote(msg)}"
+    
+    await send_ghosty_message(update, f"✅ <b>Замовлення #{order_id} готове!</b>", 
+                              [[InlineKeyboardButton("🚀 НАПИСАТИ МЕНЕДЖЕРУ", url=link)]])
+    
     
     
         # =================================================================
@@ -1613,11 +1491,13 @@ async def payment_confirmation_handler(update: Update, context: ContextTypes.DEF
     
     
 # =================================================================
-# 📝 SECTION 16: SMART DATA COLLECTION (FIXED FLOW)
+# 🫀 SECTION 16: DATA COLLECTION CORE (MASTER MODULE)
 # =================================================================
 
 async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action, item_id=None):
-    """Ініціалізація збору даних."""
+    """
+    КРОК 0: Ініціалізація процесу.
+    """
     context.user_data['data_flow'] = {
         'step': 'name',
         'next_action': next_action, 
@@ -1625,17 +1505,21 @@ async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TY
     }
     context.user_data['state'] = "COLLECTING_DATA"
     
-    text = "📝 <b>КРОК 1/4: ПІБ</b>\n\nВведіть ваше Прізвище та Ім'я для накладної:"
-    kb = [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="menu_start")]]
+    text = "📝 <b>КРОК 1/4: ВАШЕ ІМ'Я</b>\n\nВведіть Прізвище та Ім'я для накладної:"
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
     
+    # Універсальна відправка (працює і з кнопки, і з команди)
     if update.callback_query:
         await _edit_or_reply(update.callback_query, text, kb)
     else:
         await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
 
 async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка тексту: Ім'я -> Телефон -> Кнопки міст."""
+    """
+    ГОЛОВНИЙ ОБРОБНИК ТЕКСТУ (ПІБ -> Телефон -> Адреса).
+    """
     if not update.message or not update.message.text: return
+    
     flow = context.user_data.get('data_flow')
     if not flow: return
     
@@ -1643,43 +1527,82 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = context.user_data.setdefault('profile', {})
     step = flow.get('step')
 
+    # 1. Обробка Імені
     if step == 'name':
         profile['full_name'] = text
         flow['step'] = 'phone'
-        await update.message.reply_text("📱 <b>КРОК 2/4: ТЕЛЕФОН</b>\n\nВведіть ваш номер телефону:")
+        await update.message.reply_text("📱 <b>КРОК 2/4: ТЕЛЕФОН</b>\n\nВведіть ваш номер телефону (можна 0XX...):")
         
+    # 2. Обробка Телефону -> Перехід до кнопок міст
     elif step == 'phone':
         profile['phone'] = text
-        # ПЕРЕХІД ДО КНОПОК МІСТ
+        # Викликаємо меню міст (код з Section 10/16)
         await choose_city_menu(update, context)
         
+    # 3. Обробка Адреси (Спрацьовує тільки після вибору району)
     elif step == 'address':
         profile['address_details'] = text
+        await update.message.reply_text("✅ <b>Адресу прийнято!</b> Зберігаю...")
         await finalize_data_collection(update, context)
 
-async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Кінець збору та перехід до оплати або менеджера."""
-    context.user_data['state'] = None
-    flow = context.user_data.get('data_flow', {})
-    action = flow.get('next_action')
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """
+    КРОК 4/4 (Старт): Фіксує район -> Просить ввести адресу.
+    """
+    query = update.callback_query
+    context.user_data.setdefault('profile', {})['district'] = district
+    
+    # Перемикаємо стан на очікування тексту адреси
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
+    
+    city = context.user_data['profile'].get('city')
+    
+    text = (
+        f"✅ <b>Локація:</b> {city}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: ФІНАЛЬНА АДРЕСА</b>\n"
+        f"Напишіть номер відділення НП (напр. «Відділення 5») або адресу для кур'єра 👇"
+    )
+    
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+    await _edit_or_reply(query, text, kb)
 
+async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    ФІНАЛ: Запис у БД -> Перехід до дії (Checkout/Manager).
+    """
+    user = update.effective_user
+    flow = context.user_data.get('data_flow', {})
+    p = context.user_data.get('profile', {})
+    
+    # Скидаємо стан, щоб бот не перехоплював повідомлення
+    context.user_data['state'] = None
+    
+    # 1. Збереження в SQLite
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            UPDATE users 
+            SET full_name=?, phone=?, city=?, district=?, address_details=? 
+            WHERE user_id=?
+        """, (p.get('full_name'), p.get('phone'), p.get('city'), 
+              p.get('district'), p.get('address_details'), user.id))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"DB Save Error: {e}")
+
+    # 2. Вибір наступної дії
+    action = flow.get('next_action')
+    
     if action == 'checkout':
         await checkout_init(update, context)
     elif action == 'manager_order':
         await finalize_manager_order(update, context, flow.get('item_id'))
     else:
-        await update.message.reply_text("✅ <b>Дані оновлено!</b>")
+        # Якщо просто редагували профіль
+        await update.message.reply_text("✅ <b>Ваші дані успішно оновлено!</b>")
         await show_profile(update, context)
-
-async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
-    """Формування посилання на менеджера."""
-    import urllib.parse
-    item = get_item_data(item_id)
-    p = context.user_data.get('profile', {})
-    msg = (f"👋 Замовлення:\n📦 Товар: {item['name']}\n💰 Ціна: {item['price']} грн\n"
-           f"👤 Клієнт: {p.get('full_name')}\n🏙 Місто: {p.get('city')}\n📞 Тел: {p.get('phone')}")
-    link = f"https://t.me/{MANAGER_USERNAME}?text={urllib.parse.quote(msg)}"
-    await send_ghosty_message(update, "✅ Дані підготовлено!", [[InlineKeyboardButton("🚀 НАПИСАТИ МЕНЕДЖЕРУ", url=link)]])
     
 # =================================================================
 # 📍 SECTION 28.5: LOCATION & FLOW HELPERS (FIXING NAMEERROR)
@@ -1998,89 +1921,113 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _edit_or_reply(update.callback_query, "📢 <b>РЕЖИМ РОЗСИЛКИ:</b>\nНадішліть текст або фото.", [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="admin_main")]])
     
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 101% STABLE)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (STABLE & CHECKED)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
+    
+    # 1. Анти-зависання кнопок
     try: await query.answer()
     except: pass
 
-    # --- 1. ГОЛОВНЕ ---
+    # --- ГОЛОВНЕ МЕНЮ ---
     if data == "menu_start": await start_command(update, context)
     elif data == "menu_profile": await show_profile(update, context)
     elif data == "menu_cart": await show_cart_logic(update, context)
     elif data == "menu_terms": await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
+    elif data == "ref_system": await show_ref_info(update, context)
 
-    # --- 2. МАГАЗИН ---
+    # --- МАГАЗИН ---
     elif data == "cat_all": await catalog_main_menu(update, context)
     elif data.startswith("cat_list_"): await show_category_items(update, context, data.replace("cat_list_", ""))
     elif data.startswith("view_item_"): 
         try: await view_item_details(update, context, int(data.split("_")[2]))
         except: await catalog_main_menu(update, context)
+    elif data.startswith("add_"): await add_to_cart_handler(update, context)
     elif data == "cart_clear" or data.startswith("cart_del_"): await cart_action_handler(update, context)
 
-    # --- 3. ЛОКАЦІЯ ---
-    elif data == "choose_city": await choose_city_menu(update, context)
+    # --- ЛОКАЦІЯ (ВИПРАВЛЕНО!) ---
+    elif data == "choose_city": 
+        await choose_city_menu(update, context)
     elif data.startswith("sel_city_"):
+        # Викликаємо виправлений district_selection_handler
         await district_selection_handler(update, context, data.replace("sel_city_", ""))
     elif data.startswith("sel_dist_"):
+        # Викликаємо виправлений address_request_handler
         await address_request_handler(update, context, data.replace("sel_dist_", ""))
+    elif data == "fill_delivery_data":
+        await start_data_collection(update, context, next_action='none')
 
-    # --- 4. ЗАМОВЛЕННЯ ---
+    # --- ЗАМОВЛЕННЯ ---
     elif data.startswith("fast_order_"):
         try:
             iid = int(data.split("_")[2])
             item = get_item_data(iid)
+            # Створюємо віртуальний кошик
             context.user_data['cart'] = [{"id": random.randint(1000,9999), "name": item['name'], "price": item['price'], "gift": None}]
             await start_data_collection(update, context, next_action='checkout', item_id=iid)
         except: pass
+    
     elif data.startswith("mgr_pre_"):
         await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
+    
+    elif data == "checkout_init": await checkout_init(update, context)
+    elif data.startswith("pay_"): await payment_selection_handler(update, context, data.split("_")[1])
     elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
 
-    # --- 5. АДМІНКА ---
+    # --- АДМІНКА ---
     elif data == "admin_main": await admin_menu(update, context)
     elif data == "admin_stats": await admin_stats(update, context)
     elif data == "admin_view_users": await admin_view_users(update, context)
+    elif data == "admin_broadcast": await start_broadcast(update, context)
+        
         
 
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP (STABLE DOCKER MODE)
+# 🚀 SECTION 31: ENGINE STARTUP (24/7 MODE)
 # =================================================================
 
 def main():
-    # Твій токен
+    # Твій актуальний токен
     TOKEN = "8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ"
     
     if not TOKEN or "ВСТАВ" in TOKEN:
-        print("❌ FATAL: Bot token is missing!"); sys.exit(1)
+        print("❌ FATAL: Token is missing!"); sys.exit(1)
         
     init_db()
+    
+    # Persistence для збереження кошиків при перезапуску
+    persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
     
     app = (
         Application.builder()
         .token(TOKEN)
-        .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
+        .persistence(persistence)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
         .build()
     )
 
-    # Реєстрація хендлерів (СУВОРИЙ ПОРЯДОК)
+    # Реєстрація (Порядок має значення!)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & (~filters.COMMAND), handle_user_input))
+    
+    # Обробник тексту та фото (має бути останнім)
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
+        handle_user_input
+    ))
     
     app.add_error_handler(error_handler)
     
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🚀 GHOSTY ENGINE ONLINE. READY TO SELL.")
-    print("🛰  DOCKER REBUILD COMPLETE | MODE: PRO 2026")
+    print("🚀 GHOSTY STAFF: ENGINE ONLINE (24/7)")
+    print("✅ STATUS: STABLE | NO CONFLICTS")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
-    # drop_pending_updates=True ВИДАЛЯЄ КОНФЛІКТИ СЕСІЙ ТА WEBHOOK
+    # drop_pending_updates=True скидає старі завислі запити
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
