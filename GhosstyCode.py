@@ -1789,192 +1789,199 @@ async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_
     
 
 # =================================================================
-# ✈️ SECTION 16.5: MANAGER ORDER FINALIZER
+# 📍 SECTION 16: SMART DATA COLLECTION (FIXED FLOW 3/4 & 4/4)
+# =================================================================
+
+async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
+    """КРОК 3/4: Опрацьовує вибір міста та показує райони."""
+    query = update.callback_query
+    profile = context.user_data.setdefault('profile', {})
+    profile['city'] = city
+    
+    districts = UKRAINE_CITIES.get(city, [])
+    
+    if districts:
+        kb = []
+        for i in range(0, len(districts), 2):
+            row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
+            if i + 1 < len(districts):
+                row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
+            kb.append(row)
+        
+        kb.append([InlineKeyboardButton("🔙 Назад до вибору міста", callback_data="choose_city")])
+        
+        # Оновлюємо крок flow
+        context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
+        
+        await _edit_or_reply(query, f"🏘 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>\n━━━━━━━━━━━━━━━━━━━━\nОберіть локацію для отримання 👇", kb)
+    else:
+        # Якщо районів немає
+        profile['district'] = "Центр"
+        context.user_data.setdefault('data_flow', {})['step'] = 'address'
+        context.user_data['state'] = "COLLECTING_DATA"
+        await _edit_or_reply(query, f"✅ Місто: {city}\n\n📍 <b>КРОК 4/4: АДРЕСА</b>\nВведіть номер відділення Нової Пошти або повну адресу:")
+
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """КРОК 4/4: Опрацьовує вибір району та вмикає очікування тексту."""
+    query = update.callback_query
+    profile = context.user_data.setdefault('profile', {})
+    profile['district'] = district
+    
+    # Вмикаємо режим очікування тексту для handle_user_input
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
+    
+    text = (
+        f"✅ <b>Локація збережена:</b> {profile.get('city')}, {district}\n\n"
+        f"📍 <b>КРОК 4/4: ФІНАЛЬНА АДРЕСА</b>\n"
+        f"Напишіть у чат номер відділення НП або адресу для кур'єра 👇"
+    )
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+    await _edit_or_reply(query, text, kb)
+    
+# =================================================================
+# ✈️ SECTION 16.5: MANAGER ORDER (DETAILED & ENCODED)
 # =================================================================
 
 async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id):
-    """Формує лінк до @ghosstydp з усіма даними."""
+    """Формує лінк до менеджера з ПОВНИМИ даними клієнта."""
     import urllib.parse
     item = get_item_data(item_id)
     p = context.user_data.get('profile', {})
     user = update.effective_user
+    order_id = context.user_data.get('current_order_id', f"MGR-{random.randint(100,999)}")
     
     msg_to_manager = (
-        f"👋 Привіт! Хочу замовити:\n"
-        f"📦 Товар: {item['name']}\n"
-        f"💰 Ціна: {item['price']} грн\n"
-        f"------------------\n"
-        f"👤 Клієнт: {p.get('full_name')} (@{user.username})\n"
+        f"👋 ПРИВІТ! НОВЕ ЗАМОВЛЕННЯ #{order_id}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 ТОВАР: {item['name']}\n"
+        f"💰 ЦІНА: {item['price']} грн\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 КЛІЄНТ: {p.get('full_name', user.first_name)} (@{user.username})\n"
         f"🆔 ID: {user.id}\n"
-        f"🏙 Місто: {p.get('city')}\n"
-        f"🏘 Район: {p.get('district')}\n"
-        f"📍 Адреса: {p.get('address_details')}\n"
-        f"📞 Тел: {p.get('phone')}"
+        f"📞 ТЕЛ: {p.get('phone', '—')}\n"
+        f"🏙 МІСТО: {p.get('city', '—')}\n"
+        f"🏘 РАЙОН: {p.get('district', '—')}\n"
+        f"📍 АДРЕСА: {p.get('address_details', '—')}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🛰 Відправлено через GHO$$TY ENGINE"
     )
     
-    encoded_msg = urllib.parse.quote(msg_to_manager)
-    link = f"https://t.me/{MANAGER_USERNAME}?text={encoded_msg}"
+    link = f"https://t.me/{MANAGER_USERNAME}?text={urllib.parse.quote(msg_to_manager)}"
     
-    text = "✅ <b>ЗАМОВЛЕННЯ СФОРМОВАНО!</b>\n\nНатисніть кнопку нижче, щоб передати дані менеджеру 👇"
+    text = (
+        f"✅ <b>ЗАМОВЛЕННЯ #{order_id} ПІДГОТОВЛЕНО!</b>\n\n"
+        f"Ваші дані доставки збережені. Натисніть кнопку нижче, щоб автоматично надіслати їх менеджеру в особисті повідомлення 👇"
+    )
     kb = [[InlineKeyboardButton("🚀 ПЕРЕЙТИ ДО ДІАЛОГУ", url=link)],
-          [InlineKeyboardButton("🔙 В меню", callback_data="menu_start")]]
+          [InlineKeyboardButton("🏠 Повернутись в меню", callback_data="menu_start")]]
     
     if update.callback_query:
         await _edit_or_reply(update.callback_query, text, kb)
     else:
         await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
+        
 
 # =================================================================
 # 🛒 SECTION 18: CART ACTIONS & TERMS (STABLE)
 # =================================================================
 
 async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Видалення товару за унікальним ID."""
+    """Видалення товару за унікальним ID (UID)."""
     query = update.callback_query
     data = query.data
     cart = context.user_data.get("cart", [])
     
     if data == "cart_clear":
         context.user_data["cart"] = []
-        await query.answer("🗑 Кошик очищено!")
+        await query.answer("🗑 Кошик повністю очищено!")
     elif data.startswith("cart_del_"):
         try:
             # Отримуємо UID (третій елемент у cart_del_UID)
             target_uid = int(data.split("_")[2])
             context.user_data["cart"] = [i for i in cart if i.get('id') != target_uid]
-            await query.answer("❌ Видалено")
-        except:
+            await query.answer("❌ Товар видалено")
+        except Exception as e:
+            logger.error(f"Cart delete error: {e}")
             await query.answer("⚠️ Помилка видалення")
             
     await show_cart_logic(update, context)
-
+    
 async def terms_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ незмінної угоди."""
     await _edit_or_reply(update.callback_query, TERMS_TEXT, 
                          [[InlineKeyboardButton("🔙 ЗРОЗУМІЛО", callback_data="menu_profile")]])
     
     
-        
 # =================================================================
-# 📥 SECTION 28: INPUT HANDLER (TEXT & PHOTO - EXPANDED)
+# 📥 SECTION 28: INPUT HANDLER (STABLE MASTER GATE)
 # =================================================================
 
 async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Головний шлюз для обробки всього, що пише/надсилає юзер.
-    """
-    if not update.message: return
+    """Головний шлюз: Текст, Фото, Промокоди, Розсилка."""
+    if not update.message: return # КРИТИЧНО: Ігноруємо кнопки
+    
     user = update.effective_user
     state = context.user_data.get('state')
-    
-    # 1. 📝 РОЗУМНИЙ ЗБІР ДАНИХ (ПІБ, Телефон, Місто)
-    # Якщо бот чекає дані, передаємо їх в спеціальну функцію (БЛОК 3)
-    if state == "COLLECTING_DATA":
-        await handle_data_input(update, context)
-        return
+    text = update.message.text.strip() if update.message.text else None
 
-# 2/2. ОБРОБКА ТЕКСТУ
-    if update.message.text:
-        text = update.message.text.strip()
-        
-        # A) Введення промокоду
-        if context.user_data.get('awaiting_promo'):
-            await process_promo(update, context)
-            return
-
-        # B) Адреса для кур'єра (старий метод)
-        if state == "WAITING_ADDRESS":
-            context.user_data.setdefault('profile', {})['address_details'] = text
-            context.user_data['state'] = None
-            await update.message.reply_text("✅ Адресу збережено!")
-            await checkout_init(update, context)
-            return
-
-        # C) Адмін розсилка (НОВИЙ БЛОК)
-        if state == "BROADCAST_MODE" and user_id == MANAGER_ID:
-            conn = sqlite3.connect(DB_PATH)
-            users = conn.execute("SELECT user_id FROM users").fetchall()
-            conn.close()
-            
-            sent = 0
-            await update.message.reply_text(f"🚀 Старт розсилки на {len(users)} людей...")
-            for (uid,) in users:
-                try: 
-                    await update.message.copy(chat_id=uid)
-                    sent += 1
-                    await asyncio.sleep(0.05)
-                except: pass
-            
-            await update.message.reply_text(f"✅ Успішно: {sent}")
-            context.user_data['state'] = None
-            context.user_data['awaiting_broadcast'] = False
-            return
-            
-
-    # 2. 📸 ОБРОБКА ЧЕКІВ (Оплата)
-    # Якщо бот чекає чек (стан WAITING_RECEIPT) і юзер надіслав фото
-    if state == "WAITING_RECEIPT" and update.message.photo:
-        order_id = context.user_data.get('current_order_id', '???')
-        summ = context.user_data.get('final_checkout_sum', '0')
-        
-        try:
-            # Надсилаємо чек менеджеру
-            await context.bot.send_photo(
-                chat_id=MANAGER_ID,
-                photo=update.message.photo[-1].file_id,
-                caption=(
-                    f"💰 <b>НОВА ОПЛАТА #{order_id}</b>\n"
-                    f"👤 Від: {user.mention_html()} (ID: {user.id})\n"
-                    f"💵 Сума замовлення: {summ:.2f} грн"
-                ),
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("✅ ПІДТВЕРДИТИ ЗАМОВЛЕННЯ", callback_data=f"admin_approve_{user.id}")]
-                ])
-            )
-            await update.message.reply_text("✅ <b>Чек отримано!</b>\nМенеджер перевірить оплату та надішле ТТН/Координати протягом 15 хвилин.")
-        except Exception as e:
-            logger.error(f"Receipt error: {e}")
-            await update.message.reply_text("⚠️ Помилка надсилання. Спробуйте ще раз.")
-        
-        # Скидаємо стан, щоб бот не чекав чека вічно
-        context.user_data['state'] = None
-        return
-
-    # 3. 📢 АДМІНСЬКА РОЗСИЛКА
-    # Якщо адмін у режимі розсилки
+    # 1. АДМІН-РОЗСИЛКА
     if state == "BROADCAST_MODE" and user.id == MANAGER_ID:
-        # Отримуємо всіх користувачів з БД
         conn = sqlite3.connect(DB_PATH)
         users = conn.execute("SELECT user_id FROM users").fetchall()
         conn.close()
         
-        sent_count = 0
-        await update.message.reply_text(f"🚀 Починаю розсилку на {len(users)} користувачів...")
+        sent = 0
+        status_msg = await update.message.reply_text(f"🚀 Починаю розсилку на {len(users)} користувачів...")
         
         for (uid,) in users:
-            try:
-                # Копіюємо повідомлення адміна (текст, фото, відео) користувачу
+            try: 
                 await update.message.copy(chat_id=uid)
-                sent_count += 1
-                await asyncio.sleep(0.05) # Анти-спам затримка
-            except Exception: pass # Якщо юзер заблокував бота
-            
-        await update.message.reply_text(f"✅ <b>Розсилка завершена!</b>\nОтримали: {sent_count} з {len(users)}")
-        context.user_data['state'] = None # Виходимо з режиму
+                sent += 1
+                await asyncio.sleep(0.05)
+            except: pass
+        
+        await status_msg.edit_text(f"✅ <b>Завершено!</b>\n📨 Отримали: {sent}")
+        context.user_data['state'] = None
         return
 
-    # 4. ⌨️ ОБРОБКА ІНШОГО ТЕКСТУ
-    # Якщо юзер просто пише текст (наприклад, промокод)
-    if update.message.text:
-        text = update.message.text.strip()
+    # 2. ПРИЙОМ ЧЕКІВ (ФОТО)
+    if state == "WAITING_RECEIPT" and update.message.photo:
+        order_id = context.user_data.get('current_order_id', '???')
+        summ = context.user_data.get('final_checkout_sum', '0')
         
-        # Промокоди (якщо натиснув "Ввести промокод")
+        # Сповіщення адміну (Менеджеру)
+        caption = (
+            f"💰 <b>НОВА ОПЛАТА #{order_id}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 Клієнт: {user.mention_html()} (ID: {user.id})\n"
+            f"💵 СУМА: {summ:.2f} грн\n"
+            f"⚠️ <b>Вказано ID в коментарі?</b> Перевірте!"
+        )
+        
+        await context.bot.send_photo(
+            chat_id=MANAGER_ID,
+            photo=update.message.photo[-1].file_id,
+            caption=caption,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"admin_approve_{user.id}")]
+            ])
+        )
+        await update.message.reply_text("✅ <b>Чек отримано!</b>\nМенеджер перевірить транзакцію та надішле ТТН/Координати протягом 15 хвилин.")
+        context.user_data['state'] = None
+        return
+
+    # 3. ТЕКСТОВИЙ ВВІД (ЗБІР ДАНИХ)
+    if text:
+        if state == "COLLECTING_DATA":
+            await handle_data_input(update, context)
+            return
+        
         if context.user_data.get('awaiting_promo'):
             await process_promo(update, context)
             return
-            
-        # Якщо юзер пише адресу для кур'єра (старий метод, про всяк випадок)
-        if state == "WAITING_ADDRESS":
+
+        if state == "WAITING_ADDRESS": # Для сумісності зі старими методами
             context.user_data.setdefault('profile', {})['address_details'] = text
             context.user_data['state'] = None
             await update.message.reply_text("✅ Адресу збережено!")
