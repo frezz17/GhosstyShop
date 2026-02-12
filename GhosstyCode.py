@@ -1742,6 +1742,53 @@ async def finalize_manager_order(update: Update, context: ContextTypes.DEFAULT_T
     
 
 # =================================================================
+# 📍 SECTION 16.1: DISTRICT & ADDRESS HANDLERS (FIX NameError)
+# =================================================================
+
+async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
+    """
+    Опрацьовує вибір міста та показує райони. 
+    Виправляє помилку NameError: district_selection_handler.
+    """
+    query = update.callback_query
+    context.user_data.setdefault('profile', {})['city'] = city
+    
+    districts = UKRAINE_CITIES.get(city, [])
+    
+    if districts:
+        # Генеруємо кнопки районів (по 2 в ряд)
+        kb = []
+        for i in range(0, len(districts), 2):
+            row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
+            if i + 1 < len(districts):
+                row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
+            kb.append(row)
+        
+        kb.append([InlineKeyboardButton("🔙 Назад до міст", callback_data="choose_city")])
+        
+        await _edit_or_reply(query, f"🏘 <b>Оберіть район у місті {city}:</b>", kb)
+    else:
+        # Якщо районів немає (інше місто) - переходимо до кроку адреси
+        context.user_data.setdefault('data_flow', {})['step'] = 'address'
+        context.user_data['state'] = "COLLECTING_DATA"
+        await _edit_or_reply(query, f"✅ Місто: {city}\n\n📍 <b>КРОК 4/4:</b>\nВведіть номер відділення НП або адресу доставки:")
+
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """
+    Опрацьовує вибір району та запитує фінальну адресу текстом.
+    Виправляє помилку NameError: address_request_handler.
+    """
+    query = update.callback_query
+    context.user_data.setdefault('profile', {})['district'] = district
+    
+    # Встановлюємо крок 'address' для handle_data_input
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
+    
+    await _edit_or_reply(query, f"✅ Район: {district}\n\n📍 <b>КРОК 4/4:</b>\nВведіть номер відділення Нової Пошти або адресу для кур'єра:")
+    
+
+# =================================================================
 # ✈️ SECTION 16.5: MANAGER ORDER FINALIZER
 # =================================================================
 
