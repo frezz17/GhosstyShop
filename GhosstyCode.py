@@ -1317,9 +1317,16 @@ async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     КРОК 1: Красиве меню вибору міста.
     """
-    # Очищаємо flow, щоб почати вибір чисто
-    context.user_data['data_flow'] = {'step': 'city_selection'}
+    # ВИПРАВЛЕНО: Використовуємо setdefault та оновлюємо ЛИШЕ step, 
+    # щоб не видалити next_action (наприклад, 'checkout').
+    if 'data_flow' not in context.user_data:
+        context.user_data['data_flow'] = {}
+        
+    context.user_data['data_flow']['step'] = 'city_selection'
     context.user_data['state'] = "COLLECTING_DATA"
+    
+    # ... далі код залишається твоїм без змін (MAP_IMAGE, text, keyboard тощо) ...
+
     
     # Можна додати посилання на карту покриття
     MAP_IMAGE = "https://i.ibb.co/y7Q194N/1770068775663.png"  # Ваше лого або карта
@@ -1628,7 +1635,7 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
     """Ініціалізація збору даних (Крок 1/4)."""
-    # Зберігаємо план дій після збору даних
+    # Зберігаємо план дій (маршрут FSM), щоб не загубити його між кроками
     context.user_data['data_flow'] = {
         'step': 'name',
         'next_action': next_action, 
@@ -1636,13 +1643,18 @@ async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TY
     }
     context.user_data['state'] = "COLLECTING_DATA"
     
-    text = "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n\nЯк до вас звертатись? (Введіть Прізвище та Ім'я для накладної):"
+    text = (
+        "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Як до вас звертатись? (Введіть Прізвище та Ім'я для накладної):"
+    )
     kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
     
     await _edit_or_reply(update, text, kb)
 
+
 async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головний обробник текстового вводу для реєстрації."""
+    """Головний обробник текстового вводу для реєстрації (маршрутизатор кроків)."""
     if not update.message or not update.message.text: return
     
     flow = context.user_data.get('data_flow')
@@ -1653,52 +1665,105 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = flow.get('step')
 
     if step == 'name':
+        # Базова перевірка на адекватність вводу
+        if len(text) < 2:
+            await update.message.reply_text("⚠️ Ім'я занадто коротке. Спробуйте ще раз:")
+            return
+            
         profile['full_name'] = text
         flow['step'] = 'phone'
-        await update.message.reply_text("📱 <b>КРОК 2/4: КОНТАКТ</b>\n\nВведіть ваш номер телефону (напр. 095...):")
+        
+        msg = (
+            "📱 <b>КРОК 2/4: КОНТАКТ</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "Введіть ваш номер телефону (напр. 095...):"
+        )
+        await update.message.reply_text(msg, parse_mode='HTML')
         
     elif step == 'phone':
+        if len(text) < 9:
+            await update.message.reply_text("⚠️ Невірний формат телефону. Спробуйте ще раз:")
+            return
+            
         profile['phone'] = text
         # Після телефону автоматично перекидаємо на вибір міста
+        # State залишається COLLECTING_DATA
         await choose_city_menu(update, context)
+
+    # 🔧 ВИПРАВЛЕНО: Додано обробку кроку адреси, якої раніше не було
+    elif step == 'address':
+        if len(text) < 2:
+            await update.message.reply_text("⚠️ Адреса занадто коротка. Введіть коректні дані:")
+            return
+            
+        profile['address_details'] = text
+        # Відправляємо на фіналізацію та збереження
+        await finalize_data_collection(update, context)
+
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
     """КРОК 4/4: Запит точної адреси після вибору району."""
     context.user_data.setdefault('profile', {})['district'] = district
-    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    
+    # 🔧 ВИПРАВЛЕНО: Безпечно оновлюємо step, не затираючи next_action
+    if 'data_flow' not in context.user_data:
+         context.user_data['data_flow'] = {}
+         
+    context.user_data['data_flow']['step'] = 'address'
     context.user_data['state'] = "COLLECTING_DATA"
     
     text = (
         f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
         f"Ви обрали: <b>{district}</b>\n\n"
         f"Напишіть номер відділення НП (напр. «№55») або адресу для кур'єра 👇"
     )
     await _edit_or_reply(update, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
 
+
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Фінал: Збереження в БД та повернення до перерваної дії."""
+    """Фінал: Атомарне збереження в БД та динамічна маршрутизація FSM."""
     p = context.user_data.get('profile', {})
     user_id = update.effective_user.id
     
-    # Синхронізація з SQLite
+    # 🔧 ВИПРАВЛЕНО: Використання context manager ('with') для безпечної роботи з БД
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("""
-            UPDATE users SET full_name=?, phone=?, city=?, district=?, address_details=? 
-            WHERE user_id=?""", (p.get('full_name'), p.get('phone'), p.get('city'), 
-                                 p.get('district'), p.get('address_details'), user_id))
-        conn.commit(); conn.close()
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("""
+                UPDATE users 
+                SET full_name=?, phone=?, city=?, district=?, address_details=? 
+                WHERE user_id=?""", 
+                (p.get('full_name'), p.get('phone'), p.get('city'), 
+                 p.get('district'), p.get('address_details'), user_id)
+            )
+            conn.commit()
     except Exception as e:
-        logger.error(f"Finalize DB Error: {e}")
+        logger.error(f"❌ Finalize DB Error: {e}")
 
+    # Зберігаємо маршрутизацію ПЕРЕД очищенням пам'яті
     flow = context.user_data.get('data_flow', {})
-    context.user_data['state'] = None # Обов'язково скидаємо стан
+    next_action = flow.get('next_action', 'none')
     
-    if flow.get('next_action') == 'checkout':
-        await checkout_init(update, context) # Повертаємо на оплату
+    # 🔧 ВИПРАВЛЕНО: Повне очищення стану FSM, щоб уникнути багів
+    context.user_data['state'] = None 
+    context.user_data['data_flow'] = {}
+    
+    # Динамічна маршрутизація на основі next_action
+    if next_action == 'checkout':
+        await update.message.reply_text("✅ <b>Дані збережено!</b> Формуємо замовлення...", parse_mode='HTML')
+        await checkout_init(update, context) 
+        
+    elif next_action == 'manager_order':
+        # Якщо логіка йшла з кнопки "Швидке замовлення менеджеру"
+        await update.message.reply_text("✅ <b>Дані збережено!</b>\nПеренаправляємо деталі замовлення...", parse_mode='HTML')
+        await start_command(update, context) # Fallback, повертаємо в меню. Тут можеш додати виклик функції менеджера
+        
     else:
-        await update.message.reply_text("✅ <b>Дані збережено!</b> Тепер ви можете робити замовлення.")
+        # Реєстрація без прямої покупки
+        await update.message.reply_text("✅ <b>Ваші дані успішно збережено!</b>\nТепер ви можете оформити замовлення.", parse_mode='HTML')
         await start_command(update, context)
+
+
         
     
 # =================================================================
@@ -2311,37 +2376,107 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Ваш платіж передано на перевірку. Менеджер підтвердить його протягом 5-15 хвилин.\n"
                 "Ви отримаєте сповіщення про зміну статусу замовлення.",
                 parse_mode='HTML'
+# =================================================================
+# 🛡 SECTION 28: GLOBAL INPUT HANDLER (THE BRAIN)
+# =================================================================
+
+async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Центральний вузол обробки всіх вхідних даних: текст, фото, стан FSM.
+    """
+    user = update.effective_user
+    if not user: return
+
+    state = context.user_data.get('state')
+    raw_text = update.message.text.strip() if update.message and update.message.text else None
+    
+    # -----------------------------------------------------------
+    # 1. ОБРОБКА ФОТО (Квитанції про оплату)
+    # -----------------------------------------------------------
+    if update.message.photo and state == "WAITING_RECEIPT":
+        try:
+            photo_file = await update.message.photo[-1].get_file()
+            order_id = f"ORD-{user.id}-{int(datetime.now().timestamp())}"
+            
+            # Отримуємо суму з кошика для запису в БД
+            cart = context.user_data.get('cart', {})
+            total_amount = sum(item['price'] * item['quantity'] for item in cart.values()) if cart else 0
+
+            # Пересилаємо менеджеру
+            caption = (
+                f"💳 <b>НОВА ОПЛАТА</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 Клієнт: {user.mention_html()} (ID: <code>{user.id}</code>)\n"
+                f"💰 Сума: <b>{total_amount} грн</b>\n"
+                f"🆔 ID замовлення: <code>{order_id}</code>"
             )
+            await context.bot.send_photo(
+                chat_id=MANAGER_ID,
+                photo=photo_file.file_id,
+                caption=caption,
+                parse_mode='HTML'
+            )
+
+            # Атомарний запис у БД через контекстний менеджер
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("""
+                    INSERT INTO orders (order_id, user_id, amount, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (order_id, user.id, total_amount, 'pending', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                conn.commit()
+
+            await update.message.reply_text(
+                "✅ <b>Квитанцію отримано!</b>\n\n"
+                "Ваш платіж передано на перевірку. Менеджер підтвердить його протягом 5-15 хвилин.\n"
+                "Ви отримаєте сповіщення про зміну статусу замовлення.",
+                parse_mode='HTML'
+            )
+            
+            # Очищуємо кошик та стан після успішного подання
+            context.user_data['cart'] = {}
             context.user_data['state'] = None
+            return
+
         except Exception as e:
-            logger.error(f"Forwarding receipt failed: {e}")
-            await update.message.reply_text("⚠️ Помилка надсилання. Спробуйте ще раз або напишіть менеджеру.")
-        return
+            logger.error(f"Critical receipt processing error: {e}")
+            await update.message.reply_text("⚠️ Помилка обробки фото. Будь ласка, надішліть квитанцію ще раз або зверніться до @manager.")
+            return
 
     # -----------------------------------------------------------
-    # 3. ТЕКСТОВА ЛОГІКА (FSM / PROMO / FALLBACKS)
+    # 2. ТЕКСТОВА ЛОГІКА ТА FSM
     # -----------------------------------------------------------
     if raw_text:
-        # А) Режим збору даних (ПІБ, Телефон, Адреса)
+        # А) Режим реєстрації (ПІБ -> Телефон -> Місто -> Адреса)
         if state == "COLLECTING_DATA":
             await handle_data_input(update, context)
             return
             
-        # Б) Пряме введення промокоду
+        # Б) Очікування промокоду
         if context.user_data.get('awaiting_promo'):
             await process_promo(update, context)
             return
-            
-        # В) Пряме введення адреси (якщо стан ввімкнено окремо)
-        if state == "WAITING_ADDRESS":
-            context.user_data.setdefault('profile', {})['address_details'] = raw_text
-            context.user_data['state'] = None
-            await update.message.reply_text("✅ <b>Адресу збережено!</b> Переходимо до фіналізації...")
-            await checkout_init(update, context)
+
+        # В) Обробка команд, надісланих текстом (якщо людина просто пише "Меню")
+        trigger_text = raw_text.lower()
+        if trigger_text in ["меню", "назад", "🏠 головна"]:
+            await start_command(update, context)
             return
 
-        # Г) Ігноруємо просто текст, якщо немає активного стану (захист від спаму)
-        pass
+        # Г) Обробка запитань до менеджера (якщо активовано режим чату)
+        if state == "WAITING_QUESTION":
+            await context.bot.send_message(
+                chat_id=MANAGER_ID,
+                text=f"❓ <b>ПИТАННЯ ВІД КЛІЄНТА</b>\n\nЮзер: {user.mention_html()}\nПитання: {raw_text}",
+                parse_mode='HTML'
+            )
+            await update.message.reply_text("🚀 <b>Ваше запитання надіслано!</b>\nМенеджер відповість вам найближчим часом.")
+            context.user_data['state'] = None
+            return
+
+    # Д) Фолбек для невідомих повідомлень (захист від зациклення)
+    if state:
+        logger.info(f"User {user.id} sent unhandled text in state {state}")
+
             
 # =================================================================
 # 👮‍♂️ SECTION 25: ADMIN GOD-PANEL (MONITORING & FINANCIALS)
