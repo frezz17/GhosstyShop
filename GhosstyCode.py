@@ -1736,7 +1736,7 @@ async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT
                 (p.get('full_name'), p.get('phone'), p.get('city'), 
                  p.get('district'), p.get('address_details'), user_id)
             )
-            c# =================================================================
+# =================================================================
 # 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
 # =================================================================
 
