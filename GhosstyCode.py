@@ -727,6 +727,51 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return context.user_data['profile']
 
 # =================================================================
+# 🛍 SECTION 14: CATALOG MASTER ENGINE (PRO UI)
+# =================================================================
+
+async def catalog_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головний вхід у каталог з банером."""
+    text = (
+        "<b>🛍 КАТАЛОГ GHO$$TY STAFF</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Оберіть категорію стаффу 👇\n\n"
+        "💨 <b>HHC Вейпи</b> — <i>Релакс із США</i>\n"
+        "🔌 <b>POD-Системи</b> — <i>Топові девайси</i>\n"
+        "💧 <b>Рідини</b> — <i>Найкращі смаки</i>"
+    )
+    kb = [
+        [InlineKeyboardButton("💨 HHC ВЕЙПИ (USA) + 🎁", callback_data="cat_list_hhc")],
+        [InlineKeyboardButton("🔌 POD-СИСТЕМИ", callback_data="cat_list_pods")],
+        [InlineKeyboardButton("💧 РІДИНИ (Salt)", callback_data="cat_list_liquids")],
+        [InlineKeyboardButton("🏠 ГОЛОВНЕ МЕНЮ", callback_data="menu_start")]
+    ]
+    # Використовуємо твій банер з конфігу
+    await send_ghosty_message(update, text, kb, photo=WELCOME_PHOTO)
+
+async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE, category_key: str):
+    """Генератор списку товарів у обраній категорії."""
+    # Мапінг ключів на назви словників
+    cat_map = {'hhc': 'HHC_VAPES', 'pods': 'PODS', 'liquids': 'LIQUIDS'}
+    items_dict = globals().get(cat_map.get(category_key), {})
+    
+    if not items_dict:
+        return await update.callback_query.answer("⚠️ Ця категорія тимчасово порожня", show_alert=True)
+
+    text = f"📂 <b>ОБЕРІТЬ ТОВАР:</b>\n━━━━━━━━━━━━━━━━━━━━"
+    kb = []
+    profile = context.user_data.get('profile', {})
+    
+    for i_id, item in items_dict.items():
+        # Рахуємо ціну зі знижкою (VIP) прямо для кнопки
+        price, _ = calculate_final_price(item['price'], profile)
+        kb.append([InlineKeyboardButton(f"{item['name']} | {int(price)}₴", callback_data=f"view_item_{i_id}")])
+    
+    kb.append([InlineKeyboardButton("🔙 До категорій", callback_data="cat_all")])
+    await _edit_or_reply(update, text, kb)
+    
+
+# =================================================================
 # 🔍 SECTION 15: PRODUCT CARD (STABLE PRO)
 # =================================================================
 
@@ -931,6 +976,40 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo = globals().get('WELCOME_PHOTO')
     
     await send_ghosty_message(update, welcome_text, keyboard, photo=photo)
+
+
+# =================================================================
+# 👤 SECTION 5.5: USER PROFILE VIEW (STABLE)
+# =================================================================
+
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показ статистики, VIP-статусу та реферальних даних."""
+    user = update.effective_user
+    # Гарантуємо актуальність даних
+    p = await get_or_create_user(update, context)
+    
+    status = "💎 VIP PRO" if p.get('is_vip') else "Standard"
+    city = p.get('city', 'Не вказано')
+    phone = p.get('phone', 'Не вказано')
+    bonus = p.get('next_order_discount', 0)
+
+    text = (
+        f"👤 <b>МІЙ ПРОФІЛЬ</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 ID: <code>{user.id}</code>\n"
+        f"🌟 Статус: <b>{status}</b>\n"
+        f"📅 VIP діє до: <code>{p.get('vip_expiry', '—')}</code>\n\n"
+        f"📍 Місто: <b>{city}</b>\n"
+        f"📞 Тел: <code>{phone}</code>\n"
+        f"🎁 Баланс бонусів: <b>{bonus} грн</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 Оберіть дію:"
+    )
+    kb = [
+        [InlineKeyboardButton("🤝 ПАРТНЕРСЬКА ПРОГРАМА", callback_data="ref_system")],
+        [InlineKeyboardButton("🎟 ВВЕСТИ ПРОМОКОД", callback_data="menu_promo")],
+        [InlineKeyboardButton("🏠 В ГОЛОВНЕ МЕНЮ", callback_data="menu_start")]
+    ]
+    await _edit_or_reply(update, text, kb)
     
 
 # =================================================================
@@ -1430,7 +1509,85 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # 4. Відправка повідомлення
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
+
+# =================================================================
+# 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
+# =================================================================
+
+async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
+    """Ініціалізація збору даних (Крок 1/4)."""
+    # Зберігаємо план дій після збору даних
+    context.user_data['data_flow'] = {
+        'step': 'name',
+        'next_action': next_action, 
+        'item_id': item_id
+    }
+    context.user_data['state'] = "COLLECTING_DATA"
     
+    text = "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n\nЯк до вас звертатись? (Введіть Прізвище та Ім'я для накладної):"
+    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+    
+    await _edit_or_reply(update, text, kb)
+
+async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головний обробник текстового вводу для реєстрації."""
+    if not update.message or not update.message.text: return
+    
+    flow = context.user_data.get('data_flow')
+    if not flow: return
+    
+    text = update.message.text.strip()
+    profile = context.user_data.setdefault('profile', {})
+    step = flow.get('step')
+
+    if step == 'name':
+        profile['full_name'] = text
+        flow['step'] = 'phone'
+        await update.message.reply_text("📱 <b>КРОК 2/4: КОНТАКТ</b>\n\nВведіть ваш номер телефону (напр. 095...):")
+        
+    elif step == 'phone':
+        profile['phone'] = text
+        # Після телефону автоматично перекидаємо на вибір міста
+        await choose_city_menu(update, context)
+
+async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
+    """КРОК 4/4: Запит точної адреси після вибору району."""
+    context.user_data.setdefault('profile', {})['district'] = district
+    context.user_data.setdefault('data_flow', {})['step'] = 'address'
+    context.user_data['state'] = "COLLECTING_DATA"
+    
+    text = (
+        f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
+        f"Ви обрали: <b>{district}</b>\n\n"
+        f"Напишіть номер відділення НП (напр. «№55») або адресу для кур'єра 👇"
+    )
+    await _edit_or_reply(update, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
+
+async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Фінал: Збереження в БД та повернення до перерваної дії."""
+    p = context.user_data.get('profile', {})
+    user_id = update.effective_user.id
+    
+    # Синхронізація з SQLite
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            UPDATE users SET full_name=?, phone=?, city=?, district=?, address_details=? 
+            WHERE user_id=?""", (p.get('full_name'), p.get('phone'), p.get('city'), 
+                                 p.get('district'), p.get('address_details'), user_id))
+        conn.commit(); conn.close()
+    except Exception as e:
+        logger.error(f"Finalize DB Error: {e}")
+
+    flow = context.user_data.get('data_flow', {})
+    context.user_data['state'] = None # Обов'язково скидаємо стан
+    
+    if flow.get('next_action') == 'checkout':
+        await checkout_init(update, context) # Повертаємо на оплату
+    else:
+        await update.message.reply_text("✅ <b>Дані збережено!</b> Тепер ви можете робити замовлення.")
+        await start_command(update, context)
+        
     
 # =================================================================
 # 🛒 SECTION 18: CART LOGIC (PRO FIXED 2026)
@@ -2213,6 +2370,21 @@ async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         kb = [[InlineKeyboardButton("🔄 ОНОВИТИ", callback_data="admin_view_users")],
               [InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]]
+
+        async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Вмикає режим очікування контенту для розсилки."""
+    if update.effective_user.id != MANAGER_ID: return
+    
+    context.user_data['state'] = "BROADCAST_MODE"
+    text = (
+        "📢 <b>РЕЖИМ МАСОВОЇ РОЗСИЛКИ</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Надішліть повідомлення (текст, фото або відео).\n"
+        "Його отримають <b>УСІ</b> користувачі бази!"
+    )
+    kb = [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="admin_main")]]
+    await _edit_or_reply(update, text, kb)
+    
         await _edit_or_reply(query_call, report, kb)
     except Exception as e:
         await _edit_or_reply(query_call, f"🆘 Помилка БД: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
