@@ -389,6 +389,7 @@ LIQUIDS = {
         "name": "🍂 Fall Tea",
         "category": "Chaser Balance",
         "price": 249.99,
+        "stock": 15+,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/Kxmrpm1C/Fall-Tea.jpg",
@@ -399,6 +400,7 @@ LIQUIDS = {
         "name": "👻 Mystery One",
         "category": "Chaser Balance",
         "price": 249.99,
+        "stock": 15+,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/bMMVHXG6/Mystery-One.jpg",
@@ -409,6 +411,7 @@ LIQUIDS = {
         "name": "🍓 Strawberry Jelly",
         "category": "Chaser Balance",
         "price": 249.99,
+        "stock": 14,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/sd9ZSfyH/Strawberry-Jelly.jpg",
@@ -419,6 +422,7 @@ LIQUIDS = {
         "name": "🍇 Grape BlackBerry",
         "category": "Limited Ultra",
         "price": 249.99,
+        "stock": 15+,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/nMJ2VdQK/Grape-Black-Berry.jpg",
@@ -429,6 +433,7 @@ LIQUIDS = {
         "name": "🥤 Cola Pomelo",
         "category": "Limited Ultra",
         "price": 249.99,
+        "stock": 15+,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/zdpDg2K/Cola-Pomelo.jpg",
@@ -439,6 +444,7 @@ LIQUIDS = {
         "name": "🌹 BlackCurrant Rose",
         "category": "Limited Ultra",
         "price": 249.99,
+        "stock": 12,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/0pLKnvx2/Black-Currant-Rose.jpg",
@@ -449,6 +455,7 @@ LIQUIDS = {
         "name": "🍋 Berry Lemonade",
         "category": "Special Berry",
         "price": 249.99,
+        "stock": 15+,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/21xt8N1p/Berry-Lemonade.jpg",
@@ -459,6 +466,7 @@ LIQUIDS = {
         "name": "⚡ Energetic",
         "category": "Special Berry",
         "price": 249.99,
+        "stock": 10,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/TBwR7NTP/Energetic.jpg",
@@ -469,6 +477,7 @@ LIQUIDS = {
         "name": "💊 Vitamin",
         "category": "Special Berry",
         "price": 249.99,
+        "stock": 15+,
         "discount": True,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/tTLrsGGT/Vitamin.jpg",
@@ -482,6 +491,7 @@ HHC_VAPES = {
         "name": "🌴 Packwoods Purple 1ml",
         "type": "hhc",
         "price": 699.77,
+        "stock": 15+,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg",
@@ -492,6 +502,7 @@ HHC_VAPES = {
         "name": "🍊 Packwoods Orange 1ml",
         "type": "hhc",
         "price": 699.77,
+        "stock": 15+,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/SDJFRTwk/Ghost-Vape-1.jpg",
@@ -502,6 +513,7 @@ HHC_VAPES = {
         "name": "🌸 Packwoods Pink 1ml",
         "type": "hhc",
         "price": 699.77,
+        "stock": 7,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
@@ -512,6 +524,7 @@ HHC_VAPES = {
         "name": "🌿 Whole Mint 2ml",
         "type": "hhc",
         "price": 879.77,
+        "stock": 9,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/W4hqn2tZ/Ghost-Vape-4.jpg",
@@ -522,6 +535,7 @@ HHC_VAPES = {
         "name": "🌴 Jungle Boys White 2ml",
         "type": "hhc",
         "price": 999.77,
+        "stock": 14,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
@@ -538,80 +552,130 @@ PODS = {
     500: {
         "name": "🔌 Vaporesso XROS 3 Mini",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 499.77,
         "discount": True,
         "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg",
         "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель. Надійна та смачна.\n✨ <i>Ідеальний вибір для старту.</i>",
-        "colors": ["⚫️ Black", "⚪️ Silver", "🔵 Navy Blue", "🔴 Phantom Red"],
+        "colors": ["⚫️ Black", "🟢 Green", "🟣 Pink"],
+       # Посилання на фото конкретних кольорів
+        "color_previews": {
+            "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Black": "https://ibb.co/ycwSdT03",
+            "Green": "https://ibb.co/5WQY1pjq",
+            "Pink": "hhttps://ibb.co/YB7XmmpZ"
+        },
         "payment_url": PAYMENT_LINK
     },
     501: {
         "name": "🔌 Vaporesso XROS 5 Mini",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 674.77,
         "discount": True,
         "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg",
         "desc": "🔥 <b>НОВИНКА 2025 | COREX 2.0</b>\nМаксимальна передача смаку.\n💎 <i>Оновлений дизайн та швидка зарядка.</i>",
-        "colors": ["⚫️ Core Black", "🔘 Space Grey", "🟣 Ice Purple", "🟢 Lime Green"],
+        "colors": ["⚫️ Core Black", "🟣 Pink", "🟢 Green"],
+       # Посилання на фото конкретних кольорів
+        "color_previews": {
+             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Core Black": "https://ibb.co/234Ht3Qy",
+            "Green": "https://ibb.co/zhYRpCjT",
+            "Pink": "https://ibb.co/NgtYfKgs"
+        },
         "payment_url": PAYMENT_LINK
-    },
+    },,
     502: {
         "name": "🔌 Vaporesso XROS Pro",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 974.77,
         "discount": True,
         "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg",
         "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.\n⚡ <i>Зарядка за 35 хвилин!</i>",
         "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red", "🔵 Blue"],
+       # Посилання на фото конкретних кольорів
+        "color_previews": {
+             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Black": "https://i.ibb.co/url-to-black.jpg",
+            "Silver": "https://i.ibb.co/url-to-silver.jpg",
+            "Phantom Red": "https://i.ibb.co/url-to-red.jpg"
+        },
         "payment_url": PAYMENT_LINK
     },
     503: {
-        "name": "🔌 Vaporesso XROS Nano",
+        "name": "🔌 Vaporesso XROS Nano 5",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 659.77,
         "discount": True,
         "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg",
         "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.\n🔋 <i>1000 mAh у міні-корпусі.</i>",
         "colors": ["⚫️ Black", "🟡 Yellow", "🟠 Orange", "🌸 Pink"],
+        # Посилання на фото конкретних кольорів
+        "color_previews": {
+             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Black": "https://i.ibb.co/url-to-black.jpg",
+            "Silver": "https://i.ibb.co/url-to-silver.jpg",
+            "Phantom Red": "https://i.ibb.co/url-to-red.jpg"
+        },
         "payment_url": PAYMENT_LINK
     },
     504: {
         "name": "🔌 Vaporesso XROS 4",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 629.77,
         "discount": True,
         "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg",
         "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.\n🎯 <i>Універсальний солдат.</i>",
         "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient", "⚪️ Silver"],
+        # Посилання на фото конкретних кольорів
+        "color_previews": {
+             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Black": "https://i.ibb.co/url-to-black.jpg",
+            "Silver": "https://i.ibb.co/url-to-silver.jpg",
+            "Phantom Red": "https://i.ibb.co/url-to-red.jpg"
+        },
         "payment_url": PAYMENT_LINK
     },
     505: {
         "name": "🔌 Vaporesso XROS 5",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 799.77,
         "discount": True,
         "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg",
         "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.\n🚀 <i>Найкраще, що створили Vaporesso.</i>",
         "colors": ["⚫️ Obsidian Black", "⚪️ Pearl White", "🔵 Ocean Blue"],
+        # Посилання на фото конкретних кольорів
+        "color_previews": {
+             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Black": "https://i.ibb.co/url-to-black.jpg",
+            "Silver": "https://i.ibb.co/url-to-silver.jpg",
+            "Phantom Red": "https://i.ibb.co/url-to-red.jpg"
+        },
         "payment_url": PAYMENT_LINK
     },
     506: {
         "name": "🔌 Voopoo Vmate Mini",
         "type": "pod",
-        "gift_liquid": False,
+        "gift_liquid": True,
         "price": 459.77,
         "discount": True,
-        "img": "https://i.ibb.co/8L0JNTHz/voopoo-vmate-mini.jpg",
+        "img": "https://ilrnrwxhokrl5q.ldycdn.com/cloud/lpBqlKmrSRkllmojnpiq/Authentic-VOOPOO-Vmate-Mini-30W-Pod-Kit-1000mAh-3ml-0-7ohm-Classic-Black.jpg",
         "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.\n🧬 <i>Просто залий рідину і парь.</i>",
         "colors": ["⚫️ Black", "🔴 Red", "🔵 Blue", "🟢 Green"],
+       # Посилання на фото конкретних кольорів
+        "color_previews": {
+             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
+            "Black": "https://i.ibb.co/url-to-black.jpg",
+            "Silver": "https://i.ibb.co/url-to-silver.jpg",
+            "Phantom Red": "https://i.ibb.co/url-to-red.jpg"
+        },
         "payment_url": PAYMENT_LINK
-    }
+    },
+    # ... інші товари за аналогією
 }
 
 
@@ -780,14 +844,13 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
     
 
 # =================================================================
-# 🔍 SECTION 15: PRODUCT CARD (STABLE PRO)
+# 🔍 SECTION 15: PRODUCT CARD & COLOR SELECTION (PRO 2026)
 # =================================================================
 
 async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
     """
-    Картка товару: Фото, Опис, Ціна (зі знижками) та Кнопки.
+    Картка товару: Фото, Опис, Наявність, Ціна та Розумні кнопки.
     """
-    # 1. Отримуємо дані про товар
     item = get_item_data(item_id)
     if not item: 
         if update.callback_query:
@@ -795,65 +858,99 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         return
 
     profile = context.user_data.get("profile", {})
-    
-    # 2. Розрахунок ціни (використовуємо нашу функцію з Section 4.5)
     final_price, has_discount = calculate_final_price(item['price'], profile)
     
-    # Формування гарного цінника
+    # 1. ЛОГІКА НАЯВНОСТІ (STOCK CONTROL)
+    stock = item.get('stock', 0)
+    if stock > 5:
+        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
+    elif 0 < stock <= 5:
+        stock_status = f"🟡 <b>Закінчується</b> (лишилось {stock} шт)"
+    else:
+        stock_status = f"🔴 <b>Тимчасово відсутній</b>"
+
+    # 2. ФОРМУВАННЯ ЦІННИКА
     price_html = f"<b>{int(item['price'])} ₴</b>"
     if has_discount:
         price_html = f"<s>{int(item['price'])}</s> 🔥 <b>{final_price:.0f} ₴</b>"
 
-    # 3. Формування опису з варіантами (Кольори/Міцність)
-    # Ми додаємо їх у текст, щоб не захаращувати інтерфейс кнопками, які можуть зламати логіку
-    variants_info = ""
-    if "colors" in item:
-        colors_str = ", ".join(item["colors"])
-        variants_info = f"\n🎨 <b>Доступні кольори:</b> {colors_str}"
-    elif "strengths" in item:
-        strengths_str = ", ".join([f"{s}mg" for s in item['strengths']])
-        variants_info = f"\n🧪 <b>Міцність:</b> {strengths_str}"
-
+    # 3. ФОРМУВАННЯ ТЕКСТУ КАРТКИ
     caption = (
         f"🛍 <b>{item['name']}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{item.get('desc', 'Опис оновлюється...')}\n"
-        f"{variants_info}\n"
+        f"📦 Стан: {stock_status}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{item.get('desc', 'Опис оновлюється...')}\n\n"
         f"💰 Ціна: {price_html}"
     )
 
     keyboard = []
     
-    # --- РЯДОК 1: Швидкі дії ---
+    # 4. ЛОГІКА КНОПОК ЗАЛЕЖНО ВІД НАЯВНОСТІ
+    if stock > 0:
+        # Якщо є кольори — ведемо на меню кольорів, якщо ні — одразу в кошик (або меню подарунків)
+        if "colors" in item and item["colors"]:
+            main_btn_text = "🎨 ОБРАТИ КОЛІР ТА КУПИТИ"
+            main_btn_callback = f"sel_col_{item_id}"
+        else:
+            has_bonus = item_id < 300 or item.get("gift_liquid")
+            main_btn_text = "🎁 ОБРАТИ БОНУС ТА КУПИТИ" if has_bonus else "🛒 ДОДАТИ В КОШИК"
+            main_btn_callback = f"add_{item_id}"
+        
+        keyboard.append([InlineKeyboardButton(main_btn_text, callback_data=main_btn_callback)])
+    else:
+        # Товар закінчився
+        keyboard.append([InlineKeyboardButton("🔔 ПОВІДОМИТИ ПРО НАЯВНІСТЬ", callback_data=f"notify_stock_{item_id}")])
+
+    # Швидкі дії та навігація
     keyboard.append([
         InlineKeyboardButton("⚡ ШВИДКО", callback_data=f"fast_order_{item_id}"),
         InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", callback_data=f"mgr_pre_{item_id}")
     ])
-
-    # --- РЯДОК 2: Додати в кошик (Головна дія) ---
-    # Перевіряємо, чи є бонус (рідина у подарунок)
-    # Якщо ID < 300 (Вейпи) або є прапорець gift_liquid -> пропонуємо бонус
-    has_bonus = item_id < 300 or item.get("gift_liquid")
     
-    btn_text = "🎁 ОБРАТИ БОНУС І КУПИТИ" if has_bonus else "🛒 ДОДАТИ В КОШИК"
-    
-    # Відправляємо просто add_{id}. 
-    # Section 19 (add_to_cart_handler) сама побачить, що це акційний товар, і відкриє меню подарунків.
-    keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"add_{item_id}")])
-
-    # --- РЯДОК 3: Навігація ---
     nav_row = []
-    # Якщо місто не обрано - пропонуємо обрать
     if not profile.get("city"):
         nav_row.append(InlineKeyboardButton("📍 Обрати місто", callback_data="choose_city"))
-    
     nav_row.append(InlineKeyboardButton("🔙 Каталог", callback_data="cat_all"))
     keyboard.append(nav_row)
 
-    # 4. Відправка повідомлення (з фото або без)
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
+
+async def show_color_selection(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
+    """
+    Ексклюзивне меню: вибір кольору з фото-превью через HTML-посилання.
+    """
+    query = update.callback_query
+    item = get_item_data(item_id)
+    if not item: return
+
+    colors = item.get("colors", [])
+    previews = item.get("color_previews", {})
     
+    text = (
+        f"🎨 <b>ОБЕРІТЬ КОЛІР: {item['name']}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"Натисніть на посилання, щоб побачити вигляд:\n\n"
+    )
+
+    # Додаємо список кольорів з посиланнями на фото
+    for color in colors:
+        photo_url = previews.get(color, item.get('img'))
+        text += f"🔹 {color} — <a href='{photo_url}'>[ДИВИТИСЬ ФОТО]</a>\n"
+
+    text += "\n👇 <b>Натисніть на кнопку кольору для вибору:</b>"
+
+    keyboard = []
+    # Кнопки кольорів по 2 в ряд
+    for i in range(0, len(colors), 2):
+        row = [InlineKeyboardButton(f"✨ {colors[i]}", callback_data=f"add_{item_id}_col_{colors[i]}")]
+        if i + 1 < len(colors):
+            row.append(InlineKeyboardButton(f"✨ {colors[i+1]}", callback_data=f"add_{item_id}_col_{colors[i+1]}"))
+        keyboard.append(row)
+
+    keyboard.append([InlineKeyboardButton("🔙 Назад до опису", callback_data=f"view_item_{item_id}")])
+    
+    await _edit_or_reply(query, text, keyboard)
     
     
 # =================================================================
@@ -2416,94 +2513,101 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
         
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 100% FIXED)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 100% FIXED & EXPANDED)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Головний розподільник натискань кнопок.
+    Головний мозок бота: розподіляє всі натискання кнопок.
+    Виправлено: повна інтеграція складних замовлень, кольорів та адмін-режиму.
     """
     query = update.callback_query
     data = query.data
     
-    # 1. Анти-зависання (Щоб кнопка не крутилася вічно)
+    # 1. Анти-зависання кнопок (Обов'язково)
     try: await query.answer()
     except: pass
 
     # --- 0. АДМІН-ДІЇ (Найвищий пріоритет) ---
-    # Виправлено відступ! Тепер це всередині функції.
     if data.startswith("adm_"): 
         await admin_decision_handler(update, context)
         return
 
-    # --- 1. ГОЛОВНЕ МЕНЮ ---
+    # --- 1. ГОЛОВНЕ МЕНЮ ТА ПРОФІЛЬ ---
     if data == "menu_start": await start_command(update, context)
     elif data == "menu_profile": await show_profile(update, context)
     elif data == "menu_cart": await show_cart_logic(update, context)
-    elif data == "menu_terms": await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
+    elif data == "menu_terms": 
+        await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]])
     elif data == "ref_system": await show_ref_info(update, context)
     elif data == "menu_promo": 
         context.user_data['awaiting_promo'] = True
-        await _edit_or_reply(query, "🎟 <b>Введіть ваш промокод:</b>", [[InlineKeyboardButton("🔙", callback_data="menu_profile")]])
+        await _edit_or_reply(query, "🎟 <b>АКТИВАЦІЯ БОНУСІВ</b>\n\nВведіть ваш промокод у чат 👇", [[InlineKeyboardButton("🔙 Скасувати", callback_data="menu_profile")]])
 
-    # --- 2. МАГАЗИН & ПОДАРУНКИ ---
+    # --- 2. МАГАЗИН, КОЛЬОРИ ТА АКЦІЇ ---
     elif data == "cat_all": await catalog_main_menu(update, context)
-    elif data.startswith("cat_list_"): await show_category_items(update, context, data.replace("cat_list_", ""))
+    elif data.startswith("cat_list_"): 
+        await show_category_items(update, context, data.replace("cat_list_", ""))
     
     elif data.startswith("view_item_"): 
         try: await view_item_details(update, context, int(data.split("_")[2]))
         except: await catalog_main_menu(update, context)
-    
-    # 🔥 ПОДАРУНКИ ТА КОШИК
-    elif data.startswith("gift_sel_"): 
-        # Виклик меню вибору подарунка (Section 19)
-        await gift_selection_handler(update, context)
-        
+
+    # Вибір кольору з превью
+    elif data.startswith("sel_col_"):
+        await show_color_selection(update, context, int(data.split("_")[2]))
+
+    # --- 3. КОШИК ТА ДОДАВАННЯ ---
     elif data.startswith("add_"): 
-        # Додавання товару (з подарунком або без)
+        # Додавання товару (наша універсальна функція обробить кольори та подарунки)
         await add_to_cart_handler(update, context)
         
     elif data == "cart_clear" or data.startswith("cart_del_"): 
         await cart_action_handler(update, context)
 
-    # --- 3. ЛОКАЦІЯ (GEOGRAPHY) ---
+    # --- 4. ЛОКАЦІЯ ТА ДАНІ ---
     elif data == "choose_city": 
         await choose_city_menu(update, context)
     elif data.startswith("sel_city_"):
-        await district_selection_handler(update, context, data.replace("sel_city_", ""))
-        # Додайте це в global_callback_handler
-    elif data.startswith("save_dist_"):
-        dist_name = data.split("_")[2]
-        await save_location_handler(update, context, dist_name=dist_name)
-        
+        city_name = data.replace("sel_city_", "")
+        # Спец-хаб для Дніпра (вибір Клад/Кур'єр)
+        if city_name == "Дніпро":
+            await choose_dnipro_delivery(update, context)
+        else:
+            await district_selection_handler(update, context, city_name)
+            
     elif data.startswith("sel_dist_"):
         await address_request_handler(update, context, data.replace("sel_dist_", ""))
+        
     elif data == "fill_delivery_data":
         await start_data_collection(update, context, next_action='none')
-        
 
-    # --- 4. ЗАМОВЛЕННЯ & ОПЛАТА ---
+    # --- 5. ОФОРМЛЕННЯ ТА ОПЛАТА ---
     elif data.startswith("fast_order_"):
         try:
             iid = int(data.split("_")[2])
             item = get_item_data(iid)
-            # Створюємо швидкий кошик з одним товаром
-            context.user_data['cart'] = [{"id": random.randint(1000,9999), "name": item['name'], "price": item['price'], "gift": None}]
+            # Швидкий кошик з одним товаром
+            context.user_data['cart'] = [{"id": random.randint(1000,9999), "real_id": iid, "name": item['name'], "price": item['price'], "gift": None}]
             await start_data_collection(update, context, next_action='checkout', item_id=iid)
         except: pass
         
     elif data.startswith("mgr_pre_"):
         await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
     
-    elif data == "checkout_init": await checkout_init(update, context)
-    elif data.startswith("pay_"): await payment_selection_handler(update, context, data.split("_")[1])
-    elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
+    elif data == "checkout_init": 
+        await checkout_init(update, context)
+    elif data.startswith("pay_"): 
+        await payment_selection_handler(update, context, data.split("_")[1])
+    elif data == "confirm_payment_start": 
+        await payment_confirmation_handler(update, context)
 
-    # --- 5. АДМІН-ПАНЕЛЬ ---
+    # --- 6. АДМІН-ПАНЕЛЬ (GOD MODE) ---
     elif data == "admin_main": await admin_menu(update, context)
     elif data == "admin_stats": await admin_stats(update, context)
     elif data == "admin_view_users": await admin_view_users(update, context)
     elif data == "admin_broadcast": await start_broadcast(update, context)
+    elif data == "admin_backup": await admin_backup_db(update, context)
     elif data == "admin_cancel_action":
         context.user_data['state'] = None
         await admin_menu(update, context)
