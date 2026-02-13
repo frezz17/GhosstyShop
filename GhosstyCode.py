@@ -1792,50 +1792,113 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         profile['phone'] = text
-        # Після телефону переходимо до вибору міста (Секція 10)
-        # ВАЖЛИВО: State залишається COLLECTING_DATA, але керування бере на себе Inline-меню
+        
+# =================================================================
+# 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
+# =================================================================
+
+import sqlite3 # Гарантуємо наявність імпорту
+from datetime import datetime
+
+async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
+    """Ініціалізація збору даних (Крок 1/4)."""
+    try:
+        # Ретельно ініціалізуємо flow, щоб уникнути KeyError в майбутньому
+        context.user_data['data_flow'] = {
+            'step': 'name',
+            'next_action': str(next_action), 
+            'item_id': item_id
+        }
+        context.user_data['state'] = "COLLECTING_DATA"
+        
+        text = (
+            "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "Як до вас звертатись?\n"
+            "<i>Будь ласка, введіть Прізвище та Ім'я для оформлення накладної:</i>"
+        )
+        kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+        
+        await _edit_or_reply(update, text, kb)
+    except Exception as e:
+        logger.error(f"Error in start_data_collection: {e}")
+
+async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Головний обробник текстового вводу. Маршрутизує кроки FSM."""
+    # Захист від апдейтів без повідомлення (наприклад, редагування)
+    if not update.message or not update.message.text: 
+        return
+    
+    flow = context.user_data.get('data_flow')
+    if not flow: 
+        context.user_data['state'] = None
+        return
+    
+    text = update.message.text.strip()
+    profile = context.user_data.setdefault('profile', {})
+    step = flow.get('step')
+
+    # --- КРОК: ІМ'Я ---
+    if step == 'name':
+        if len(text) < 3:
+            await update.message.reply_text("⚠️ Ім'я занадто коротке. Напишіть Прізвище та Ім'я:")
+            return
+        profile['full_name'] = text
+        flow['step'] = 'phone'
+        await update.message.reply_text("📱 <b>КРОК 2/4: КОНТАКТ</b>\n\nВведіть ваш номер телефону (напр. 0951234567):")
+        
+    # --- КРОК: ТЕЛЕФОН ---
+    elif step == 'phone':
+        clean_phone = "".join(filter(str.isdigit, text))
+        if len(clean_phone) < 10:
+            await update.message.reply_text("⚠️ Некоректний формат. Введіть 10 цифр номера телефону:")
+            return
+        
+        profile['phone'] = text
+        # Перехід до вибору міста (Секція 10)
+        # ВАЖЛИВО: state залишається COLLECTING_DATA для контролю потоку
         await choose_city_menu(update, context)
 
-    # --- КРОК: АДРЕСА (Ось де була помилка!) ---
+    # --- КРОК: АДРЕСА ---
     elif step == 'address':
         if len(text) < 2:
             await update.message.reply_text("⚠️ Будь ласка, вкажіть коректну адресу або номер відділення:")
             return
         
         profile['address_details'] = text
-        # Переходимо до фіналізації та збереження в БД
+        # Викликаємо фіналізацію через await
         await finalize_data_collection(update, context)
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """КРОК 4/4: Запит точної адреси після того, як юзер обрав район кнопкою."""
-    # Оновлюємо профіль
-    profile = context.user_data.setdefault('profile', {})
-    profile['district'] = district
-    
-    # Оновлюємо flow, НЕ видаляючи next_action
-    flow = context.user_data.setdefault('data_flow', {})
-    flow['step'] = 'address'
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = (
-        f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Район: <b>{district}</b>\n\n"
-        f"Вкажіть номер відділення Нової Пошти або повну адресу для кур'єра 👇"
-    )
-    # Кнопка скасування на випадок, якщо юзер передумав
-    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
-    await _edit_or_reply(update, text, kb)
+    """КРОК 4/4: Запит точної адреси (викликається з Inline-кнопок районів)."""
+    try:
+        profile = context.user_data.setdefault('profile', {})
+        profile['district'] = district
+        
+        flow = context.user_data.setdefault('data_flow', {})
+        flow['step'] = 'address'
+        context.user_data['state'] = "COLLECTING_DATA"
+        
+        text = (
+            f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"Район: <b>{district}</b>\n\n"
+            f"Вкажіть номер відділення Нової Пошти або повну адресу для кур'єра 👇"
+        )
+        kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+        await _edit_or_reply(update, text, kb)
+    except Exception as e:
+        logger.error(f"Error in address_request_handler: {e}")
 
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Збереження даних в SQLite та перехід до цільової дії (Замовлення/Меню)."""
+    """Збереження даних в SQLite та перехід до цільової дії."""
+    user_id = update.effective_user.id
     p = context.user_data.get('profile', {})
     flow = context.user_data.get('data_flow', {})
-    user_id = update.effective_user.id
     
-    # 1. Атомарне збереження в БД з таймаутом для стабільності на хостингу
+    # 1. АТОМАРНИЙ ЗАПИС (збільшено timeout для хостингу)
     try:
-        with sqlite3.connect(DB_PATH, timeout=15) as conn:
+        with sqlite3.connect(DB_PATH, timeout=20) as conn:
             conn.execute("""
                 UPDATE users SET 
                 full_name=?, phone=?, city=?, district=?, address_details=? 
@@ -1844,28 +1907,33 @@ async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT
                  p.get('district'), p.get('address_details'), user_id)
             )
             conn.commit()
+    except sqlite3.OperationalError as e:
+        logger.error(f"Database Locked or Missing: {e}")
+        await update.message.reply_text("⚠️ База даних тимчасово зайнята. Повторюю спробу...")
+        # Можна додати невелику затримку і ретрай, але зазвичай timeout=20 вистачає
     except Exception as e:
-        logger.error(f"❌ DATABASE ERROR in finalize_data_collection: {e}")
+        logger.error(f"Finalize DB Critical Error: {e}")
 
-    # 2. Отримуємо маршрут перед очищенням стану
-    next_action = flow.get('next_action')
+    # 2. Отримуємо наступний крок ПЕРЕД очищенням
+    next_action = str(flow.get('next_action', 'none'))
     
-    # 3. ОЧИЩЕННЯ СТАНУ (дуже важливо!)
+    # 3. ПОВНЕ ОЧИЩЕННЯ СТАНУ
     context.user_data['state'] = None 
-    # context.user_data['data_flow'] = {} # Можна очистити, якщо більше не треба
+    context.user_data['data_flow'] = {} # Тепер чистимо повністю для безпеки
     
-    # 4. МАРШРУТИЗАЦІЯ
+    # 
+
+    # 4. ДИНАМІЧНА МАРШРУТИЗАЦІЯ
     if next_action == 'checkout':
-        await update.message.reply_text("✅ <b>Дані успішно підтверджено!</b>\nФормуємо ваше замовлення...")
+        await update.message.reply_text("✅ <b>Дані підтверджено!</b>\nПереходимо до оформлення замовлення...")
         await checkout_init(update, context)
     
     elif next_action == 'manager_order':
-        # Тут можна додати логіку прямого замовлення через менеджера
-        await update.message.reply_text("✅ <b>Заявка сформована!</b> Менеджер зв'яжеться з вами.")
+        await update.message.reply_text("✅ <b>Заявка сформована!</b> Менеджер зв'яжеться з вами найближчим часом.")
         await start_command(update, context)
         
     else:
-        await update.message.reply_text("✅ <b>Ваш профіль успішно налаштовано!</b>")
+        await update.message.reply_text("✅ <b>Ваш профіль успішно оновлено!</b>")
         await start_command(update, context)
 
 # =================================================================
