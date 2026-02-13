@@ -584,7 +584,7 @@ PODS = {
             "Pink": "https://ibb.co/NgtYfKgs"
         },
         "payment_url": PAYMENT_LINK
-    },,
+    },
     502: {
         "name": "🔌 Vaporesso XROS Pro",
         "type": "pod",
