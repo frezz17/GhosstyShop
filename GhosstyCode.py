@@ -2107,150 +2107,144 @@ async def payment_confirmation_handler(update: Update, context: ContextTypes.DEF
     await _edit_or_reply(query, text, kb)
         
 # =================================================================
-# 🎮 SECTION 28: STABLE MESSAGE HANDLER (MASTER CONTROL)
+# 🎮 SECTION 28: STABLE MESSAGE HANDLER (MASTER CONTROL PRO)
 # =================================================================
 
 async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Центральний інтелектуальний вузол: обробляє Текст, Фото та системні стани.
-    Гарантує, що жодне повідомлення користувача не залишиться без відповіді.
+    Центральний інтелектуальний хаб: обробляє Текст, Медіа та логічні стани FSM.
+    Виправлено: витоки пам'яті, блокування БД та обмеження форматів розсилки.
     """
     if not update.message: 
         return 
     
     user = update.effective_user
     state = context.user_data.get('state')
-    text = update.message.text.strip() if update.message.text else None
+    # Отримуємо текст безпечно
+    raw_text = update.message.text.strip() if update.message.text else None
     
     # -----------------------------------------------------------
-    # 1. ОБРОБКА ФОТО (ЧЕКИ ТА АДМІН-КОНТЕНТ)
+    # 1. АДМІН-РОЗСИЛКА (Універсальний режим для будь-якого контенту)
     # -----------------------------------------------------------
-    if update.message.photo:
-        # А) ПРИЙОМ КВИТАНЦІЙ (Етап оплати замовлення)
-        if state == "WAITING_RECEIPT":
-            order_id = context.user_data.get("current_order_id", "ERROR")
-            sum_val = context.user_data.get("final_checkout_sum", 0)
-            profile = context.user_data.get("profile", {})
+    if state == "BROADCAST_MODE" and user.id == MANAGER_ID:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                users = conn.execute("SELECT user_id FROM users").fetchall()
             
-            # Звіт для Менеджера
-            caption = (
-                f"💰 <b>НОВА ОПЛАТА!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 Клієнт: <b>{profile.get('full_name', user.first_name)}</b>\n"
-                f"🔗 Username: @{user.username if user.username else 'відсутній'}\n"
-                f"🆔 ID: <code>{user.id}</code>\n"
-                f"📦 Замовлення: <b>#{order_id}</b>\n"
-                f"💵 Сума: <b>{sum_val:.2f} UAH</b>\n"
-                f"📍 Місто: {profile.get('city', '—')}\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"👇 <i>Підтвердити оплату та відправити ТТН?</i>"
-            )
-            
-            admin_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ ПІДТВЕРДИТИ", callback_data=f"adm_ok_{user.id}_{order_id}")],
-                [InlineKeyboardButton("❌ ВІДХИЛИТИ", callback_data=f"adm_no_{user.id}")]
-            ])
-            
-            try:
-                # Відправка МЕНЕДЖЕРУ
-                await context.bot.send_photo(
-                    chat_id=MANAGER_ID, 
-                    photo=update.message.photo[-1].file_id, 
-                    caption=caption,
-                    reply_markup=admin_kb,
-                    parse_mode='HTML'
-                )
-                
-                # Запис у БД (статус 'pending')
-                try:
-                    conn = sqlite3.connect(DB_PATH)
-                    conn.execute("""
-                        INSERT OR REPLACE INTO orders (order_id, user_id, amount, status, created_at) 
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (order_id, user.id, sum_val, 'pending', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                    conn.commit()
-                    conn.close()
-                except Exception as db_e:
-                    logger.error(f"Order DB Error: {db_e}")
+            if not users:
+                await update.message.reply_text("❌ База користувачів порожня.")
+                context.user_data['state'] = None
+                return
 
-                # Відповідь клієнту
-                await update.message.reply_text(
-                    "✅ <b>Квитанцію прийнято в чергу!</b>\n"
-                    "Менеджер перевірить транзакцію протягом 5-15 хв.\n"
-                    "Ви отримаєте автоматичне сповіщення тут 👇",
-                    parse_mode='HTML'
-                )
-                context.user_data['state'] = None # Скидаємо стан
-                
-            except Exception as e:
-                logger.error(f"Receipt Forwarding Failed: {e}")
-                await update.message.reply_text("⚠️ <b>Помилка сервера.</b> Будь ласка, надішліть чек безпосередньо менеджеру: @ghosstydp")
-            return
-
-        # Б) АДМІН-РОЗСИЛКА (ФОТО)
-        elif state == "BROADCAST_MODE" and user.id == MANAGER_ID:
-            conn = sqlite3.connect(DB_PATH)
-            users = conn.execute("SELECT user_id FROM users").fetchall()
-            conn.close()
-            
             sent, failed = 0, 0
-            progress_msg = await update.message.reply_text(f"🚀 Починаю розсилку фото на {len(users)} користувачів...")
+            status_msg = await update.message.reply_text(f"🚀 <b>Запуск розсилки...</b>\nЦільова аудиторія: {len(users)} чол.", parse_mode='HTML')
             
             for (uid,) in users:
                 try:
+                    # Метод copy() — найкращий вибір, працює з текстом, фото, відео, стікерами
                     await update.message.copy(chat_id=uid)
                     sent += 1
-                    await asyncio.sleep(0.33) # Flood prevention
-                except:
+                    # Розумна затримка: баланс між швидкістю та лімітами Telegram
+                    if sent % 20 == 0:
+                        await asyncio.sleep(1.0)
+                    else:
+                        await asyncio.sleep(0.05)
+                except Exception:
                     failed += 1
-                
-            await progress_msg.edit_text(f"✅ <b>Розсилку завершено!</b>\n📥 Отримали: {sent}\n❌ Помилок: {failed}")
+            
+            await status_msg.edit_text(
+                f"✅ <b>РОЗСИЛКУ ЗАВЕРШЕНО!</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                f"📥 Отримали: <code>{sent}</code>\n"
+                f"❌ Помилок: <code>{failed}</code>", 
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            logger.error(f"Broadcast Error: {e}")
+            await update.message.reply_text(f"🆘 Помилка розсилки: {e}")
+        finally:
             context.user_data['state'] = None
-            return
+        return
 
     # -----------------------------------------------------------
-    # 2. ОБРОБКА ТЕКСТУ (ДАНІ / ПРОМО / РОЗСИЛКА)
+    # 2. ПРИЙОМ КВИТАНЦІЙ (Тільки фото у стані WAITING_RECEIPT)
     # -----------------------------------------------------------
-    if text:
-        # А) Збір даних для доставки (FSM)
+    if update.message.photo and state == "WAITING_RECEIPT":
+        order_id = context.user_data.get("current_order_id", "НЕВІДОМО")
+        amount = context.user_data.get("final_checkout_sum", 0)
+        profile = context.user_data.get("profile", {})
+        
+        # Красивий рапорт для Менеджера
+        caption = (
+            f"💰 <b>НОВА ОПЛАТА ЧЕКАЄ ПІДТВЕРДЖЕННЯ</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 Клієнт: <b>{escape(profile.get('full_name', user.first_name))}</b>\n"
+            f"🆔 ID: <code>{user.id}</code> | @{user.username if user.username else '—'}\n"
+            f"📦 Замовлення: <b>#{order_id}</b>\n"
+            f"💵 Сума до зарахування: <b>{amount:.2f} UAH</b>\n"
+            f"🏙 Місто: {profile.get('city', '—')}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👇 <i>Натисніть кнопку нижче для обробки:</i>"
+        )
+        
+        admin_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ ПІДТВЕРДИТИ ОПЛАТУ", callback_data=f"adm_ok_{user.id}_{order_id}")],
+            [InlineKeyboardButton("❌ ВІДХИЛИТИ ЧЕК", callback_data=f"adm_no_{user.id}")]
+        ])
+        
+        try:
+            # Пересилаємо чек менеджеру
+            await context.bot.send_photo(
+                chat_id=MANAGER_ID,
+                photo=update.message.photo[-1].file_id,
+                caption=caption,
+                reply_markup=admin_kb,
+                parse_mode='HTML'
+            )
+            
+            # Атомарний запис у БД
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("""
+                    INSERT OR REPLACE INTO orders (order_id, user_id, amount, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (order_id, user.id, amount, 'pending', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                conn.commit()
+
+            await update.message.reply_text(
+                "✅ <b>Квитанцію отримано!</b>\n\n"
+                "Ваш платіж передано на перевірку. Менеджер підтвердить його протягом 5-15 хвилин.\n"
+                "Ви отримаєте сповіщення про зміну статусу замовлення.",
+                parse_mode='HTML'
+            )
+            context.user_data['state'] = None
+        except Exception as e:
+            logger.error(f"Forwarding receipt failed: {e}")
+            await update.message.reply_text("⚠️ Помилка надсилання. Спробуйте ще раз або напишіть менеджеру.")
+        return
+
+    # -----------------------------------------------------------
+    # 3. ТЕКСТОВА ЛОГІКА (FSM / PROMO / FALLBACKS)
+    # -----------------------------------------------------------
+    if raw_text:
+        # А) Режим збору даних (ПІБ, Телефон, Адреса)
         if state == "COLLECTING_DATA":
             await handle_data_input(update, context)
             return
             
-        # Б) Очікування промокоду
+        # Б) Пряме введення промокоду
         if context.user_data.get('awaiting_promo'):
             await process_promo(update, context)
             return
             
-        # В) АДМІН-РОЗСИЛКА (ТЕКСТ)
-        if state == "BROADCAST_MODE" and user.id == MANAGER_ID:
-            conn = sqlite3.connect(DB_PATH)
-            users = conn.execute("SELECT user_id FROM users").fetchall()
-            conn.close()
-            
-            sent, failed = 0, 0
-            progress_msg = await update.message.reply_text(f"🚀 Розсилаю текст...")
-            
-            for (uid,) in users:
-                try:
-                    await context.bot.send_message(chat_id=uid, text=text, parse_mode='HTML')
-                    sent += 1
-                    await asyncio.sleep(0.33)
-                except:
-                    failed += 1
-            
-            await progress_msg.edit_text(f"✅ <b>Текстова розсилка завершена!</b>\n📥 Успішно: {sent}\n❌ Помилок: {failed}")
-            context.user_data['state'] = None
-            return
-            
-        # Г) Пряме введення адреси (Fallback)
+        # В) Пряме введення адреси (якщо стан ввімкнено окремо)
         if state == "WAITING_ADDRESS":
-            context.user_data.setdefault('profile', {})['address_details'] = text
+            context.user_data.setdefault('profile', {})['address_details'] = raw_text
             context.user_data['state'] = None
-            await update.message.reply_text("✅ <b>Адресу зафіксовано!</b> Переходимо до фіналу...")
+            await update.message.reply_text("✅ <b>Адресу збережено!</b> Переходимо до фіналізації...")
             await checkout_init(update, context)
             return
-            
+
+        # Г) Ігноруємо просто текст, якщо немає активного стану (захист від спаму)
+        pass
             
 # =================================================================
 # 👮‍♂️ SECTION 25: ADMIN GOD-PANEL (MONITORING & FINANCIALS)
@@ -2259,44 +2253,19 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Головне меню GOD-MODE з показниками системи."""
     user = update.effective_user
-    if user.id != MANAGER_ID: return 
+    if user.id != MANAGER_ID:
+        return 
 
-async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка кнопок Підтвердити/Відхилити під чеком."""
-    query = update.callback_query
-    data = query.data
-    
-    # adm_ok_USERID_ORDERID
-    parts = data.split("_")
-    action = parts[1]
-    user_id = int(parts[2])
-    
-    if action == "ok":
-        order_id = parts[3]
-        # Оновлюємо статус
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.execute("UPDATE orders SET status='paid' WHERE order_id=?", (order_id,))
-            conn.commit()
-            conn.close()
-        except: pass
-        
-        await query.edit_message_caption(caption=query.message.caption + "\n\n✅ <b>ПІДТВЕРДЖЕНО</b>")
-        try: await context.bot.send_message(chat_id=user_id, text=f"🎉 <b>Замовлення #{order_id} прийнято!</b>\nЧекайте ТТН.")
-        except: pass
-        
-    elif action == "no":
-        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ <b>ВІДХИЛЕНО</b>")
-        try: await context.bot.send_message(chat_id=user_id, text="⚠️ <b>Оплата не підтверджена.</b> Пишіть менеджеру.")
-        except: pass
-            
-    
-    # Метрики
+    # 1. Розрахунок метрик
     ping = random.randint(12, 28) 
-    uptime_delta = datetime.now() - START_TIME
-    uptime_str = str(uptime_delta).split('.')[0]
+    # Розрахунок Uptime (START_TIME має бути ініціалізована в Section 4)
+    if 'START_TIME' in globals():
+        uptime_delta = datetime.now() - START_TIME
+        uptime_str = str(uptime_delta).split('.')[0]
+    else:
+        uptime_str = "Unknown"
     
-    # Кількість юзерів в базі (реальний онлайн в боті імітуємо через активні сесії)
+    # Кількість активних сесій у пам'яті
     active_sessions = len(context.application.user_data)
     cpu_load = random.randint(2, 7)
 
@@ -2304,12 +2273,12 @@ async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_T
         f"🕴️ <b>GHOSTY GOD-MODE v5.5</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"📡 <b>SYSTEM STATUS:</b>\n"
-        f"⏱ Пінг: <code>{ping}ms</code>\n"
-        f"🆙 Uptime: <code>{uptime_str}</code>\n"
-        f"📊 Завантаження: <code>{cpu_load}%</code>\n"
-        f"👥 Активних сесій: <code>{active_sessions}</code>\n"
+        f"⏱ Пінг системи: <code>{ping}ms</code>\n"
+        f"🆙 Uptime (час роботи): <code>{uptime_str}</code>\n"
+        f"📊 Навантаження CPU: <code>{cpu_load}%</code>\n"
+        f"👥 Сесій в пам'яті: <code>{active_sessions}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚡️ <b>КЕРУВАННЯ:</b>"
+        f"⚡️ <b>ПАНЕЛЬ КЕРУВАННЯ:</b>"
     )
     
     kb = [
@@ -2319,91 +2288,132 @@ async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("🔙 ВИХІД В МАГАЗИН", callback_data="menu_start")]
     ]
     
-    await send_ghosty_message(update, text, kb)
+    await _edit_or_reply(update, text, kb)
+
+async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка кнопок Підтвердити/Відхилити під квитанцією оплати."""
+    query = update.callback_query
+    data = query.data
+    
+    # Формат: adm_ok_USERID_ORDERID або adm_no_USERID
+    parts = data.split("_")
+    action = parts[1] # ok / no
+    user_id = int(parts[2])
+    
+    if action == "ok":
+        order_id = parts[3]
+        # Оновлюємо статус в БД
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("UPDATE orders SET status='paid' WHERE order_id=?", (order_id,))
+                conn.commit()
+            
+            # Редагуємо повідомлення в каналі менеджера
+            await query.edit_message_caption(
+                caption=query.message.caption + "\n\n✅ <b>ОПЛАТУ ПІДТВЕРДЖЕНО</b>",
+                parse_mode='HTML'
+            )
+            # Сповіщаємо клієнта
+            await context.bot.send_message(
+                chat_id=user_id, 
+                text=f"🎉 <b>Оплату отримано!</b>\nЗамовлення <code>#{order_id}</code> прийнято в роботу.\nЧекайте ТТН найближчим часом."
+            )
+        except Exception as e:
+            logger.error(f"Admin OK Error: {e}")
+        
+    elif action == "no":
+        await query.edit_message_caption(
+            caption=query.message.caption + "\n\n❌ <b>ВІДХИЛЕНО</b>",
+            parse_mode='HTML'
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=user_id, 
+                text="⚠️ <b>Ваша оплата не підтверджена.</b>\nБудь ласка, перевірте дані або зверніться до менеджера: @ghosstydp"
+            )
+        except: pass
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Розширена фінансова статистика."""
+    """Розширена фінансова статистика за тиждень."""
     query = update.callback_query
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        
-        # Рахуємо прибуток за 7 днів
-        cur.execute("SELECT SUM(amount) FROM orders WHERE status IN ('paid', 'confirmed') AND created_at >= date('now', '-7 days')")
-        revenue_7d = cur.fetchone()[0] or 0.0
-        
-        # Кількість замовлень
-        cur.execute("SELECT COUNT(*) FROM orders WHERE status IN ('paid', 'confirmed') AND created_at >= date('now', '-7 days')")
-        orders_count = cur.fetchone()[0]
-        
-        conn.close()
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            # Дохід за 7 днів
+            cur.execute("SELECT SUM(amount) FROM orders WHERE status='paid' AND created_at >= date('now', '-7 days')")
+            revenue_7d = cur.fetchone()[0] or 0.0
+            
+            # Кількість оплат
+            cur.execute("SELECT COUNT(*) FROM orders WHERE status='paid' AND created_at >= date('now', '-7 days')")
+            orders_count = cur.fetchone()[0]
         
         text = (
             f"💰 <b>ФІНАНСОВИЙ ЗВІТ (7 ДНІВ)</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"💵 Прибуток: <b>{revenue_7d:,.2f} UAH</b>\n"
-            f"📦 Замовлень підтверджено: <b>{orders_count}</b>\n"
+            f"📦 Оплат підтверджено: <b>{orders_count}</b>\n"
             f"📈 Середній чек: <b>{round(revenue_7d/orders_count, 2) if orders_count > 0 else 0} UAH</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💎 <i>Дані базуються на підтверджених оплатах.</i>"
+            f"💎 <i>Дані базуються на статусах 'paid' у базі.</i>"
         )
         await _edit_or_reply(query, text, [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
     except Exception as e:
-        await _edit_or_reply(query, f"❌ Помилка статистики: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
+        logger.error(f"Stats Error: {e}")
+        await _edit_or_reply(query, "❌ Помилка завантаження статистики", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
 
 async def admin_view_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Перегляд останніх клієнтів та їх статусів."""
+    """Перегляд останніх 10 клієнтів."""
     query_call = update.callback_query
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        
-        sql_query = """
-            SELECT u.username, u.user_id, u.phone, u.city, o.amount, o.status
-            FROM users u
-            LEFT JOIN orders o ON o.user_id = u.user_id 
-            AND o.created_at = (SELECT MAX(created_at) FROM orders WHERE user_id = u.user_id)
-            ORDER BY u.reg_date DESC LIMIT 10
-        """
-        cur.execute(sql_query)
-        users_data = cur.fetchall()
-        conn.close()
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            sql_query = """
+                SELECT u.username, u.user_id, u.phone, u.city, o.amount, o.status
+                FROM users u
+                LEFT JOIN orders o ON o.user_id = u.user_id 
+                AND o.created_at = (SELECT MAX(created_at) FROM orders WHERE user_id = u.user_id)
+                ORDER BY u.reg_date DESC LIMIT 10
+            """
+            cur.execute(sql_query)
+            users_data = cur.fetchall()
 
-        report = "👥 <b>БАЗА КЛІЄНТІВ (Останні 10):</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        report = "👥 <b>ОСТАННІ КЛІЄНТИ:</b>\n━━━━━━━━━━━━━━━━━━━━\n"
         for row in users_data:
             username, uid, phone, city, amount, status = row
-            st_icon = "✅" if status in ['paid', 'confirmed', '✅'] else "❌"
-            user_tag = f"@{username}" if username and username != "Hidden" else "No-User"
-            amt_display = f"<b>{amount}₴</b>" if amount else "0₴"
+            st_icon = "✅" if status == 'paid' else "⏳"
+            user_tag = f"@{username}" if username and username != "Hidden" else "Anon"
+            amt_display = f"{amount}₴" if amount else "—"
             
             report += (
                 f"👤 {user_tag} (<code>{uid}</code>)\n"
-                f"📞 {phone or '—'} | 🏙 {city or '—'}\n"
-                f"💰 {amt_display} | Оплата: {st_icon}\n"
+                f"📞 {phone or '—'} | {city or '—'}\n"
+                f"💰 Ост. замовлення: {amt_display} {st_icon}\n"
                 f"--------------------\n"
             )
 
         kb = [[InlineKeyboardButton("🔄 ОНОВИТИ", callback_data="admin_view_users")],
               [InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]]
+        
+        await _edit_or_reply(query_call, report, kb)
+    except Exception as e:
+        logger.error(f"View Users Error: {e}")
+        await _edit_or_reply(query_call, f"🆘 Помилка БД: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
 
-        async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Вмикає режим очікування контенту для розсилки."""
-    if update.effective_user.id != MANAGER_ID: return
+    if update.effective_user.id != MANAGER_ID: 
+        return
     
     context.user_data['state'] = "BROADCAST_MODE"
     text = (
         "📢 <b>РЕЖИМ МАСОВОЇ РОЗСИЛКИ</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "Надішліть повідомлення (текст, фото або відео).\n"
-        "Його отримають <b>УСІ</b> користувачі бази!"
+        "Надішліть повідомлення (текст, фото або відео).\n\n"
+        "<i>Його отримають УСІ користувачі, які колись запускали бота.</i>"
     )
     kb = [[InlineKeyboardButton("❌ СКАСУВАТИ", callback_data="admin_main")]]
     await _edit_or_reply(update, text, kb)
     
-        await _edit_or_reply(query_call, report, kb)
-    except Exception as e:
-        await _edit_or_reply(query_call, f"🆘 Помилка БД: {e}", [[InlineKeyboardButton("🔙 НАЗАД", callback_data="admin_main")]])
-        
         
 # =================================================================
 # ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 100% FIXED)
