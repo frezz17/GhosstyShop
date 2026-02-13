@@ -233,51 +233,30 @@ async def _edit_or_reply(target, text, kb=None):
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             logger.error(f"UI Error: {e}")
-
-def calculate_final_price(item_price, user_profile):
-    """
-    Математика замовлення: (Ціна - Бонус 101) * 0.65 (Знижка 35%).
-    """
-    try:
-        price = float(item_price)
-        is_vip = user_profile.get('is_vip', False)
-        bonus = user_profile.get('next_order_discount', 0) # Зазвичай 101
-        
-        discounted = False
-        if bonus > 0 and price > bonus:
-            price -= bonus
-            discounted = True
-        
-        if is_vip:
-            price *= 0.65
-            discounted = True
-            
-        return round(max(price, 10.0), 2), discounted
-    except:
-        return item_price, False
     
 # =================================================================
-# 🛠 SECTION 3: MATH & LOCATION ENGINE (PRO STABLE)
+# 🛠 SECTION 3: MATH & LOCATION ENGINE (PRO STABLE v5.3)
 # =================================================================
 
 def calculate_final_price(item_price, user_profile):
     """
-    Універсальна детермінована математика:
-    1. Перевірка типів та безпечне приведення до float.
-    2. Застосування фіксованого бонусу (напр. -101 грн), якщо ціна > (бонус + 10).
-    3. Застосування VIP-множника (знижка 35%), якщо статус активовано.
-    4. Встановлення ліміту «підлоги» ціни (мінімум 10.0 UAH).
+    Універсальне детерміноване ядро розрахунку ціни.
+    Логіка: ((Ціна - Промо) * VIP_Коефіцієнт) з лімітом 10 грн.
     """
     try:
+        # Гарантуємо, що працюємо з числом
         price = float(item_price)
-        is_vip = bool(user_profile.get('is_vip'))
-        # Отримуємо бонус (наприклад, від промокоду GHST2026)
-        bonus = float(user_profile.get('next_order_discount', 0))
+        # Отримуємо профілі безпечно (якщо None -> фолбек на {})
+        up = user_profile if user_profile else {}
+        
+        is_vip = bool(up.get('is_vip', False))
+        # Отримуємо бонус (наприклад, -101 грн за промокод GHST2026)
+        bonus = float(up.get('next_order_discount', 0))
         
         discounted = False
 
         # 1. Застосовуємо фіксований бонус (знижка в гривнях)
-        # Умова price > (bonus + 10) гарантує, що товар не стане безкоштовним
+        # Тільки якщо ціна дозволяє (захист від від'ємних значень)
         if bonus > 0 and price > (bonus + 10):
             price -= bonus
             discounted = True
@@ -287,66 +266,73 @@ def calculate_final_price(item_price, user_profile):
             price *= 0.65
             discounted = True
             
-        # 3. Фінальне округлення та перевірка ліміту 10 грн
+        # 3. Фінальний результат з округленням та нижньою межею 10 UAH
         final_val = round(max(price, 10.0), 2)
         
         return final_val, discounted
     except (ValueError, TypeError) as e:
-        # Логування помилки для дебагу (якщо logger ініціалізовано)
         if 'logger' in globals():
-            logger.error(f"❌ Math Error for price '{item_price}': {e}")
+            logger.error(f"❌ Critical Math Error: {e} for input '{item_price}'")
         return float(item_price) if isinstance(item_price, (int, float)) else 0.0, False
 
-# --- ЛОГІКА ЛОКАЦІЙ (GEOGRAPHY ENGINE) ---
+# --- ЛОГІКА ЛОКАЦІЙ (GEOGRAPHY INTERFACE) ---
 
 async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Головне меню вибору міста (11 міст України).
+    Головне меню вибору міста (10+ міст України).
     """
     target = update.callback_query if update.callback_query else update
     profile = context.user_data.setdefault("profile", {})
     
+    # Очищуємо стан для стабільності FSM
+    context.user_data['state'] = "COLLECTING_DATA"
+    context.user_data.setdefault('data_flow', {})['step'] = 'city_selection'
+    
+    current_city = profile.get("city", "Не обрано")
+
     text = (
         "📍 <b>ОБЕРІТЬ ВАШЕ МІСТО</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "Ми працюємо у найбільших містах та Кам'янському.\n"
-        "Оберіть локацію, щоб побачити доступні райони 👇"
+        f"Поточна локація: <b>{current_city}</b>\n\n"
+        "Ми працюємо у найбільших хабах України.\n"
+        "Оберіть місто для перегляду районів 👇"
     )
 
     keyboard = []
-    # UKRAINE_CITIES має бути визначена в Section 4
+    # UKRAINE_CITIES ініціалізована в Section 4
     cities = list(UKRAINE_CITIES.keys()) if 'UKRAINE_CITIES' in globals() else []
     
-    # Генерація кнопок (по 2 в ряд)
+    # Генерація кнопок (по 2 в ряд для компактності)
     for i in range(0, len(cities), 2):
         row = [InlineKeyboardButton(cities[i], callback_data=f"sel_city_{cities[i]}")]
         if i + 1 < len(cities):
             row.append(InlineKeyboardButton(cities[i+1], callback_data=f"sel_city_{cities[i+1]}"))
         keyboard.append(row)
     
-    keyboard.append([InlineKeyboardButton("👤 Перейти в профіль", callback_data="menu_profile")])
+    keyboard.append([InlineKeyboardButton("👤 Мій Кабінет", callback_data="menu_profile"),
+                     InlineKeyboardButton("🏠 В Меню", callback_data="menu_start")])
     
+    # Використовуємо універсальний UI-міст
     await _edit_or_reply(target, text, keyboard)
 
 async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Спеціальний хаб для Дніпра: вибір між кладом та кур'єром.
+    Спеціальний хаб для Дніпра: вибір методу доставки.
     """
     query = update.callback_query
-    # Фіксуємо вибір міста в профілі користувача
     context.user_data.setdefault("profile", {})["city"] = "Дніпро"
     
     text = (
         "🏙 <b>ДНІПРО: СПОСІБ ОТРИМАННЯ</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "1️⃣ <b>Район (Клад)</b> — магніт/прикоп у вашому районі.\n"
-        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка прямо в руки.\n\n"
-        "👇 Оберіть варіант:"
+        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка прямо до дверей.\n\n"
+        "👇 Що обираєте?"
     )
     
     kb = [
-        [InlineKeyboardButton("📍 Обрати район (Клад)", callback_data="sel_city_Дніпро_districts")],
-        [InlineKeyboardButton("🛵 Кур'єрська доставка (+150 грн)", callback_data="set_del_type_courier")],
+        [InlineKeyboardButton("📍 Обрати район (Клад)", callback_data="sel_dist_Dnipro_Klad")], # Веде до списку районів
+        [InlineKeyboardButton("🛵 Кур'єрська доставка (+150 грн)", callback_data="sel_dist_Кур'єр")],
         [InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")]
     ]
     await _edit_or_reply(query, text, kb)
@@ -356,20 +342,19 @@ async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYP
     Динамічне меню вибору району на основі обраного міста.
     """
     query = update.callback_query
-    # Зберігаємо обране місто в профіль
+    # Фіксуємо місто в сесії
     context.user_data.setdefault("profile", {})["city"] = city
     
-    # Отримуємо райони з глобального словника
-    districts = UKRAINE_CITIES.get(city, []) if 'UKRAINE_CITIES' in globals() else []
+    districts = UKRAINE_CITIES.get(city, [])
     
     if not districts:
-        await query.answer("⚠️ Райони для цього міста наразі недоступні", show_alert=True)
+        await query.answer("⚠️ Райони для цього міста ще завантажуються...", show_alert=True)
         return
 
     text = (
         f"🏙 <b>{city.upper()}: ОБЕРІТЬ РАЙОН</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Оберіть локацію, де вам найзручніше отримати замовлення 👇"
+        f"Оберіть локацію, де вам найзручніше отримати стафф 👇"
     )
     
     keyboard = []
@@ -380,10 +365,9 @@ async def choose_district_menu(update: Update, context: ContextTypes.DEFAULT_TYP
             row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
         keyboard.append(row)
         
-    keyboard.append([InlineKeyboardButton("⬅️ Назад до міст", callback_data="choose_city")])
+    keyboard.append([InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")])
     
     await _edit_or_reply(query, text, keyboard)
-    
 
 # =================================================================
 # 🛍 SECTION 3: ТОВАРНА БАЗА (FIXED SYNTAX & COLORS)
@@ -659,73 +643,97 @@ TERMS_TEXT = (
 
 
 # =================================================================
-# ⚙️ SECTION 4: DATABASE & AUTH (SQL FIXED)
+# ⚙️ SECTION 4: DATABASE & AUTH (ULTIMATE PRO EDITION)
 # =================================================================
 
 def init_db():
-    """Synchronous initialization for safe startup execution."""
+    """
+    Synchronous schema initialization. 
+    Ensures all tables exist before the first update is processed.
+    """
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY, 
-                username TEXT, 
-                full_name TEXT,
-                city TEXT, 
-                district TEXT, 
-                phone TEXT, 
-                is_vip INTEGER DEFAULT 0, 
-                vip_expiry TEXT,
-                promo_applied INTEGER DEFAULT 0,
-                address_details TEXT,
-                reg_date TEXT
-            )
-        ''')
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS orders (
-                order_id TEXT PRIMARY KEY,
-                user_id INTEGER,
-                amount REAL,
-                status TEXT,
-                created_at TEXT
-            )
-        ''')
-        conn.commit()
-        conn.close()
-        logger.info("✅ Database schema verified.")
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            # 1. Unified Users Table
+            # Added 'next_order_discount' to persist bonuses in SQL
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id INTEGER PRIMARY KEY, 
+                    username TEXT, 
+                    full_name TEXT,
+                    city TEXT, 
+                    district TEXT, 
+                    phone TEXT, 
+                    is_vip INTEGER DEFAULT 0, 
+                    vip_expiry TEXT,
+                    promo_applied INTEGER DEFAULT 0,
+                    next_order_discount REAL DEFAULT 0,
+                    address_details TEXT,
+                    reg_date TEXT
+                )
+            ''')
+            # 2. Orders Table
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS orders (
+                    order_id TEXT PRIMARY KEY,
+                    user_id INTEGER,
+                    amount REAL,
+                    status TEXT,
+                    created_at TEXT
+                )
+            ''')
+            conn.commit()
+            logger.info("✅ Database schema synchronized with SQL Engine.")
     except Exception as e:
-        logger.critical(f"❌ DB INIT FATAL: {e}")
-        
+        logger.critical(f"❌ DB SCHEMA FATAL: {e}")
+
 async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Ensures profile existence in context and provides DB persistence sync."""
+    """
+    Ensures profile existence in memory and synchronizes with SQLite backend.
+    """
     user = update.effective_user
+    # 1. Memory Cache Check (Performance)
     if 'profile' not in context.user_data:
         context.user_data['profile'] = {
             "uid": user.id,
             "username": f"@{user.username}" if user.username else "Hidden",
             "full_name": None, "phone": None, "city": None, "district": None,
             "address_details": None, "is_vip": False, "vip_expiry": None,
-            "next_order_discount": 0, "promo_applied": False
+            "next_order_discount": 0.0, "promo_applied": False
         }
     
-    # DB Persistence check
+    # 2. Database Synchronization
     try:
-        conn = sqlite3.connect(DB_PATH)
-        row = conn.execute("SELECT is_vip, vip_expiry FROM users WHERE user_id=?", (user.id,)).fetchone()
-        if not row:
-            conn.execute("INSERT INTO users (user_id, username, reg_date) VALUES (?, ?, ?)",
-                         (user.id, user.username, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-            conn.commit()
-        elif row[0]: # If VIP in DB, sync to context
-            context.user_data['profile']['is_vip'] = bool(row[0])
-            context.user_data['profile']['vip_expiry'] = row[1]
-        conn.close()
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row # Use dict-like access
+            row = conn.execute("SELECT * FROM users WHERE user_id=?", (user.id,)).fetchone()
+            
+            if not row:
+                # Register new user in SQL
+                reg_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                conn.execute("""
+                    INSERT INTO users (user_id, username, reg_date) 
+                    VALUES (?, ?, ?)
+                """, (user.id, user.username, reg_time))
+                conn.commit()
+            else:
+                # Sync physical DB state to memory (Context)
+                p = context.user_data['profile']
+                p['is_vip'] = bool(row['is_vip'])
+                p['vip_expiry'] = row['vip_expiry']
+                p['next_order_discount'] = float(row['next_order_discount'] or 0)
+                p['promo_applied'] = bool(row['promo_applied'])
+                p['full_name'] = row['full_name']
+                p['phone'] = row['phone']
+                p['city'] = row['city']
+                p['district'] = row['district']
+                p['address_details'] = row['address_details']
+                
     except Exception as e:
-        logger.error(f"DB Sync Error: {e}")
+        logger.error(f"DB Synchronization Failure: {e}")
         
     return context.user_data['profile']
-
+    
 # =================================================================
 # 🛍 SECTION 14: CATALOG MASTER ENGINE (PRO UI)
 # =================================================================
@@ -880,33 +888,45 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if 'cart' not in context.user_data:
         context.user_data['cart'] = []
 
-    # 2. Синхронізація з БД (SQLite)
+# 2. Синхронізація з БД (SQLite) з відновленням даних
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # Перевіряємо, чи існує юзер
-        cursor.execute("SELECT * FROM users WHERE user_id = ?", (user.id,))
-        row = cursor.fetchone()
-        
-        if not row:
-            # Створюємо нового юзера
-            cursor.execute("""
-                INSERT INTO users (user_id, username, full_name, reg_date)
-                VALUES (?, ?, ?, ?)
-            """, (user.id, user.username, user.full_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-            conn.commit()
-            logger.info(f"🆕 NEW USER REGISTERED: {user.id}")
-        else:
-            # (Опціонально) Можна підтягнути дані з БД в profile, якщо бот перезавантажувався
-            # Але поки що покладаємось на PicklePersistence
-            pass
+        # Використовуємо контекстний менеджер 'with' — це надійніше, ніж conn.close() вручну
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row # Дозволяє звертатися до колонок за назвами: row['is_vip']
+            cursor = conn.cursor()
             
-        conn.close()
+            # Шукаємо юзера в базі
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user.id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                # РЕЄСТРАЦІЯ НОВОГО ЮЗЕРА
+                reg_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute("""
+                    INSERT INTO users (user_id, username, full_name, reg_date, is_vip)
+                    VALUES (?, ?, ?, ?, 0)
+                """, (user.id, user.username, user.full_name, reg_date))
+                conn.commit()
+                logger.info(f"🆕 NEW USER REGISTERED: {user.id}")
+            else:
+                # ВІДНОВЛЕННЯ ДАНИХ (Гідратація)
+                # Якщо юзер є в базі, ми оновлюємо profile в пам'яті актуальними даними
+                p = context.user_data['profile']
+                p['is_vip'] = bool(row['is_vip'])
+                p['vip_expiry'] = row['vip_expiry']
+                p['city'] = row['city']
+                p['district'] = row['district']
+                p['phone'] = row['phone']
+                p['address_details'] = row['address_details']
+                # Важливо для фінансів:
+                p['next_order_discount'] = float(row.get('next_order_discount', 0) or 0)
+                p['promo_applied'] = bool(row.get('promo_applied', 0))
+
     except Exception as e:
-        logger.error(f"DB Registration Error: {e}")
+        logger.error(f"❌ DB Sync Critical Error: {e}")
 
     return context.user_data['profile']
+    
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -931,15 +951,23 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'promo_applied': True
         })
         
-        # 🔥 ВАЖЛИВО: Оновлюємо статус в БД, щоб не злетіло
+# 🔥 ВАЖЛИВО: Оновлюємо ПОВНИЙ статус у базі (VIP + Бонус + Прапорець)
         try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.execute("UPDATE users SET is_vip=1, vip_expiry=? WHERE user_id=?", (expiry_date, user.id))
-            conn.commit()
-            conn.close()
+            # Використовуємо 'with' для автоматичного закриття з'єднання
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("""
+                    UPDATE users 
+                    SET is_vip = 1, 
+                        vip_expiry = ?, 
+                        next_order_discount = ?, 
+                        promo_applied = 1 
+                    WHERE user_id = ?
+                """, (expiry_date, 101.0, user.id))
+                conn.commit()
+                logger.info(f"💎 VIP & Bonus (101 UAH) saved for user {user.id}")
         except Exception as e:
-            logger.error(f"DB Bonus Save Error: {e}")
-
+            logger.error(f"❌ DB Bonus Save Error: {e}")
+            
     # Формуємо текст
     # Використовуємо html.escape для безпеки (якщо у юзера в імені є < або >)
     safe_name = escape(user.first_name)
@@ -1015,31 +1043,6 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =================================================================
 # 🛠 SECTION 7: CORE UTILITIES (ULTIMATE EDITION - v4.0 PRO)
 # =================================================================
-
-def calculate_final_price(item_price, user_profile):
-    """
-    Singleton Pricing Engine.
-    Formula: P_final = max((P_base - Bonus) * (1 - Discount), 10.0)
-    """
-    try:
-        price = float(item_price)
-        is_vip = bool(user_profile.get('is_vip'))
-        bonus = float(user_profile.get('next_order_discount', 0))
-        
-        discounted = False
-        # Apply fixed promo bonus (e.g., -101 UAH)
-        if bonus > 0 and price > (bonus + 10):
-            price -= bonus
-            discounted = True
-        
-        # Apply VIP percentage discount (-35%)
-        if is_vip:
-            price *= 0.65
-            discounted = True
-            
-        return round(max(price, 10.0), 2), discounted
-    except (ValueError, TypeError):
-        return item_price, False
 
 def get_item_data(item_id):
     """
@@ -1330,17 +1333,29 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
         status_emoji = "🟡"
         load_text = "Приймаємо попередні замовлення на ранок."
 
-    # 3. Збереження в SQLite (Надійно)
+    # 3. Збереження в SQLite (Надійно та Атомарно)
     try:
-        conn = sqlite3.connect(DB_PATH)
-        # Використовуємо INSERT OR IGNORE на випадок, якщо юзера ще немає, потім UPDATE
-        # Або простіше: UPDATE і перевірка
-        conn.execute("UPDATE users SET city = ?, district = ? WHERE user_id = ?", 
-                     (profile.get("city"), profile.get("district"), user.id))
-        conn.commit()
-        conn.close()
+        # Використовуємо 'with' для автоматичного закриття з'єднання та коміту
+        with sqlite3.connect(DB_PATH) as conn:
+            # Оновлюємо дані локації для існуючого юзера
+            # Схема таблиці 'users' включає city та district
+            conn.execute("""
+                UPDATE users 
+                SET city = ?, 
+                    district = ?,
+                    address_details = ?
+                WHERE user_id = ?
+            """, (
+                profile.get("city"), 
+                profile.get("district"), 
+                profile.get("address_details"), 
+                user.id
+            ))
+            conn.commit()
+            logger.info(f"📍 Location updated in DB for user {user.id}: {profile.get('city')}")
     except Exception as e:
-        logger.error(f"DB Location Save Error: {e}")
+        logger.error(f"❌ DB Location Save Error: {e}")
+        
 
     # 4. РОЗУМНА НАВІГАЦІЯ (Smart Buttons)
     cart = context.user_data.get('cart', [])
@@ -2541,52 +2556,95 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 🚀 SECTION 31: ENGINE STARTUP (FINAL PRODUCTION)
 # =================================================================
 
+async def post_init(application: Application) -> None:
+    """
+    Функція, що виконується ОДРАЗУ після запуску бота.
+    Надсилає менеджеру сповіщення, що система онлайн.
+    """
+    try:
+        # Сповіщення в Telegram для адміна
+        await application.bot.send_message(
+            chat_id=MANAGER_ID,
+            text=f"🚀 <b>GHO$$TY ENGINE ONLINE</b>\n"
+                 f"━━━━━━━━━━━━━━━━━━━━\n"
+                 f"✅ Система успішно запущена\n"
+                 f"🕒 Час: {datetime.now().strftime('%H:%M:%S')}\n"
+                 f"🛡 Статус: <b>STABLE v5.2.2</b>",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        logger.error(f"Post-init notification failed: {e}")
+
 def main():
-    # Перевірка токена
+    """
+    Головна точка входу. СУВОРИЙ порядок реєстрації та діагностики.
+    """
+    # 1. Попередня перевірка конфігурації
     if not TOKEN or "ВСТАВ" in TOKEN:
-        print("❌ FATAL: Bot token is missing!"); sys.exit(1)
+        print("❌ FATAL ERROR: Bot token is missing or invalid!"); sys.exit(1)
         
-    # Ініціалізація БД
-    init_db()
+    # 2. Ініціалізація архітектури (БД та Директорії)
+    init_db() #
     
-    # Створення додатку
+    # 3. Налаштування Persistence (Збереження станів)
+    persistence = PicklePersistence(filepath=PERSISTENCE_PATH) #
+    
+    # 4. Побудова додатку через Builder (v20.x+)
     app = (
         Application.builder()
         .token(TOKEN)
-        .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
+        .persistence(persistence)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
+        .post_init(post_init) # Реєструємо автоматичне сповіщення про запуск
         .build()
     )
 
-    # Реєстрація хендлерів (СУВОРИЙ ПОРЯДОК)
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("admin", admin_menu))
+    # 5. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (ПОРЯДОК КРИТИЧНО ВАЖЛИВИЙ)
+    # Команди (Найвищий пріоритет)
+    app.add_handler(CommandHandler("start", start_command)) #
+    app.add_handler(CommandHandler("admin", admin_menu)) #
     
-    # CallbackQueryHandler (Кнопки)
-    app.add_handler(CallbackQueryHandler(global_callback_handler))
+    # Кнопки (Callback Queries)
+    app.add_handler(CallbackQueryHandler(global_callback_handler)) #
     
-    # MessageHandler (Текст і Фото) - МАЄ БУТИ ОСТАННІМ
+    # Текст, Фото, Відео (MessageHandler) - МАЄ БУТИ ОСТАННІМ
+    # Обробляє FSM (збір даних), Чеки та Розсилки
     app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO) & (~filters.COMMAND), 
-        handle_user_input
+        (filters.TEXT | filters.PHOTO | filters.VIDEO) & (~filters.COMMAND), 
+        handle_user_input #
     ))
     
-    # Обробка помилок
-    app.add_error_handler(error_handler)
+    # Глобальний обробник помилок (Error Shield)
+    app.add_error_handler(error_handler) #
     
+    # 6. ВІЗУАЛЬНА ДІАГНОСТИКА В КОНСОЛІ (BotHost Logging)
+    token_masked = f"{TOKEN[:6]}...{TOKEN[-4:]}"
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🚀 GHOSTY STAFF: ENGINE ONLINE (24/7)")
-    print("✅ STATUS: STABLE | ADMIN ALERTS ACTIVE")
+    print(f"🌫️  GHO$$TY STAFF PREMIUM ENGINE v5.2.2")
+    print(f"📡  STATUS:  [ ONLINE ]")
+    print(f"🔑  TOKEN:   {token_masked}")
+    print(f"📁  DB PATH: {DB_PATH}")
+    print(f"💾  STATE:   {PERSISTENCE_PATH}")
+    print(f"👮‍♂️  ADMIN:   ID:{MANAGER_ID} (@{MANAGER_USERNAME})")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("🚀  POLLING STARTED: WAITING FOR UPDATES...")
     
-    # drop_pending_updates=True обов'язково для Webhook Conflict Fix
+    # 7. ЗАПУСК ПОЛЛІНГУ
+    # drop_pending_updates=True ігнорує старі повідомлення, щоб бот не спамив при старті
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
+    # Ініціалізуємо START_TIME в самому верху для адмін-панелі
+    # Якщо воно не ініціалізоване в глобальному просторі
+    if 'START_TIME' not in globals():
+        START_TIME = datetime.now() #
+
     try:
         main()
     except KeyboardInterrupt:
+        print("\n🛑 System stopped by Administrator.")
         sys.exit(0)
-    except Exception:
+    except Exception as fatal_e:
+        print(f"❌ CRITICAL CRASH: {fatal_e}")
         traceback.print_exc()
         sys.exit(1)
