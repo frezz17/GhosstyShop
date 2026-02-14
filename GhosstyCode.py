@@ -758,38 +758,40 @@ TERMS_TEXT = (
 
 
 # =================================================================
-# ⚙️ SECTION 4: DATABASE & AUTH (ULTIMATE PRO EDITION)
+# ⚙️ SECTION 4: DATABASE & AUTH CORE (TITAN PRO v10.0)
 # =================================================================
 
 def init_db():
     """
-    Synchronous schema initialization (Self-Healing).
-    Creates tables safely and adds missing columns if needed.
+    Ініціалізація бази даних (Self-Healing).
+    Створює таблиці та перевіряє структуру при кожному запуску.
     """
     try:
         # Timeout 20 is critical for BotHost shared storage
         with sqlite3.connect(DB_PATH, timeout=20) as conn:
             cur = conn.cursor()
             
-            # 1. Users Table (Core Profile)
+            # 1. Таблиця Користувачів (Users)
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY, 
                     username TEXT, 
                     full_name TEXT,
+                    phone TEXT, 
                     city TEXT, 
                     district TEXT, 
-                    phone TEXT, 
+                    address_details TEXT,
                     is_vip INTEGER DEFAULT 0, 
                     vip_expiry TEXT,
                     promo_applied INTEGER DEFAULT 0,
                     next_order_discount REAL DEFAULT 0,
-                    address_details TEXT,
-                    reg_date TEXT
+                    reg_date TEXT,
+                    balance REAL DEFAULT 0,
+                    joined_date TEXT
                 )
             ''')
             
-            # 2. Orders Table (Financials)
+            # 2. Таблиця Замовлень (Orders)
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS orders (
                     order_id TEXT PRIMARY KEY,
@@ -809,20 +811,19 @@ def init_db():
 
 async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Smart Profile Manager:
-    1. Checks memory cache (fastest).
-    2. Syncs with SQLite (persistent).
-    3. Creates new user if missing.
+    Розумний менеджер профілю:
+    1. Перевіряє кеш (швидко).
+    2. Синхронізує з БД (надійно).
+    3. Реєструє нового, якщо немає.
     """
     user = update.effective_user
     
-    # 1. Initialize Memory Cache (Context)
-    # This ensures no KeyErrors during runtime
+    # 1. Ініціалізація пам'яті (Кеш)
     if 'profile' not in context.user_data:
         context.user_data['profile'] = {
             "uid": user.id,
             "username": f"@{user.username}" if user.username else "Hidden",
-            "full_name": user.full_name, # Default telegram name
+            "full_name": user.full_name, # Ім'я з Telegram за замовчуванням
             "phone": None, 
             "city": None, 
             "district": None,
@@ -833,23 +834,22 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "promo_applied": False
         }
     
-    # Ensure cart exists
+    # Гарантуємо наявність кошика
     if 'cart' not in context.user_data:
         context.user_data['cart'] = []
 
-    # 2. Database Synchronization (Hydration)
+    # 2. Синхронізація з БД (Гідратація)
     try:
         with sqlite3.connect(DB_PATH, timeout=20) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            # Fetch user data
+            # Шукаємо юзера
             row = cursor.execute("SELECT * FROM users WHERE user_id=?", (user.id,)).fetchone()
             
             if not row:
-                # REGISTER NEW USER
+                # РЕЄСТРАЦІЯ НОВОГО
                 reg_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # We save basic telegram info immediately
                 cursor.execute("""
                     INSERT INTO users (user_id, username, full_name, reg_date, is_vip, next_order_discount, promo_applied) 
                     VALUES (?, ?, ?, ?, 0, 0, 0)
@@ -857,15 +857,15 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 conn.commit()
                 logger.info(f"🆕 New User Registered: {user.id}")
             else:
-                # HYDRATE MEMORY FROM DB
-                # This restores the user's progress after bot restart
+                # ВІДНОВЛЕННЯ ДАНИХ З БД
                 p = context.user_data['profile']
                 p['is_vip'] = bool(row['is_vip'])
                 p['vip_expiry'] = row['vip_expiry']
-                p['next_order_discount'] = float(row['next_order_discount'] or 0)
+                # Безпечне перетворення float
+                p['next_order_discount'] = float(row['next_order_discount']) if row['next_order_discount'] is not None else 0.0
                 p['promo_applied'] = bool(row['promo_applied'])
                 
-                # Restore personal data if it exists in DB (priority over telegram default)
+                # Відновлюємо особисті дані, якщо вони є в базі (пріоритет над Telegram)
                 if row['full_name']: p['full_name'] = row['full_name']
                 if row['phone']: p['phone'] = row['phone']
                 if row['city']: p['city'] = row['city']
@@ -876,6 +876,7 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logger.error(f"❌ DB Sync Failure: {e}")
         
     return context.user_data['profile']
+    
     
     
 # =================================================================
@@ -994,371 +995,152 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     
 # =================================================================
-# 🔍 SECTION 15: PRODUCT CARD & COLOR SELECTION (PRO 2026)
+# 🔍 SECTION 15: PRODUCT CARD & INTERACTIVE COLOR ENGINE (TITAN ULTIMATE v9.0)
 # =================================================================
 
 async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
     """
-    Картка товару: Фото, Опис, Динамічна наявність, Ціна та Кнопки.
-    Виправлено: передача контексту та логіка ажіотажу.
+    Точка входу в картку товару.
+    Скидає попередній вибір кольору та відображає картку.
     """
-    # 1. Отримуємо дані
+    # 1. Отримуємо дані про товар
     item = get_item_data(item_id)
-    if not item: 
+    if not item:
         if update.callback_query:
-            await update.callback_query.answer("❌ Товар не знайдено", show_alert=True)
+            await update.callback_query.answer("❌ Товар не знайдено або видалено.", show_alert=True)
         return
 
-    profile = context.user_data.get("profile", {})
-    # Розрахунок ціни через ядро (Section 3)
-    final_price, has_discount = calculate_final_price(item['price'], profile)
+    # 2. Скидаємо вибір кольору при першому відкритті
+    context.user_data['selected_color'] = None
     
-    # 2. ДИНАМІЧНА ЛОГІКА НАЯВНОСТІ (Під ліміт 15 шт)
-    stock = item.get('stock', 0)
-    
-    if stock >= 10:
-        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
-    elif 5 <= stock < 10:
-        stock_status = f"🟡 <b>Закінчується</b> (лишилось {stock})"
-    elif 1 <= stock < 5:
-        stock_status = f"🟠 <b>Встигни забрати!</b> (тільки {stock})"
-    else:
-        stock_status = f"🔴 <b>Тимчасово відсутній</b>"
+    # 3. Рендеримо картку (перший запуск)
+    # ПЕРЕДАЄМО item_id ЯВНО!
+    await render_product_card(update, context, item, item_id, item['img'])
 
-    # 3. ФОРМУВАННЯ ЦІННИКА
+
+async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE, item: dict, item_id: int, current_photo: str):
+    """
+    Ядро відображення. Викликається при старті та при кліку на колір.
+    """
+    profile = context.user_data.get("profile", {})
+    
+    # --- ЛОГІКА ЦІНИ ---
+    # Перевірка наявності функції знижок
+    if 'calculate_final_price' in globals():
+        final_price, has_discount = calculate_final_price(item['price'], profile)
+    else:
+        final_price, has_discount = item['price'], False
+
     price_html = f"<b>{int(item['price'])} ₴</b>"
     if has_discount:
         price_html = f"<s>{int(item['price'])}</s> 🔥 <b>{final_price:.0f} ₴</b>"
 
-    # 4. ФОРМУВАННЯ ТЕКСТУ КАРТКИ (HTML Safety)
+    # --- ЛОГІКА СКЛАДУ ---
+    stock = item.get('stock', 0)
+    if stock >= 10: 
+        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
+    elif 1 <= stock < 10: 
+        stock_status = f"🟡 <b>Закінчується</b> ({stock})"
+    else: 
+        stock_status = "🔴 <b>Немає в наявності</b>"
+
+    # --- ЛОГІКА КОЛЬОРУ ---
+    selected_color = context.user_data.get('selected_color')
+    color_text = f"\n🎨 Колір: <b>{selected_color}</b>" if selected_color else ""
+
+    # --- ЗБІРКА ОПИСУ ---
     safe_name = escape(item['name'])
+    desc = item.get('desc', 'Опис оновлюється...')
+    
     caption = (
         f"🛍 <b>{safe_name}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📦 Стан: {stock_status}\n"
+        f"📦 {stock_status}\n"
+        f"💰 Ціна: {price_html}{color_text}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{item.get('desc', 'Опис оновлюється...')}\n\n"
-        f"💰 Ціна: {price_html}"
+        f"{desc}"
     )
 
-    keyboard = []
+    kb = []
     
-    # 5. ЛОГІКА КНОПОК
+    # 1. ГЕНЕРАЦІЯ КНОПОК КОЛЬОРІВ (Якщо вони є)
+    if stock > 0 and "colors" in item and item["colors"]:
+        colors = item["colors"]
+        row = []
+        for col in colors:
+            # Якщо цей колір обрано -> ставимо галочку і блокуємо повторний клік
+            if col == selected_color:
+                btn_text = f"✅ {col}"
+                cb_data = "ignore_click" 
+            else:
+                btn_text = col
+                # Формат: sel_col_ID_COLORName (використовуємо item_id з аргументів)
+                cb_data = f"sel_col_{item_id}_{col}" 
+            
+            row.append(InlineKeyboardButton(btn_text, callback_data=cb_data))
+            
+            # Розбиваємо по 2 кнопки в ряд для краси
+            if len(row) == 2:
+                kb.append(row)
+                row = []
+        if row: kb.append(row)
+
+    # 2. КНОПКИ ДІЇ (Купити / Швидко / Менеджер)
     if stock > 0:
-        # А) Якщо є кольори — ведемо на меню кольорів
-        if "colors" in item and item["colors"]:
-            main_btn_text = "🎨 ОБРАТИ КОЛІР ТА КУПИТИ"
-            main_btn_callback = f"sel_col_{item_id}"
+        # Сценарій А: Є кольори, але жоден не обрано
+        if "colors" in item and item["colors"] and not selected_color:
+            kb.append([InlineKeyboardButton("👆 ОБЕРІТЬ КОЛІР ВИЩЕ 👆", callback_data="ignore_click")])
         
-        # Б) Якщо це Vape/Pod без кольорів -> пропонуємо бонуси
+        # Сценарій Б: Колір обрано АБО товар без кольорів
         else:
-            # Логіка бонусів (Section 19): HHC (ID < 300) отримують рідину
-            has_bonus = item_id < 300 or item.get("gift_liquid")
-            main_btn_text = "🎁 ОБРАТИ БОНУС ТА КУПИТИ" if has_bonus else "🛒 ДОДАТИ В КОШИК"
-            main_btn_callback = f"add_{item_id}"
-        
-        keyboard.append([InlineKeyboardButton(main_btn_text, callback_data=main_btn_callback)])
+            # Формуємо текст кнопки
+            buy_text = f"🛒 КУПИТИ {selected_color.upper()}" if selected_color else "🛒 ДОДАТИ В КОШИК"
+            
+            # Формуємо дані для кошика (Cart Handler)
+            cart_cb = f"add_{item_id}_col_{selected_color}" if selected_color else f"add_{item_id}"
+            kb.append([InlineKeyboardButton(buy_text, callback_data=cart_cb)])
+            
+            # ШВИДКІ ДІЇ (Передаємо колір у колбеку!)
+            fast_cb = f"fast_order_{item_id}_{selected_color}" if selected_color else f"fast_order_{item_id}"
+            mgr_cb = f"mgr_pre_{item_id}_{selected_color}" if selected_color else f"mgr_pre_{item_id}"
+            
+            kb.append([
+                InlineKeyboardButton("⚡ ШВИДКО", callback_data=fast_cb),
+                InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", callback_data=mgr_cb)
+            ])
+            
     else:
-        # В) Товар закінчився
-        keyboard.append([InlineKeyboardButton("🔔 ПОВІДОМИТИ ПРО НАЯВНІСТЬ", callback_data=f"notify_stock_{item_id}")])
+        # Якщо товару немає -> кнопка сповіщення
+        kb.append([InlineKeyboardButton("🔔 ПОВІДОМИТИ ПРО НАЯВНІСТЬ", callback_data=f"notify_{item_id}")])
 
-    # Швидкі дії та навігація
-    keyboard.append([
-        InlineKeyboardButton("⚡ ШВИДКО", callback_data=f"fast_order_{item_id}"),
-        InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", callback_data=f"mgr_pre_{item_id}")
-    ])
-    
-    nav_row = []
-    if not profile.get("city"):
-        nav_row.append(InlineKeyboardButton("📍 Обрати місто", callback_data="choose_city"))
-    
-    nav_row.append(InlineKeyboardButton("🔙 Каталог", callback_data="cat_all"))
-    keyboard.append(nav_row)
+    # 3. НАВІГАЦІЯ
+    kb.append([InlineKeyboardButton("🔙 До каталогу", callback_data="cat_all")])
 
-    # ВІДПРАВКА: Обов'язково передаємо context!
-    await send_ghosty_message(update, caption, keyboard, photo=item.get('img'), context=context)
+    # 4. ВІДПРАВКА (Через розумний рушій Section 2)
+    # Він сам змінить фото (edit_message_media), якщо current_photo відрізняється від старого
+    await send_ghosty_message(update, caption, kb, photo=current_photo, context=context)
 
 
-async def show_color_selection(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
+async def handle_color_selection_click(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int, color_name: str):
     """
-    Ексклюзивне меню кольорів.
-    Виправлено: коректна обробка HTML та context.
+    Обробляє клік по кольору: змінює фото та оновлює галочки.
     """
-    query = update.callback_query
     item = get_item_data(item_id)
     if not item: return
 
-    colors = item.get("colors", [])
+    # 1. Зберігаємо вибір користувача
+    context.user_data['selected_color'] = color_name
+    
+    # 2. Шукаємо фото для цього кольору
+    # Якщо в color_previews є фото для цього кольору -> беремо його
+    # Інакше -> залишаємо головне фото товару
     previews = item.get("color_previews", {})
+    new_photo = previews.get(color_name, item['img'])
     
-    # Заголовок
-    text = (
-        f"🎨 <b>ОБЕРІТЬ КОЛІР: {escape(item['name'])}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Натисніть на посилання, щоб глянути фото:\n\n"
-    )
-
-    # Список кольорів з посиланнями
-    for color in colors:
-        photo_url = previews.get(color, item.get('img'))
-        if photo_url:
-            text += f"🔹 {color} — <a href='{photo_url}'>[ДИВИТИСЬ ФОТО]</a>\n"
-        else:
-            text += f"🔹 {color}\n"
-
-    text += "\n👇 <b>Натисніть кнопку для вибору:</b>"
-
-    keyboard = []
-    # Кнопки кольорів по 2 в ряд
-    for i in range(0, len(colors), 2):
-        row = [InlineKeyboardButton(f"✨ {colors[i]}", callback_data=f"add_{item_id}_col_{colors[i]}")]
-        if i + 1 < len(colors):
-            row.append(InlineKeyboardButton(f"✨ {colors[i+1]}", callback_data=f"add_{item_id}_col_{colors[i+1]}"))
-        keyboard.append(row)
-
-    keyboard.append([InlineKeyboardButton("🔙 Назад до опису", callback_data=f"view_item_{item_id}")])
+    # 3. Перемальовуємо картку (це оновить галочки і фото)
+    # ПЕРЕДАЄМО item_id ЯВНО!
+    await render_product_card(update, context, item, item_id, new_photo)
     
-    # ВІДПРАВКА: Використовуємо адаптер з context
-    await _edit_or_reply(query, text, keyboard, context=context)
-    
-    
-# =================================================================
-# 👤 SECTION 5: PROFILE & START ENGINE (PRO DATABASE SYNC)
-# =================================================================
-
-async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Надійний помічник:
-    1. Перевіряє пам'ять.
-    2. Якщо пусто — тягне з БД.
-    3. Якщо немає в БД — реєструє нового.
-    """
-    user = update.effective_user
-    
-    # 1. Ініціалізація структури в пам'яті
-    if 'profile' not in context.user_data:
-        context.user_data['profile'] = {
-            "uid": user.id,
-            "full_name": user.full_name,
-            "username": user.username,
-            "phone": None,
-            "city": None,
-            "district": None,
-            "address_details": None,
-            "is_vip": False,
-            "vip_expiry": None,
-            "next_order_discount": 0.0,
-            "promo_applied": False
-        }
-    
-    if 'cart' not in context.user_data:
-        context.user_data['cart'] = []
-
-    # 2. Синхронізація з БД (SQLite)
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.row_factory = sqlite3.Row # Доступ по назвах колонок
-            cursor = conn.cursor()
-            
-            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user.id,))
-            row = cursor.fetchone()
-            
-            if not row:
-                # РЕЄСТРАЦІЯ
-                reg_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute("""
-                    INSERT INTO users (user_id, username, full_name, reg_date, is_vip, next_order_discount, promo_applied)
-                    VALUES (?, ?, ?, ?, 0, 0, 0)
-                """, (user.id, user.username, user.full_name, reg_date))
-                conn.commit()
-                logger.info(f"🆕 NEW USER REGISTERED: {user.id}")
-            else:
-                # ВІДНОВЛЕННЯ (Гідратація)
-                p = context.user_data['profile']
-                p['is_vip'] = bool(row['is_vip'])
-                p['vip_expiry'] = row['vip_expiry']
-                p['city'] = row['city']
-                p['district'] = row['district']
-                p['phone'] = row['phone']
-                p['address_details'] = row['address_details']
-                p['next_order_discount'] = float(row['next_order_discount'] or 0)
-                p['promo_applied'] = bool(row['promo_applied'])
-
-    except Exception as e:
-        logger.error(f"❌ DB Sync Critical Error: {e}")
-
-    return context.user_data['profile']
-
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Привітання з автоматичною реєстрацією та видачею Welcome-бонусів.
-    """
-    user = update.effective_user
-    # Гарантуємо наявність профілю
-    profile = await get_or_create_user(update, context)
-    
-    # --- АВТО-АКТИВАЦІЯ БОНУСІВ (Тільки 1 раз) ---
-    if not profile.get('promo_applied'):
-        # +30 днів VIP
-        expiry_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
-        
-        # Оновлюємо пам'ять
-        profile.update({
-            'next_order_discount': 101.0,
-            'is_vip': True,
-            'vip_expiry': expiry_date,
-            'promo_applied': True
-        })
-        
-        # Оновлюємо базу
-        try:
-            with sqlite3.connect(DB_PATH) as conn:
-                conn.execute("""
-                    UPDATE users 
-                    SET is_vip = 1, 
-                        vip_expiry = ?, 
-                        next_order_discount = ?, 
-                        promo_applied = 1 
-                    WHERE user_id = ?
-                """, (expiry_date, 101.0, user.id))
-                conn.commit()
-                logger.info(f"💎 Welcome Bonus applied for {user.id}")
-        except Exception as e:
-            logger.error(f"❌ DB Bonus Save Error: {e}")
-            
-    # Формування тексту
-    safe_name = escape(user.first_name)
-    personal_promo = f"GHST{user.id}"
-    
-    # Визначаємо статус
-    status_icon = "💎" if profile.get('is_vip') else "👤"
-    
-    welcome_text = (
-        f"🌫️ <b>GHO$$TY STAFF LAB | 2026</b> 🌿\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"Йо, <b>{safe_name}</b>! Твій статус: <b>{status_icon} VIP PRO</b>\n\n"
-        f"🎁 <b>ТВОЇ БОНУСИ АКТИВОВАНО:</b>\n"
-        f"📉 Знижка: <b>-35%</b> на весь стафф (авто)\n"
-        f"💸 Welcome Bonus: <b>-101 грн</b> на перше замовлення\n"
-        f"🚚 Доставка: <b>БЕЗКОШТОВНА</b> (для VIP)\n\n"
-        f"🔑 Твій реферальний код: <code>{personal_promo}</code>\n"
-        f"<i>(Поділись з другом: йому бонуси, тобі +7 днів VIP!)</i>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👇 <b>Обери розділ:</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🛍 ВІДКРИТИ КАТАЛОГ 🌿", callback_data="cat_all")],
-        [InlineKeyboardButton("👤 Кабінет", callback_data="menu_profile"), 
-         InlineKeyboardButton("🛒 Кошик", callback_data="menu_cart")],
-        [InlineKeyboardButton("📍 Локація", callback_data="choose_city"),
-         InlineKeyboardButton("📜 Правила", callback_data="menu_terms")],
-        [InlineKeyboardButton("👨‍💻 Менеджер (Support)", url=f"https://t.me/{MANAGER_USERNAME}")]
-    ]
-    
-    # Кнопка адміна (перевірка по ID)
-    if user.id == MANAGER_ID:
-        keyboard.append([InlineKeyboardButton("⚙️ GOD MODE (ADMIN)", callback_data="admin_main")])
-
-    # Використовуємо глобальну змінну WELCOME_PHOTO
-    photo = globals().get('WELCOME_PHOTO')
-    
-    # Використовуємо наш універсальний відправник (Section 7)
-    await send_ghosty_message(update, welcome_text, keyboard, photo=photo)
-    
-
-# =================================================================
-# 👤 SECTION 5.5: USER PROFILE VIEW (ULTIMATE PRO FIXED)
-# =================================================================
-
-async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Елітний профіль користувача: логіка статусів, розрахунок VIP та бонусів.
-    ПОВНІСТЮ ВИПРАВЛЕНО: робота кнопок, передача контексту та логіка дат.
-    """
-    # 1. Визначаємо ціль для відповіді
-    target = update.callback_query if update.callback_query else update
-    user = update.effective_user
-    
-    # 2. Отримуємо профіль безпечно
-    # Спочатку з пам'яті, якщо там порожньо — викликаємо функцію реєстрації
-    p = context.user_data.get('profile', {})
-    if not p or not p.get('uid'):
-        # Викликаємо існуючу функцію get_or_create_user (вона має бути у вашому коді)
-        p = await get_or_create_user(update, context)
-
-    # 3. Розумна логіка статусів (Romantic / VIP / Standard)
-    now = datetime.now()
-    
-    # ПРАВИЛЬНА ПЕРЕВІРКА ДАТ: Акція "Romantic" з 14 по 21 лютого
-    if now.month == 2 and 14 <= now.day <= 21:
-        status = "💖 <b>ROMANTIC PRO</b>"
-    elif p.get('is_vip'):
-        status = "💎 <b>VIP PRO</b>"
-    else:
-        status = "👤 <b>Standard User</b>"
-
-    # 4. Розрахунок терміну дії VIP (UX покращення)
-    vip_expiry_raw = p.get('vip_expiry')
-    days_left_str = ""
-    
-    if p.get('is_vip') and vip_expiry_raw:
-        try:
-            # Парсимо дату з бази
-            expiry_dt = datetime.strptime(vip_expiry_raw, "%Y-%m-%d")
-            delta = expiry_dt - now
-            days_left = delta.days + 1 # Додаємо 1 день для точності
-            
-            if days_left > 0:
-                days_left_str = f" (лишилось {days_left} дн.)"
-            else:
-                days_left_str = " (сьогодні фінальний день)"
-        except Exception:
-            days_left_str = ""
-
-    # 5. Логіка Бонусу (Discount Formula)
-    # Гарантуємо, що це число через float()
-    try:
-        discount_val = float(p.get('next_order_discount', 0))
-    except (ValueError, TypeError):
-        discount_val = 0.0
-
-    bonus_info = ""
-    if discount_val > 0:
-        # Відображаємо тільки якщо бонус > 0
-        bonus_info = f"\n🎁 <b>Активний бонус:</b> -{int(discount_val)} грн на замовлення"
-
-    # 6. Формування елітного тексту (HTML-безпечно)
-    # Використовуємо escape для захисту від спецсимволів в імені
-    full_name = escape(p.get('full_name') or user.first_name)
-    city = p.get('city', 'Не обрано')
-    phone = p.get('phone', 'Не вказано')
-
-    text = (
-        f"👤 <b>ОСОБИСТИЙ КАБІНЕТ</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 Ім'я: <b>{full_name}</b>\n"
-        f"🆔 ID: <code>{user.id}</code>\n"
-        f"🌟 Статус: {status}\n"
-        f"📅 VIP діє до: <code>{vip_expiry_raw or '—'}</code>{days_left_str}\n\n"
-        f"📍 Місто: <b>{city}</b>\n"
-        f"📞 Телефон: <code>{phone}</code>"
-        f"{bonus_info}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🛰 <i>Центр керування GHO$$TY STAFF.</i>"
-    )
-
-    # 7. Кнопки керування
-    kb = [
-        [InlineKeyboardButton("🤝 ПАРТНЕРСЬКА ПРОГРАМА", callback_data="ref_system")],
-        [InlineKeyboardButton("🎟 АКТИВУВАТИ ПРОМОКОД", callback_data="menu_promo")],
-        [InlineKeyboardButton("🏠 ПОВЕРНУТИСЬ В МЕНЮ", callback_data="menu_start")]
-    ]
-
-    # 8. ВИКЛИК UI ДВИГУНА (Критично важливо передати context!)
-    # Це виправить проблему "не реагування" кнопок
-    await _edit_or_reply(target, text, kb, context=context)
     
 # =================================================================
 # 🌍 SECTION 10: GEOGRAPHY & LOGISTICS (TITAN FIXED v7.2)
@@ -1523,208 +1305,160 @@ async def save_location_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # Використовуємо універсальний відправник з context!
     await send_ghosty_message(update, msg, keyboard, context=context)
     
-    
-    
 # =================================================================
-# 👤 SECTION 5: MASTER START MENU (STABLE UI 2026)
+# 👤 SECTION 5: MASTER START & PROFILE UI (TITAN PRO v10.0)
 # =================================================================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Main entry point with automated registration and bonus allocation.
+    Головна точка входу (/start).
+    Викликає реєстрацію (із Section 4), нараховує бонуси та вітає.
     """
     user = update.effective_user
-    # Deterministic registration and DB sync
-    profile = await get_or_create_user(update, context)
     
-    # One-time bonus activation logic
+    # 1. Отримуємо профіль (функція береться з SECTION 4)
+    if 'get_or_create_user' in globals():
+        profile = await get_or_create_user(update, context)
+    else:
+        # Аварійний фолбек, якщо Section 4 не завантажилась
+        await update.message.reply_text("⚠️ Система завантажується... Спробуйте через 5 секунд.")
+        return
+    
+    # 2. АВТО-АКТИВАЦІЯ БОНУСІВ (Тільки 1 раз при першому старті)
     if not profile.get('promo_applied'):
+        # +30 днів VIP
         expiry_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        
+        # Оновлюємо пам'ять
         profile.update({
             'next_order_discount': 101.0,
             'is_vip': True,
             'vip_expiry': expiry_date,
             'promo_applied': True
         })
-        # Immediate DB persistence to prevent state loss
+        
+        # Оновлюємо базу (фіксуємо, що бонуси видані)
         try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.execute("UPDATE users SET is_vip=1, vip_expiry=?, promo_applied=1 WHERE user_id=?", 
-                         (expiry_date, user.id))
-            conn.commit()
-            conn.close()
+            with sqlite3.connect(DB_PATH, timeout=10) as conn:
+                conn.execute("""
+                    UPDATE users 
+                    SET is_vip = 1, 
+                        vip_expiry = ?, 
+                        next_order_discount = ?, 
+                        promo_applied = 1 
+                    WHERE user_id = ?
+                """, (expiry_date, 101.0, user.id))
+                conn.commit()
+                logger.info(f"💎 Welcome Bonus applied for {user.id}")
         except Exception as e:
-            logger.error(f"Startup Persistence Error: {e}")
+            logger.error(f"❌ DB Bonus Save Error: {e}")
 
-    # Escaped greeting text for HTML safety
+    # 3. ВІЗУАЛІЗАЦІЯ ПРИВІТАННЯ
+    safe_name = escape(user.first_name)
+    personal_promo = f"GHST{user.id}"
+    status_icon = "💎" if profile.get('is_vip') else "👤"
+    
     welcome_text = (
         f"🌫️ <b>GHO$$TY STAFF LAB | 2026</b> 🌿\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"Вітаємо у лабораторії, <b>{escape(user.first_name)}</b>!\n"
-        f"Твій поточний статус: <b>VIP PRO</b> 💎\n\n"
-        f"🎁 <b>ПЕРСОНАЛЬНІ ПРИВІЛЕЇ:</b>\n"
-        f"📉 <b>-35%</b> знижка на весь асортимент\n"
-        f"💸 <b>101 ₴</b> кешбеку на балансі\n"
-        f"🚚 <b>0 ₴</b> доставка (VIP-тариф)\n\n"
-        f"🔑 Твій промокод: <code>GHST{user.id}</code>\n"
+        f"Йо, <b>{safe_name}</b>! Твій статус: <b>{status_icon} VIP PRO</b>\n\n"
+        f"🎁 <b>ТВОЇ БОНУСИ АКТИВОВАНО:</b>\n"
+        f"📉 Знижка: <b>-35%</b> на весь стафф (авто)\n"
+        f"💸 Welcome Bonus: <b>-101 грн</b> на перше замовлення\n"
+        f"🚚 Доставка: <b>БЕЗКОШТОВНА</b> (для VIP)\n\n"
+        f"🔑 Твій реферальний код: <code>{personal_promo}</code>\n"
+        f"<i>(Поділись з другом: йому бонуси, тобі +7 днів VIP!)</i>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👇 <b>ГОЛОВНЕ МЕНЮ:</b>"
     )
-
+    
     keyboard = [
         [InlineKeyboardButton("🛍 ВІДКРИТИ КАТАЛОГ 🌿", callback_data="cat_all")],
-        [InlineKeyboardButton("👤 ПРОФІЛЬ", callback_data="menu_profile"),
+        [InlineKeyboardButton("👤 ПРОФІЛЬ", callback_data="menu_profile"), 
          InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],
         [InlineKeyboardButton("📍 ОБРАТИ ЛОКАЦІЮ", callback_data="choose_city")],
-        [InlineKeyboardButton("📜 УГОДА КОРИСТУВАЧА", callback_data="menu_terms")],
+        [InlineKeyboardButton("📜 ПРАВИЛА", callback_data="menu_terms")],
         [InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", url=f"https://t.me/{MANAGER_USERNAME}"),
          InlineKeyboardButton("📢 КАНАЛ", url=f"{CHANNEL_URL}")]
     ]
-
+    
+    # Кнопка адміна
     if user.id == MANAGER_ID:
         keyboard.append([InlineKeyboardButton("⚙️ GOD MODE (ADMIN)", callback_data="admin_main")])
 
-    banner = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
-    await send_ghosty_message(update, welcome_text, keyboard, photo=banner)
-
+    photo = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
     
-# =================================================================
-# 🔍 SECTION 15: PRODUCT CARD & INTERACTIVE COLOR ENGINE (TITAN PRO v8.0)
-# =================================================================
+    # Використовуємо універсальний відправник
+    await send_ghosty_message(update, welcome_text, keyboard, photo=photo, context=context)
 
-async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
-    """
-    Точка входу в картку товару.
-    Скидає попередній вибір кольору та відображає картку.
-    """
-    # 1. Отримуємо дані про товар
-    item = get_item_data(item_id)
-    if not item:
-        if update.callback_query:
-            await update.callback_query.answer("❌ Товар не знайдено або видалено.", show_alert=True)
-        return
 
-    # 2. Скидаємо вибір кольору при першому відкритті
-    context.user_data['selected_color'] = None
+async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Відображає профіль користувача з його реальною аватаркою Telegram.
+    Використовує get_or_create_user з Section 4.
+    """
+    user = update.effective_user
     
-    # 3. Рендеримо картку (перший запуск)
-    await render_product_card(update, context, item, item['img'])
-
-
-async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE, item: dict, current_photo: str):
-    """
-    Ядро відображення. Викликається при старті та при кліку на колір.
-    """
-    profile = context.user_data.get("profile", {})
-    
-    # --- ЛОГІКА ЦІНИ ---
-    final_price, has_discount = calculate_final_price(item['price'], profile)
-    price_html = f"<b>{int(item['price'])} ₴</b>"
-    if has_discount:
-        price_html = f"<s>{int(item['price'])}</s> 🔥 <b>{final_price:.0f} ₴</b>"
-
-    # --- ЛОГІКА СКЛАДУ ---
-    stock = item.get('stock', 0)
-    if stock >= 10: 
-        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
-    elif 1 <= stock < 10: 
-        stock_status = f"🟡 <b>Закінчується</b> (лишилось {stock})"
-    else: 
-        stock_status = "🔴 <b>Немає в наявності</b>"
-
-    # --- ЛОГІКА КОЛЬОРУ ---
-    selected_color = context.user_data.get('selected_color')
-    color_text = f"\n🎨 Обрано колір: <b>{selected_color}</b>" if selected_color else ""
-
-    # --- ЗБІРКА ОПИСУ ---
-    caption = (
-        f"🛍 <b>{escape(item['name'])}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📦 {stock_status}\n"
-        f"💰 Ціна: {price_html}{color_text}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{item.get('desc', 'Опис оновлюється...')}"
-    )
-
-    kb = []
-    
-    # 1. ГЕНЕРАЦІЯ КНОПОК КОЛЬОРІВ (Якщо вони є)
-    if stock > 0 and "colors" in item and item["colors"]:
-        colors = item["colors"]
-        row = []
-        for col in colors:
-            # Якщо цей колір обрано -> ставимо галочку і блокуємо повторний клік
-            if col == selected_color:
-                btn_text = f"✅ {col}"
-                # ignore_click не робить нічого, щоб не блимало
-                cb_data = "ignore_click" 
-            else:
-                btn_text = col
-                # Формат: sel_col_ID_COLORName
-                cb_data = f"sel_col_{item['id']}_{col}" 
-            
-            row.append(InlineKeyboardButton(btn_text, callback_data=cb_data))
-            
-            # Розбиваємо по 2 кнопки в ряд для краси
-            if len(row) == 2:
-                kb.append(row)
-                row = []
-        if row: kb.append(row)
-
-    # 2. КНОПКИ ДІЇ (Купити / Швидко / Менеджер)
-    if stock > 0:
-        # Сценарій А: Є кольори, але жоден не обрано
-        if "colors" in item and item["colors"] and not selected_color:
-            kb.append([InlineKeyboardButton("👆 ОБЕРІТЬ КОЛІР ВИЩЕ 👆", callback_data="ignore_click")])
-        
-        # Сценарій Б: Колір обрано АБО товар без кольорів
-        else:
-            # Формуємо текст кнопки
-            buy_text = f"🛒 КУПИТИ {selected_color.upper()}" if selected_color else "🛒 ДОДАТИ В КОШИК"
-            
-            # Формуємо дані для кошика
-            cart_cb = f"add_{item['id']}_col_{selected_color}" if selected_color else f"add_{item['id']}"
-            kb.append([InlineKeyboardButton(buy_text, callback_data=cart_cb)])
-            
-            # ШВИДКІ ДІЇ (Передаємо колір у колбеку!)
-            fast_cb = f"fast_order_{item['id']}_{selected_color}" if selected_color else f"fast_order_{item['id']}"
-            mgr_cb = f"mgr_pre_{item['id']}_{selected_color}" if selected_color else f"mgr_pre_{item['id']}"
-            
-            kb.append([
-                InlineKeyboardButton("⚡ ШВИДКО", callback_data=fast_cb),
-                InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", callback_data=mgr_cb)
-            ])
-            
+    # Викликаємо функцію з Section 4
+    if 'get_or_create_user' in globals():
+        profile = await get_or_create_user(update, context)
     else:
-        # Якщо товару немає -> кнопка сповіщення
-        kb.append([InlineKeyboardButton("🔔 ПОВІДОМИТИ ПРО НАЯВНІСТЬ", callback_data=f"notify_{item['id']}")])
-
-    # 3. НАВІГАЦІЯ
-    kb.append([InlineKeyboardButton("🔙 До каталогу", callback_data="cat_all")])
-
-    # 4. ВІДПРАВКА (Через розумний рушій Section 2)
-    # Він сам змінить фото (edit_message_media), якщо current_photo відрізняється від старого
-    await send_ghosty_message(update, caption, kb, photo=current_photo, context=context)
-
-
-async def handle_color_selection_click(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int, color_name: str):
-    """
-    Обробляє клік по кольору: змінює фото та оновлює галочки.
-    """
-    item = get_item_data(item_id)
-    if not item: return
-
-    # 1. Зберігаємо вибір користувача
-    context.user_data['selected_color'] = color_name
+        await update.callback_query.answer("⚠️ Помилка доступу до профілю", show_alert=True)
+        return
     
-    # 2. Шукаємо фото для цього кольору
-    # Якщо в color_previews є фото для цього кольору -> беремо його
-    # Інакше -> залишаємо головне фото товару
-    previews = item.get("color_previews", {})
-    new_photo = previews.get(color_name, item['img'])
+    # Спробуємо отримати справжнє фото профілю користувача
+    user_photo = None
+    try:
+        photos = await user.get_profile_photos(limit=1)
+        if photos and photos.total_count > 0:
+            # Беремо file_id найбільшої версії фото
+            user_photo = photos.photos[0][-1].file_id 
+    except Exception as e:
+        logger.debug(f"Failed to get user photo: {e}")
+
+    # Якщо фото немає, використовуємо стандартне лого
+    if not user_photo:
+        user_photo = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
+
+    # Дані для відображення
+    full_name = profile.get('full_name', user.full_name)
+    phone = profile.get('phone', 'Не вказано')
+    city = profile.get('city', 'Не обрано')
+    district = profile.get('district', '')
+    address = profile.get('address_details', '—')
     
-    # 3. Перемальовуємо картку (це оновить галочки і фото)
-    await render_product_card(update, context, item, new_photo)
+    # Красиве форматування локації
+    location_str = f"{city}"
+    if district: location_str += f" ({district})"
+    if city == 'Не обрано': location_str = "Не обрано"
+
+    balance = profile.get('next_order_discount', 0)
+    vip_status = "💎 VIP PRO" if profile.get('is_vip') else "👤 Standard"
+    vip_till = profile.get('vip_expiry', '—')
+    
+    text = (
+        f"👤 <b>ОСОБИСТИЙ КАБІНЕТ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 ID: <code>{user.id}</code>\n"
+        f"🧢 Ім'я: <b>{full_name}</b>\n"
+        f"🌟 Статус: <b>{vip_status}</b> (до {vip_till})\n\n"
+        f"💰 <b>БАЛАНС БОНУСІВ: {int(balance)} ₴</b>\n"
+        f"<i>(Можна використати для знижки до 50%)</i>\n\n"
+        f"📍 <b>ДАНІ ДОСТАВКИ:</b>\n"
+        f"🏙 Локація: {location_str}\n"
+        f"🏠 Адреса: {address}\n"
+        f"📱 Телефон: {phone}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 <i>Керування:</i>"
+    )
+    
+    kb = [
+        [InlineKeyboardButton("✏️ Змінити дані доставки", callback_data="fill_delivery_data")],
+        [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
+        [InlineKeyboardButton("🔙 В головне меню", callback_data="menu_start")]
+    ]
+    
+    await send_ghosty_message(update, text, kb, photo=user_photo, context=context)
     
     
 
