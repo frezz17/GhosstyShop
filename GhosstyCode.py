@@ -1554,291 +1554,241 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int):
     """
-    Картка товару: Фото, Опис, Ціна (зі знижками) та Кнопки.
+    Картка товару: Фото, Опис, Наявність (Stock), Ціна та Розумні кнопки.
     """
     # 1. Отримуємо дані
     item = get_item_data(item_id)
     if not item: 
-        # Якщо товар видалено або ID невірний
         if update.callback_query:
             await update.callback_query.answer("❌ Товар не знайдено")
         return
 
     profile = context.user_data.get("profile", {})
     
-    # 2. Розумний розрахунок ціни (Section 4.5)
-    final_price, is_discounted = calculate_final_price(item['price'], profile)
+    # 2. Розрахунок ціни (зі знижками)
+    final_price, has_discount = calculate_final_price(item['price'], profile)
     
-    # Формування цінника
-    price_str = f"<b>{int(item['price'])} ₴</b>"
-    if is_discounted:
-        price_str = f"<s>{int(item['price'])}</s> 📉 <b>{final_price:.0f} ₴</b>"
+    # Формування гарного цінника
+    price_html = f"<b>{int(item['price'])} ₴</b>"
+    if has_discount:
+        price_html = f"<s>{int(item['price'])}</s> 🔥 <b>{final_price:.0f} ₴</b>"
 
-    # 3. Формування опису
-    # Додаємо інформацію про варіанти в текст, щоб не ламати кнопки
-    variants_text = ""
-    if "colors" in item:
-        variants_text = f"\n🎨 <b>Кольори:</b> {', '.join(item['colors'])}"
-    elif "strengths" in item:
-        variants_text = f"\n🧪 <b>Міцність:</b> {', '.join([str(s)+'mg' for s in item['strengths']])}"
+    # 3. ЛОГІКА НАЯВНОСТІ (STOCK CONTROL)
+    stock = item.get('stock', 0)
+    if stock > 5:
+        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
+    elif 0 < stock <= 5:
+        stock_status = f"🟡 <b>Закінчується</b> (лишилось {stock} шт)"
+    else:
+        stock_status = f"🔴 <b>Тимчасово відсутній</b>"
 
+    # 4. Формування опису
     caption = (
         f"🛍 <b>{item['name']}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{item.get('desc', 'Опис відсутній.')}\n"
-        f"{variants_text}\n"
+        f"📦 Стан: {stock_status}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💰 Ціна: {price_str}"
+        f"{item.get('desc', 'Опис оновлюється...')}\n\n"
+        f"💰 Ціна: {price_html}"
     )
 
     keyboard = []
     
-    # --- РЯДОК 1: Швидкі дії ---
+    # --- РЯДОК 1: Основна дія (Залежить від наявності) ---
+    if stock > 0:
+        # А) Якщо у товару є кольори -> ведемо на меню вибору кольору (з фото)
+        if "colors" in item and item["colors"]:
+            btn_text = "🎨 ОБРАТИ КОЛІР ТА КУПИТИ"
+            btn_callback = f"sel_col_{item_id}"
+        
+        # Б) Якщо це Vape/Pod без кольорів -> ведемо на вибір подарунка (або в кошик)
+        else:
+            has_bonus = item_id < 300 or item.get("gift_liquid")
+            btn_text = "🎁 ОБРАТИ БОНУС І КУПИТИ" if has_bonus else "🛒 ДОДАТИ В КОШИК"
+            btn_callback = f"add_{item_id}"
+            
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=btn_callback)])
+    else:
+        # В) Якщо товару немає -> кнопка сповіщення
+        keyboard.append([InlineKeyboardButton("🔔 ПОВІДОМИТИ КОЛИ БУДЕ", callback_data=f"notify_{item_id}")])
+
+    # --- РЯДОК 2: Швидкі дії ---
     keyboard.append([
         InlineKeyboardButton("⚡ ШВИДКО", callback_data=f"fast_order_{item_id}"),
         InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", callback_data=f"mgr_pre_{item_id}")
     ])
 
-    # --- РЯДОК 2: Додати в кошик ---
-    # Перевіряємо, чи цей товар бере участь в акції (Vape/Pod)
-    # Логіка узгоджена з Section 19 (add_to_cart_handler)
-    is_promo_item = item_id < 300 or item.get("gift_liquid")
-    
-    btn_text = "🎁 ОБРАТИ БОНУС І КУПИТИ" if is_promo_item else "🛒 ДОДАТИ В КОШИК"
-    
-    # Відправляємо просто add_{id}. 
-    # Section 19 сама розбереться: якщо це акція -> відкриє меню подарунків.
-    keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"add_{item_id}")])
-
     # --- РЯДОК 3: Навігація ---
     nav_row = []
-    # Перевіряємо, чи заповнені дані доставки
     if not profile.get("city"):
         nav_row.append(InlineKeyboardButton("📍 Вказати дані", callback_data="fill_delivery_data"))
     
     nav_row.append(InlineKeyboardButton("🔙 Каталог", callback_data="cat_all"))
     keyboard.append(nav_row)
 
-    # 4. Відправка повідомлення
+    # 5. Відправка
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
+    
 
 # =================================================================
 # 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
 # =================================================================
 
+import sqlite3
+from datetime import datetime
+
 async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
-    """Ініціалізація збору даних (Крок 1/4)."""
-    # Зберігаємо план дій після збору даних
-    context.user_data['data_flow'] = {
-        'step': 'name',
-        'next_action': next_action, 
-        'item_id': item_id
-    }
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n\nЯк до вас звертатись? (Введіть Прізвище та Ім'я для накладної):"
-    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
-    
-    await _edit_or_reply(update, text, kb)
+    """
+    Ініціалізація збору даних (Крок 1/4).
+    Встановлює маршрут: куди відправити юзера після заповнення профілю.
+    """
+    try:
+        # Ретельно ініціалізуємо flow, щоб уникнути KeyError
+        context.user_data['data_flow'] = {
+            'step': 'name',
+            'next_action': str(next_action), 
+            'item_id': item_id
+        }
+        context.user_data['state'] = "COLLECTING_DATA"
+        
+        text = (
+            "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "Як до вас звертатись?\n\n"
+            "<i>Будь ласка, введіть Прізвище та Ім'я для оформлення накладної:</i>"
+        )
+        kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+        
+        await _edit_or_reply(update, text, kb)
+    except Exception as e:
+        logger.error(f"Error in start_data_collection: {e}")
 
 async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головний обробник текстового вводу для реєстрації."""
-    if not update.message or not update.message.text: return
+    """
+    Головний обробник текстового вводу. 
+    Керує логікою: ПІБ -> Телефон -> (Місто/Район - через кнопки) -> Адреса.
+    """
+    if not update.message or not update.message.text: 
+        return
     
     flow = context.user_data.get('data_flow')
-    if not flow: return
+    if not flow: 
+        # Якщо сесія втрачена, скидаємо стан
+        context.user_data['state'] = None
+        return
     
     text = update.message.text.strip()
     profile = context.user_data.setdefault('profile', {})
     step = flow.get('step')
 
+    # --- КРОК: ПІБ ---
     if step == 'name':
+        # Валідація довжини
+        if len(text) < 3:
+            await update.message.reply_text("⚠️ Ім'я занадто коротке. Напишіть Прізвище та Ім'я повністю:")
+            return
+        
         profile['full_name'] = text
         flow['step'] = 'phone'
-        await update.message.reply_text("📱 <b>КРОК 2/4: КОНТАКТ</b>\n\nВведіть ваш номер телефону (напр. 095...):")
+        await update.message.reply_text(
+            "📱 <b>КРОК 2/4: КОНТАКТ</b>\n\n"
+            "Введіть ваш номер телефону (напр. <code>0951234567</code>):",
+            parse_mode='HTML'
+        )
         
+    # --- КРОК: ТЕЛЕФОН ---
     elif step == 'phone':
+        # Очищаємо номер від зайвих символів (+, дужки, пробіли)
+        clean_phone = "".join(filter(str.isdigit, text))
+        
+        if len(clean_phone) < 10:
+            await update.message.reply_text("⚠️ Некоректний формат. Введіть 10 цифр номера мобільного:")
+            return
+        
         profile['phone'] = text
-        # Після телефону автоматично перекидаємо на вибір міста
+        # Перехід до вибору міста (Секція 10)
+        # ВАЖЛИВО: залишаємо стан COLLECTING_DATA, бот чекатиме натискання кнопки міста
         await choose_city_menu(update, context)
 
+    # --- КРОК: АДРЕСА (Цього блоку не вистачало!) ---
+    elif step == 'address':
+        if len(text) < 3:
+            await update.message.reply_text("⚠️ Адреса занадто коротка. Вкажіть номер відділення або вулицю:")
+            return
+        
+        profile['address_details'] = text
+        # Всі дані зібрано -> Зберігаємо і переходимо далі
+        await finalize_data_collection(update, context)
+
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """КРОК 4/4: Запит точної адреси після вибору району."""
-    context.user_data.setdefault('profile', {})['district'] = district
-    context.user_data.setdefault('data_flow', {})['step'] = 'address'
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = (
-        f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
-        f"Ви обрали: <b>{district}</b>\n\n"
-        f"Напишіть номер відділення НП (напр. «№55») або адресу для кур'єра 👇"
-    )
-    await _edit_or_reply(update, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
+    """
+    КРОК 4/4: Запит точної адреси.
+    Викликається автоматично після того, як юзер натиснув кнопку району або кур'єра.
+    """
+    try:
+        profile = context.user_data.setdefault('profile', {})
+        profile['district'] = district
+        
+        # Оновлюємо крок у flow, щоб handle_data_input знав, що наступний текст - це адреса
+        flow = context.user_data.setdefault('data_flow', {})
+        flow['step'] = 'address'
+        context.user_data['state'] = "COLLECTING_DATA"
+        
+        text = (
+            f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"Район/Тип: <b>{district}</b>\n\n"
+            f"Вкажіть номер відділення Нової Пошти (напр. «№5») або повну адресу для кур'єра 👇"
+        )
+        kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
+        await _edit_or_reply(update, text, kb)
+    except Exception as e:
+        logger.error(f"Error in address_request_handler: {e}")
 
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Фінал: Збереження в БД та повернення до перерваної дії."""
-    p = context.user_data.get('profile', {})
+    """
+    Фіналізація: Зберігає дані в SQLite та миттєво повертає юзера до замовлення.
+    """
     user_id = update.effective_user.id
-    
-    # Синхронізація з SQLite
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("""
-            UPDATE users SET full_name=?, phone=?, city=?, district=?, address_details=? 
-            WHERE user_id=?""", (p.get('full_name'), p.get('phone'), p.get('city'), 
-                                 p.get('district'), p.get('address_details'), user_id))
-        conn.commit(); conn.close()
-    except Exception as e:
-        logger.error(f"Finalize DB Error: {e}")
-
+    p = context.user_data.get('profile', {})
     flow = context.user_data.get('data_flow', {})
-    context.user_data['state'] = None # Обов'язково скидаємо стан
     
-    if flow.get('next_action') == 'checkout':
-        await checkout_init(update, context) # Повертаємо на оплату
-    else:
-        await update.message.reply_text("✅ <b>Дані збережено!</b> Тепер ви можете робити замовлення.")
+    # 1. ЗАПИС В БАЗУ (Safe Transaction)
+    try:
+        # Timeout 20 секунд, щоб уникнути помилки Database Locked на повільному хостингу
+        with sqlite3.connect(DB_PATH, timeout=20) as conn:
+            conn.execute("""
+                UPDATE users SET 
+                full_name=?, phone=?, city=?, district=?, address_details=? 
+                WHERE user_id=?""", 
+                (p.get('full_name'), p.get('phone'), p.get('city'), 
+                 p.get('district'), p.get('address_details'), user_id)
+            )
+            conn.commit()
+            logger.info(f"✅ Profile finalized for {user_id}")
+    except Exception as e:
+        logger.error(f"DB Finalize Error: {e}")
+        # Навіть якщо база помилилась, пробуємо продовжити в пам'яті
+
+    # 2. МАРШРУТИЗАЦІЯ (Куди йдемо далі?)
+    next_action = str(flow.get('next_action', 'none'))
+    
+    # Очищуємо стани, щоб бот не завис у режимі збору даних
+    context.user_data['state'] = None 
+    context.user_data['data_flow'] = {} 
+
+    # Логіка повернення
+    if next_action == 'checkout':
+        await update.message.reply_text("✅ <b>Дані збережено!</b>\nПовертаємось до оформлення замовлення...")
+        await checkout_init(update, context) # Миттєвий перехід до оплати
+    
+    elif next_action == 'manager_order':
+        await update.message.reply_text("✅ <b>Дані прийнято!</b>\nМенеджер вже отримав вашу заявку.")
         await start_command(update, context)
         
-    
-# =================================================================
-# 🛒 SECTION 18: CART LOGIC (PRO FIXED 2026)
-# =================================================================
-
-async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Логіка кошика: відображення, видалення, перевірка даних перед оплатою.
-    Виправлено помилку з NoneType та структурою кнопок.
-    """
-    # 1. Ініціалізація змінних (Захист від крашу)
-    cart = context.user_data.get("cart", [])
-    if cart is None: 
-        cart = []
-        context.user_data["cart"] = []
-    
-    profile = context.user_data.setdefault("profile", {})
-    
-    # 2. Якщо кошик порожній
-    if not cart:
-        empty_text = "🛒 <b>Ваш кошик порожній</b>\n\nЧас обрати щось топове! 👇"
-        empty_kb = [[InlineKeyboardButton("🛍 До Каталогу", callback_data="cat_all")],
-                    [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]]
-        
-        if update.callback_query:
-            await _edit_or_reply(update.callback_query, empty_text, empty_kb)
-        else:
-            await update.message.reply_text(empty_text, reply_markup=InlineKeyboardMarkup(empty_kb))
-        return
-
-    # 3. Розрахунок і формування списку
-    total_sum = 0.0
-    items_text = ""
-    keyboard = [] # Головна клавіатура
-
-    for index, item in enumerate(cart):
-        # Конвертуємо ціну в float для безпеки
-        try: 
-            price = float(item.get('price', 0))
-        except: 
-            price = 0.0
-        
-        # Розрахунок знижки для кожного товару (використовуємо нашу функцію з Section 4.5)
-        final_price, is_discounted = calculate_final_price(price, profile)
-        total_sum += final_price
-        
-        # Формування тексту
-        name = item.get('name', 'Товар')
-        gift = item.get('gift')
-        
-        # Іконки
-        gift_txt = f"\n   🎁 <i>{gift}</i>" if gift else ""
-        price_txt = f"<s>{int(price)}</s> <b>{final_price:.0f} грн</b>" if is_discounted else f"<b>{int(price)} грн</b>"
-        
-        items_text += f"🔹 <b>{name}</b>{gift_txt}\n   💰 {price_txt}\n\n"
-        
-        # Кнопка видалення (використовуємо унікальний ID товару)
-        uid = item.get('id', 0)
-        # Додаємо кнопку видалення в окремий рядок
-        keyboard.append([InlineKeyboardButton(f"❌ Видалити: {name[:15]}...", callback_data=f"cart_del_{uid}")])
-
-    # 4. Перевірка даних для замовлення
-    city = profile.get("city")
-    phone = profile.get("phone")
-    # Перевіряємо, чи заповнені мінімальні дані
-    can_checkout = bool(city and phone)
-    
-    if can_checkout:
-        loc_status = f"✅ <b>Дані:</b> {city}, {profile.get('full_name', 'Клієнт')}\n📞 {phone}"
-        btn_text = "🚀 ОФОРМИТИ ЗАМОВЛЕННЯ"
-        btn_action = "checkout_init"
     else:
-        loc_status = "⚠️ <b>Дані доставки не заповнені!</b>"
-        btn_text = "📝 ЗАПОВНИТИ ДАНІ"
-        btn_action = "fill_delivery_data"
-
-    # Фінальний текст
-    full_text = (
-        f"🛒 <b>ВАШЕ ЗАМОВЛЕННЯ ({len(cart)} шт)</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{items_text}"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{loc_status}\n"
-        f"💰 <b>РАЗОМ ДО СПЛАТИ: {total_sum:.2f} UAH</b>"
-    )
-
-    # 5. Кнопки управління (Збираємо правильну структуру)
-    
-    # Головна дія (Оформити або Заповнити) - додаємо НА ПОЧАТОК списку
-    keyboard.insert(0, [InlineKeyboardButton(btn_text, callback_data=btn_action)])
-    
-    # Додаткові дії
-    footer_buttons = []
-    
-    # Промокод (якщо ще не введено)
-    if not profile.get("next_order_discount"):
-        footer_buttons.append(InlineKeyboardButton("🎟 Промокод", callback_data="menu_promo"))
-        
-    footer_buttons.append(InlineKeyboardButton("🗑 Очистити", callback_data="cart_clear"))
-    
-    keyboard.append(footer_buttons)
-    keyboard.append([InlineKeyboardButton("🔙 В головне меню", callback_data="menu_start")])
-
-    # Відправка
-    if update.callback_query:
-        await _edit_or_reply(update.callback_query, full_text, keyboard)
-    else:
-        await update.message.reply_text(full_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-
-async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обробка видалення та очищення."""
-    query = update.callback_query
-    data = query.data
-    
-    if data == "cart_clear":
-        context.user_data["cart"] = []
-        try: await query.answer("🗑 Кошик очищено!")
-        except: pass
-        
-    elif data.startswith("cart_del_"):
-        try:
-            # Отримуємо ID з callback_data (cart_del_12345)
-            target_uid = int(data.split("_")[2])
-            cart = context.user_data.get("cart", [])
-            
-            # Фільтруємо список: залишаємо тільки ті, де ID НЕ співпадає
-            new_cart = [item for item in cart if item.get('id') != target_uid]
-            context.user_data["cart"] = new_cart
-            
-            try: await query.answer("❌ Товар видалено")
-            except: pass
-        except Exception as e:
-            logger.error(f"Cart Delete Error: {e}")
-            try: await query.answer("⚠️ Помилка видалення")
-            except: pass
-    
-    # Оновлюємо вигляд кошика
-    await show_cart_logic(update, context)
-    
+        await update.message.reply_text("✅ <b>Профіль успішно налаштовано!</b>\nТепер ви можете робити замовлення.")
+        await start_command(update, context)
     
 # =================================================================
 # 🎁 SECTION 19: GIFT SYSTEM & ADD TO CART (PRO LOGIC)
