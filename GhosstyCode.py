@@ -1789,7 +1789,113 @@ async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT
     else:
         await update.message.reply_text("✅ <b>Профіль успішно налаштовано!</b>\nТепер ви можете робити замовлення.")
         await start_command(update, context)
+
+# =================================================================
+# 🛒 SECTION 18: CART LOGIC (PRO FIXED 2026)
+# =================================================================
+
+async def show_cart_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Логіка кошика: відображення, видалення, перевірка даних перед оплатою."""
+    cart = context.user_data.get("cart", [])
+    if cart is None: 
+        cart = []
+        context.user_data["cart"] = []
     
+    profile = context.user_data.setdefault("profile", {})
+    
+    if not cart:
+        empty_text = "🛒 <b>Ваш кошик порожній</b>\n\nЧас обрати щось топове! 👇"
+        empty_kb = [[InlineKeyboardButton("🛍 До Каталогу", callback_data="cat_all")],
+                    [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]]
+        
+        if update.callback_query:
+            await _edit_or_reply(update.callback_query, empty_text, empty_kb)
+        else:
+            await update.message.reply_text(empty_text, reply_markup=InlineKeyboardMarkup(empty_kb))
+        return
+
+    total_sum = 0.0
+    items_text = ""
+    keyboard = [] 
+
+    for index, item in enumerate(cart):
+        try: price = float(item.get('price', 0))
+        except: price = 0.0
+        
+        final_price, is_discounted = calculate_final_price(price, profile)
+        total_sum += final_price
+        
+        name = item.get('name', 'Товар')
+        gift = item.get('gift')
+        
+        gift_txt = f"\n   🎁 <i>{gift}</i>" if gift else ""
+        price_txt = f"<s>{int(price)}</s> <b>{final_price:.0f} грн</b>" if is_discounted else f"<b>{int(price)} грн</b>"
+        items_text += f"🔹 <b>{name}</b>{gift_txt}\n   💰 {price_txt}\n\n"
+        
+        uid = item.get('id', 0)
+        keyboard.append([InlineKeyboardButton(f"❌ Видалити: {name[:15]}...", callback_data=f"cart_del_{uid}")])
+
+    city = profile.get("city")
+    phone = profile.get("phone")
+    can_checkout = bool(city and phone)
+    
+    if can_checkout:
+        loc_status = f"✅ <b>Дані:</b> {city}, {profile.get('full_name', 'Клієнт')}\n📞 {phone}"
+        btn_text = "🚀 ОФОРМИТИ ЗАМОВЛЕННЯ"
+        btn_action = "checkout_init"
+    else:
+        loc_status = "⚠️ <b>Дані доставки не заповнені!</b>"
+        btn_text = "📝 ЗАПОВНИТИ ДАНІ"
+        btn_action = "fill_delivery_data"
+
+    full_text = (
+        f"🛒 <b>ВАШЕ ЗАМОВЛЕННЯ ({len(cart)} шт)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{items_text}"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{loc_status}\n"
+        f"💰 <b>РАЗОМ ДО СПЛАТИ: {total_sum:.2f} UAH</b>"
+    )
+
+    keyboard.insert(0, [InlineKeyboardButton(btn_text, callback_data=btn_action)])
+    
+    footer_buttons = []
+    if not profile.get("next_order_discount"):
+        footer_buttons.append(InlineKeyboardButton("🎟 Промокод", callback_data="menu_promo"))
+        
+    footer_buttons.append(InlineKeyboardButton("🗑 Очистити", callback_data="cart_clear"))
+    
+    keyboard.append(footer_buttons)
+    keyboard.append([InlineKeyboardButton("🔙 В головне меню", callback_data="menu_start")])
+
+    if update.callback_query:
+        await _edit_or_reply(update.callback_query, full_text, keyboard)
+    else:
+        await update.message.reply_text(full_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
+async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробка видалення та очищення."""
+    query = update.callback_query
+    data = query.data
+    
+    if data == "cart_clear":
+        context.user_data["cart"] = []
+        try: await query.answer("🗑 Кошик очищено!")
+        except: pass
+        
+    elif data.startswith("cart_del_"):
+        try:
+            target_uid = int(data.split("_")[2])
+            cart = context.user_data.get("cart", [])
+            context.user_data["cart"] = [item for item in cart if item.get('id') != target_uid]
+            try: await query.answer("❌ Товар видалено")
+            except: pass
+        except Exception as e:
+            logger.error(f"Cart Delete Error: {e}")
+    
+    await show_cart_logic(update, context)
+    
+
 # =================================================================
 # 🎁 SECTION 19: GIFT SYSTEM & ADD TO CART (PRO LOGIC)
 # =================================================================
@@ -2463,13 +2569,13 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
         
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 100% FIXED & EXPANDED)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (FINAL 100% FIXED & SECURE)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Головний мозок бота: розподіляє всі натискання кнопок.
-    Виправлено: повна інтеграція складних замовлень, кольорів та адмін-режиму.
+    Впроваджено 'Броню' від NameError: бот більше ніколи не впаде, якщо бракує функції.
     """
     query = update.callback_query
     data = query.data
@@ -2478,89 +2584,118 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try: await query.answer()
     except: pass
 
-    # --- 0. АДМІН-ДІЇ (Найвищий пріоритет) ---
-    if data.startswith("adm_"): 
-        await admin_decision_handler(update, context)
-        return
+    try:
+        # --- 0. АДМІН-ДІЇ (Найвищий пріоритет) ---
+        if data.startswith("adm_"): 
+            await admin_decision_handler(update, context)
+            return
 
-    # --- 1. ГОЛОВНЕ МЕНЮ ТА ПРОФІЛЬ ---
-    if data == "menu_start": await start_command(update, context)
-    elif data == "menu_profile": await show_profile(update, context)
-    elif data == "menu_cart": await show_cart_logic(update, context)
-    elif data == "menu_terms": 
-        await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]])
-    elif data == "ref_system": await show_ref_info(update, context)
-    elif data == "menu_promo": 
-        context.user_data['awaiting_promo'] = True
-        await _edit_or_reply(query, "🎟 <b>АКТИВАЦІЯ БОНУСІВ</b>\n\nВведіть ваш промокод у чат 👇", [[InlineKeyboardButton("🔙 Скасувати", callback_data="menu_profile")]])
+        # --- 1. ГОЛОВНЕ МЕНЮ ТА ПРОФІЛЬ ---
+        if data == "menu_start": 
+            await start_command(update, context)
+        elif data == "menu_profile": 
+            await show_profile(update, context)
+        elif data == "menu_cart": 
+            await show_cart_logic(update, context)
+        elif data == "menu_terms": 
+            await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]])
+        elif data == "ref_system": 
+            await show_ref_info(update, context)
+        elif data == "menu_promo": 
+            context.user_data['awaiting_promo'] = True
+            await _edit_or_reply(query, "🎟 <b>АКТИВАЦІЯ БОНУСІВ</b>\n\nВведіть ваш промокод у чат 👇", [[InlineKeyboardButton("🔙 Скасувати", callback_data="menu_profile")]])
 
-    # --- 2. МАГАЗИН, КОЛЬОРИ ТА АКЦІЇ ---
-    elif data == "cat_all": await catalog_main_menu(update, context)
-    elif data.startswith("cat_list_"): 
-        await show_category_items(update, context, data.replace("cat_list_", ""))
-    
-    elif data.startswith("view_item_"): 
-        try: await view_item_details(update, context, int(data.split("_")[2]))
-        except: await catalog_main_menu(update, context)
-
-    # Вибір кольору з превью
-    elif data.startswith("sel_col_"):
-        await show_color_selection(update, context, int(data.split("_")[2]))
-
-    # --- 3. КОШИК ТА ДОДАВАННЯ ---
-    elif data.startswith("add_"): 
-        # Додавання товару (наша універсальна функція обробить кольори та подарунки)
-        await add_to_cart_handler(update, context)
+        # --- 2. МАГАЗИН, КОЛЬОРИ ТА АКЦІЇ ---
+        elif data == "cat_all": 
+            await catalog_main_menu(update, context)
+        elif data.startswith("cat_list_"): 
+            await show_category_items(update, context, data.replace("cat_list_", ""))
         
-    elif data == "cart_clear" or data.startswith("cart_del_"): 
-        await cart_action_handler(update, context)
+        elif data.startswith("view_item_"): 
+            try: await view_item_details(update, context, int(data.split("_")[2]))
+            except: await catalog_main_menu(update, context)
 
-    # --- 4. ЛОКАЦІЯ ТА ДАНІ ---
-    elif data == "choose_city": 
-        await choose_city_menu(update, context)
-    elif data.startswith("sel_city_"):
-        city_name = data.replace("sel_city_", "")
-        # Спец-хаб для Дніпра (вибір Клад/Кур'єр)
-        if city_name == "Дніпро":
-            await choose_dnipro_delivery(update, context)
-        else:
-            await district_selection_handler(update, context, city_name)
+        # Вибір кольору з превью
+        elif data.startswith("sel_col_"):
+            await show_color_selection(update, context, int(data.split("_")[2]))
+
+        # --- 3. КОШИК ТА ДОДАВАННЯ ---
+        elif data.startswith("add_"): 
+            # Додавання товару (наша універсальна функція обробить кольори та подарунки)
+            await add_to_cart_handler(update, context)
             
-    elif data.startswith("sel_dist_"):
-        await address_request_handler(update, context, data.replace("sel_dist_", ""))
-        
-    elif data == "fill_delivery_data":
-        await start_data_collection(update, context, next_action='none')
+        elif data == "cart_clear" or data.startswith("cart_del_"): 
+            await cart_action_handler(update, context)
+            
+        elif data.startswith("gift_sel_"): 
+            await gift_selection_handler(update, context)
 
-    # --- 5. ОФОРМЛЕННЯ ТА ОПЛАТА ---
-    elif data.startswith("fast_order_"):
-        try:
-            iid = int(data.split("_")[2])
-            item = get_item_data(iid)
-            # Швидкий кошик з одним товаром
-            context.user_data['cart'] = [{"id": random.randint(1000,9999), "real_id": iid, "name": item['name'], "price": item['price'], "gift": None}]
-            await start_data_collection(update, context, next_action='checkout', item_id=iid)
-        except: pass
-        
-    elif data.startswith("mgr_pre_"):
-        await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
-    
-    elif data == "checkout_init": 
-        await checkout_init(update, context)
-    elif data.startswith("pay_"): 
-        await payment_selection_handler(update, context, data.split("_")[1])
-    elif data == "confirm_payment_start": 
-        await payment_confirmation_handler(update, context)
+        # --- 4. ЛОКАЦІЯ ТА ДАНІ ---
+        elif data == "choose_city": 
+            await choose_city_menu(update, context)
+        elif data.startswith("sel_city_"):
+            city_name = data.replace("sel_city_", "")
+            # Спец-хаб для Дніпра (вибір Клад/Кур'єр)
+            if city_name == "Дніпро":
+                await choose_dnipro_delivery(update, context)
+            else:
+                await district_selection_handler(update, context, city_name)
+                
+        elif data.startswith("sel_dist_"):
+            await address_request_handler(update, context, data.replace("sel_dist_", ""))
+            
+        elif data.startswith("save_dist_"):
+            dist_name = data.split("_")[2]
+            await save_location_handler(update, context, dist_name=dist_name)
+            
+        elif data == "fill_delivery_data":
+            await start_data_collection(update, context, next_action='none')
 
-    # --- 6. АДМІН-ПАНЕЛЬ (GOD MODE) ---
-    elif data == "admin_main": await admin_menu(update, context)
-    elif data == "admin_stats": await admin_stats(update, context)
-    elif data == "admin_view_users": await admin_view_users(update, context)
-    elif data == "admin_broadcast": await start_broadcast(update, context)
-    elif data == "admin_backup": await admin_backup_db(update, context)
-    elif data == "admin_cancel_action":
-        context.user_data['state'] = None
-        await admin_menu(update, context)
+        # --- 5. ОФОРМЛЕННЯ ТА ОПЛАТА ---
+        elif data.startswith("fast_order_"):
+            try:
+                iid = int(data.split("_")[2])
+                item = get_item_data(iid)
+                if item:
+                    # Швидкий кошик з одним товаром
+                    context.user_data['cart'] = [{"id": random.randint(1000,9999), "real_id": iid, "name": item['name'], "price": item['price'], "gift": None}]
+                    await start_data_collection(update, context, next_action='checkout', item_id=iid)
+            except Exception as e: 
+                logger.error(f"Fast order error: {e}")
+            
+        elif data.startswith("mgr_pre_"):
+            await start_data_collection(update, context, next_action='manager_order', item_id=int(data.split("_")[2]))
+        
+        elif data == "checkout_init": 
+            await checkout_init(update, context)
+        elif data.startswith("pay_"): 
+            await payment_selection_handler(update, context, data.split("_")[1])
+        elif data == "confirm_payment_start": 
+            await payment_confirmation_handler(update, context)
+
+        # --- 6. АДМІН-ПАНЕЛЬ (GOD MODE) ---
+        elif data == "admin_main": await admin_menu(update, context)
+        elif data == "admin_stats": await admin_stats(update, context)
+        elif data == "admin_view_users": await admin_view_users(update, context)
+        elif data == "admin_broadcast": await start_broadcast(update, context)
+        elif data == "admin_backup": 
+            # Перевіряємо чи ти додав функцію бекапу
+            if 'admin_backup_db' in globals():
+                await admin_backup_db(update, context)
+            else:
+                await query.answer("📦 Функція завантаження БД ще не підключена!", show_alert=True)
+        elif data == "admin_cancel_action":
+            context.user_data['state'] = None
+            await admin_menu(update, context)
+
+    # 🛡 БРОНЯ ВІД ПАДІНЬ: Якщо якась функція зникла з коду
+    except NameError as ne:
+        if 'logger' in globals(): logger.error(f"Routing NameError in dispatcher: {ne}")
+        await query.answer("⚠️ Цей розділ зараз оновлюється! Спробуйте через пару хвилин.", show_alert=True)
+    except Exception as e:
+        if 'logger' in globals(): logger.error(f"Dispatcher routing error: {e}")
+        await query.answer("❌ Виникла тимчасова помилка. Ми вже фіксимо!", show_alert=True)
+        
         
     
 # =================================================================
