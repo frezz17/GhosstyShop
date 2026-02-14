@@ -203,22 +203,16 @@ DATA_ENGINE_STATUS = "LOADED_PRO_2026"
 
 
 # =================================================================
-# 🛠 SECTION 2: UI ENGINE & ERROR SHIELD (TITAN STABLE v6.5)
+# 🛠 SECTION 2: UI ENGINE & ERROR SHIELD (TITAN STABLE v6.7)
 # =================================================================
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Глобальний щит безпеки: перехоплює будь-які збої, сповіщає адміна 
-    та запобігає «падінню» бота.
-    """
-    # 1. Логування в консоль та файл
+    """Глобальний щит безпеки: сповіщає адміна про будь-які збої."""
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
-    
     try:
-        # 2. Формування детального звіту
         tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
         tb_string = "".join(tb_list)
-        error_snippet = escape(tb_string[-3500:]) # Обмеження довжини для TG
+        error_snippet = escape(tb_string[-3500:]) 
         
         user_info = "Unknown User"
         if isinstance(update, Update) and update.effective_user:
@@ -226,84 +220,52 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             user_info = f"👤 <b>{escape(u.full_name)}</b> (@{u.username}) [<code>{u.id}</code>]"
 
         admin_msg = (
-            f"🆘 <b>CRITICAL SYSTEM ERROR</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 <b>User:</b> {user_info}\n"
-            f"⚙️ <b>Type:</b> <code>{type(context.error).__name__}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🔍 <b>Traceback:</b>\n<pre>{error_snippet}</pre>"
+            f"🆘 <b>CRITICAL SYSTEM ERROR</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>User:</b> {user_info}\n⚙️ <b>Type:</b> <code>{type(context.error).__name__}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n🔍 <b>Traceback:</b>\n<pre>{error_snippet}</pre>"
         )
-        
-        # Відправка звіту менеджеру
         await context.bot.send_message(chat_id=MANAGER_ID, text=admin_msg, parse_mode=ParseMode.HTML)
-        
-        # 3. Ввічливе сповіщення користувача
         if isinstance(update, Update) and update.effective_chat:
-            fail_text = "⚠️ <b>Виникла помилка в системі.</b>\nМенеджер вже отримав сповіщення. Спробуйте натиснути /start"
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=fail_text, parse_mode=ParseMode.HTML)
-
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ <b>Виникла помилка.</b> Спробуйте натиснути /start", parse_mode=ParseMode.HTML)
     except Exception as e:
         logger.error(f"Failed to report error: {e}")
 
 async def _edit_or_reply(target, text: str, kb: list = None, photo: str = None, context: ContextTypes.DEFAULT_TYPE = None):
     """
-    Універсальний адаптер інтерфейсу v6.5. 
-    Автоматично вирішує: редагувати чи надсилати нове.
-    Виправляє помилки при зміні Текст <-> Фото.
+    Універсальний адаптер інтерфейсу v6.7. 
+    Виправлено: повна підтримка context та переходи Текст <-> Фото.
     """
-    # 1. Захист від порожнього тексту (Telegram не приймає порожнечу)
-    if not text:
-        text = "..."
-
-    # 2. Нормалізація клавіатури
+    if not text: text = "..."
     reply_markup = InlineKeyboardMarkup(kb) if isinstance(kb, list) else (kb if kb else None)
     
-    # 3. Визначаємо об'єкти (Query / Message / Chat ID)
+    # Визначаємо об'єкти
     query = target if hasattr(target, 'data') else getattr(target, 'callback_query', None)
     message = query.message if query else getattr(target, 'message', target)
     
-    if not message:
-        logger.error("UI Engine: Target message not found.")
-        return
-
+    if not message: return
     chat_id = message.chat_id
-    # Використовуємо переданий context або намагаємось отримати бот з повідомлення
     bot = context.bot if context else message.get_bot()
 
     try:
-        if query: # Логіка редагування (якщо натиснуто кнопку)
+        if query:
             if photo:
                 if message.photo:
-                    # Фото -> Фото (Редагуємо медіа)
-                    await query.edit_message_media(
-                        media=InputMediaPhoto(media=photo, caption=text, parse_mode=ParseMode.HTML),
-                        reply_markup=reply_markup
-                    )
+                    await query.edit_message_media(media=InputMediaPhoto(media=photo, caption=text, parse_mode=ParseMode.HTML), reply_markup=reply_markup)
                 else:
-                    # Текст -> Фото (Delete + Send)
-                    await safe_delete(message)
+                    await message.delete()
                     await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             else:
                 if message.photo:
-                    # Фото -> Текст (Delete + Send)
-                    await safe_delete(message)
+                    await message.delete()
                     await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                 else:
-                    # Текст -> Текст (Стандартний Edit)
                     await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-        
-        else: # Логіка для нових повідомлень (команди)
-            if photo:
-                await message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-            else:
-                await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-
+        else:
+            if photo: await message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            else: await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     except BadRequest as e:
         if "Message is not modified" not in str(e):
-            logger.warning(f"UI Engine bypass: {e}")
-            # Ядерний фолбек: просто нове повідомлення в чат
-            try:
-                await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            try: await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             except: pass
 
 async def send_ghosty_message(update_obj, text: str, reply_markup=None, photo=None, context: ContextTypes.DEFAULT_TYPE = None):
@@ -311,14 +273,9 @@ async def send_ghosty_message(update_obj, text: str, reply_markup=None, photo=No
     await _edit_or_reply(update_obj, text, reply_markup, photo, context)
 
 async def safe_delete(message):
-    """Атомарне видалення повідомлення без помилок у логах."""
     try:
-        if hasattr(message, 'delete'):
-            await message.delete()
-    except Exception:
-        pass
-        
-    
+        if hasattr(message, 'delete'): await message.delete()
+    except: pass
         
 # =================================================================
 # 🛠 SECTION 3: MATH & LOCATION ENGINE (PRO STABLE v5.5)
@@ -1376,211 +1333,38 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _edit_or_reply(target, text, kb, context=context)
     
 
-# =================================================================
-# 🛠 SECTION 7: CORE UTILITIES (ULTIMATE EDITION - v5.0 PRO)
-# =================================================================
-
-def get_item_data(item_id):
-    """
-    Universal Registry Search.
-    Scans all global catalogs without risking NameError.
-    """
-    try:
-        iid = int(item_id)
-        # Search priority: Vapes -> Pods -> Liquids -> Sets -> Gifts
-        catalog_keys = ['HHC_VAPES', 'PODS', 'LIQUIDS', 'SETS', 'GIFT_LIQUIDS']
-        
-        for key in catalog_keys:
-            catalog = globals().get(key)
-            if catalog and isinstance(catalog, dict):
-                if iid in catalog:
-                    return catalog[iid]
-        return None
-    except Exception as e:
-        logger.error(f"Registry Search Failure (ID: {item_id}): {e}")
-        return None
-
-async def _safe_delete(message):
-    """Atomic delete operation to prevent 'Message to delete not found' errors."""
-    try:
-        await message.delete()
-        return True
-    except:
-        return False
-
-async def send_ghosty_message(update_obj, text: str, reply_markup=None, photo=None):
-    """
-    🛡 GHOSTY UI ENGINE v5.0 (CLOCKWORK)
-    Handles complex state changes between Text and Photo media seamlessly.
-    """
-    try:
-        # 1. Markup Normalization
-        if isinstance(reply_markup, list):
-            reply_markup = InlineKeyboardMarkup(reply_markup)
-
-        # 2. Extract Context (Universal Adapter)
-        if isinstance(update_obj, Update):
-            query = update_obj.callback_query
-            message = query.message if query else update_obj.message
-            chat_id = update_obj.effective_chat.id
-        else:
-            # Fallback for direct Message/Query objects
-            query = update_obj if hasattr(update_obj, 'data') else None
-            message = update_obj.message if query else update_obj
-            chat_id = message.chat_id
-
-        if not message: return
-
-        # 3. LOGIC: EDIT vs SEND NEW
-        if query:
-            # SCENARIO A: Target has Photo
-            if photo:
-                if message.photo:
-                    # Photo -> Photo (Edit Media)
-                    try:
-                        media = InputMediaPhoto(media=photo, caption=text, parse_mode='HTML')
-                        await message.edit_media(media=media, reply_markup=reply_markup)
-                    except BadRequest:
-                        # Fallback: Just edit caption if media is same/error
-                        await message.edit_caption(caption=text, reply_markup=reply_markup, parse_mode='HTML')
-                else:
-                    # Text -> Photo (Delete & Send New)
-                    await _safe_delete(message)
-                    await context.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-            
-            # SCENARIO B: Target has Text
-            else:
-                if message.text:
-                    # Text -> Text (Edit Text)
-                    try:
-                        await message.edit_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
-                    except BadRequest as e:
-                        if "Message is not modified" not in str(e): raise e
-                else:
-                    # Photo -> Text (Delete & Send New)
-                    await _safe_delete(message)
-                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
-        
-        # 4. Standard Message Fallback (No Query)
-        else:
-            if photo:
-                await message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-            else:
-                await message.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
-
-    except Exception as e:
-        logger.error(f"UI Engine Error: {e}")
-        # Nuclear Fallback: Send fresh message to chat
-        try:
-            bot = context.bot if context else message.get_bot()
-            if photo:
-                await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-            else:
-                await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
-        except: pass
-
-async def _edit_or_reply(target, text, reply_markup=None):
-    """
-    Universal Object Bridge.
-    Converts CallbackQueries, Updates or Messages into v5.0 Engine compatible calls.
-    """
-    if not target: return
-
-    # If target is CallbackQuery
-    if hasattr(target, 'message') and hasattr(target, 'data'):
-        # Create a fake Update object wrapper for compatibility
-        class FakeUpdate:
-            def __init__(self, q): 
-                self.callback_query = q
-                self.effective_chat = q.message.chat
-                self.effective_user = q.from_user
-                self.message = q.message
-        
-        await send_ghosty_message(FakeUpdate(target), text, reply_markup)
-    
-    # If target is Update
-    elif isinstance(target, Update):
-        await send_ghosty_message(target, text, reply_markup)
-        
-    # If target is raw Message
-    elif hasattr(target, 'reply_text'):
-        try:
-            await target.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
-        except: pass
-            
     
     
 # =================================================================
-# 🌍 SECTION 10: GEOGRAPHY & LOGISTICS (DATA & MENUS)
+# 🌍 SECTION 10: GEOGRAPHY & LOGISTICS (TITAN PRO v6.8)
 # =================================================================
 
-# 1. Головний реєстр міст та районів
-UKRAINE_CITIES = {
-    "Київ": [
-        "Печерський", "Шевченківський", "Голосіївський", "Оболонський", 
-        "Подільський", "Дарницький", "Солом'янський", "Деснянський (Троєщина)"
-    ],
-    "Дніпро": [
-        "Центральний (Мост-Сіті)", "Соборний (Нагірка)", "Індустріальний", 
-        "Шевченківський", "Чечелівський", "Лівобережний-3 (ТЦ Караван)", 
-        "Перемога 1-6", "Придніпровськ"
-    ],
-    "Кам'янське": [
-        "Центральний (Заводський)", "Дніпровський (Лівий берег)", "Південний (БАМ)", 
-        "Соцмісто", "Черемушки", "Карнаухівка", "Курилівка", "Романкове"
-    ],
-    "Харків": [
-        "Шевченківський", "Київський", "Салтівський", "Немишлянський", 
-        "Холодногірський", "Новобаварський", "Основ'янський", "Індустріальний"
-    ],
-    "Одеса": [
-        "Приморський (Центр)", "Київський (Таїрова)", "Малиновський (Черемушки)", 
-        "Суворовський (Котовського)", "Пересип", "Слобідка", "Молдаванка", "Великий Фонтан"
-    ],
-    "Львів": [
-        "Галицький (Центр)", "Личаківський", "Сихівський", "Франківський", 
-        "Шевченківський", "Залізничний", "Левандівка", "Збоїща"
-    ],
-    "Запоріжжя": [
-        "Олександрівський", "Заводський", "Комунарський", "Дніпровський", 
-        "Вознесенівський", "Хортицький", "Шевченківський", "Південний (Піски)"
-    ],
-    "Кривий Ріг": [
-        "Металургійний", "Центрально-Міський", "Саксаганський", "Покровський", 
-        "Тернівський", "Довгинцівський", "Інгулецький", "мкрн. Сонячний"
-    ],
-    "Вінниця": [
-        "Центр", "Вишенька", "Замостя", "Старе місто", 
-        "Поділля", "Слов'янка", "П'ятничани", "Тяжилів"
-    ],
-    "Полтава": [
-        "Шевченківський", "Київський", "Подільський", "Левада", 
-        "Алмазний", "Половки", "Огнівка", "Розсошенці"
-    ]
-}
+# ПРИМІТКА: UKRAINE_CITIES вже оголошено в SECTION 4 (рядок 106). 
+# Використовуйте тільки один глобальний реєстр, щоб не було конфліктів!
 
-# 2. МЕНЮ ВИБОРУ МІСТА
 async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    КРОК 1: Красиве меню вибору міста.
+    КРОК 1: Елітне меню вибору міста з картою покриття.
     """
+    # Ініціалізуємо стан збору даних
     context.user_data['data_flow'] = {'step': 'city_selection'}
     context.user_data['state'] = "COLLECTING_DATA"
     
-    # Карта покриття (або лого)
-    MAP_IMAGE = "https://i.ibb.co/y7Q194N/1770068775663.png"
+    # Використовуємо ваш банер або лого для локацій
+    MAP_IMAGE = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
 
     text = (
         "🏙 <b>ОБЕРІТЬ ВАШЕ МІСТО</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "Ми працюємо у найбільших містах України.\n"
-        "Оберіть локацію зі списку, щоб побачити доступні методи доставки 👇"
+        "Ми працюємо у найбільших хабах України.\n"
+        "Оберіть локацію, щоб побачити доступні райони 👇"
     )
     
-    keyboard = []
+    # city_list беремо з SECTION 4 для синхронізації
     city_list = list(UKRAINE_CITIES.keys())
     
-    # Генеруємо кнопки по 2 в ряд
+    keyboard = []
+    # Генерація кнопок по 2 в ряд
     for i in range(0, len(city_list), 2):
         row = [InlineKeyboardButton(city_list[i], callback_data=f"sel_city_{city_list[i]}")]
         if i + 1 < len(city_list):
@@ -1589,34 +1373,13 @@ async def choose_city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard.append([InlineKeyboardButton("🔙 В головне меню", callback_data="menu_start")])
     
-    # Намагаємося надіслати фото, якщо не виходить — просто текст
-    try:
-        if update.callback_query:
-            # Якщо це колбек (натискання кнопки) - краще редагувати повідомлення
-            # Але оскільки ми хочемо додати фото, видаляємо старе і шлемо нове
-            await update.callback_query.message.delete()
-            await context.bot.send_photo(
-                chat_id=update.effective_chat.id, 
-                photo=MAP_IMAGE, 
-                caption=text, 
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='HTML'
-            )
-        else:
-            await update.message.reply_photo(
-                photo=MAP_IMAGE, 
-                caption=text, 
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='HTML'
-            )
-    except Exception:
-        # Fallback: просто редагуємо текст (якщо фото не вантажиться)
-        await _edit_or_reply(update.callback_query if update.callback_query else update, text, keyboard)
+    # Використовуємо наш універсальний двигун TITAN v6.7
+    # Він сам вирішить: видалити текст і прислати фото чи оновити існуюче
+    await send_ghosty_message(update, text, keyboard, photo=MAP_IMAGE, context=context)
 
-# 3. СПЕЦІАЛЬНЕ МЕНЮ ДЛЯ ДНІПРА (Клад / Кур'єр)
 async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Спец-хаб для Дніпра: вибір між Кладом (райони) та Кур'єром.
+    Спеціальний логістичний хаб для Дніпра.
     """
     query = update.callback_query
     context.user_data.setdefault("profile", {})["city"] = "Дніпро"
@@ -1624,44 +1387,40 @@ async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_T
     text = (
         "🏙 <b>ДНІПРО: СПОСІБ ОТРИМАННЯ</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "1️⃣ <b>Район (Клад)</b> — магніт/прикоп у обраному районі.\n"
-        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка прямо до дверей таксі/кур'єром.\n\n"
+        "1️⃣ <b>Район (Клад)</b> — готовий сховок у вашому районі.\n"
+        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка прямо до дверей.\n\n"
         "👇 Що обираєте?"
     )
     
     kb = [
-        [InlineKeyboardButton("📍 Обрати район (Клад)", callback_data="sel_dist_Dnipro_Klad")], # Веде до списку районів
-        [InlineKeyboardButton("🛵 Кур'єрська доставка (+150 грн)", callback_data="sel_dist_Кур'єр")], # Одразу фіксує "Кур'єр"
+        [InlineKeyboardButton("📍 Обрати район (Клад)", callback_data="sel_dist_Dnipro_Klad")],
+        [InlineKeyboardButton("🛵 Кур'єрська доставка (+150 грн)", callback_data="sel_dist_Кур'єр")],
         [InlineKeyboardButton("⬅️ Змінити місто", callback_data="choose_city")]
     ]
-    await _edit_or_reply(query, text, kb)
+    # Обов'язково передаємо context=context для стабільності
+    await _edit_or_reply(query, text, kb, context=context)
 
-# 4. МЕНЮ ВИБОРУ РАЙОНУ
 async def district_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str):
     """
-    КРОК 2: Вибір району для інших міст (або якщо обрано "Клад" у Дніпрі).
+    КРОК 2: Динамічне меню районів. 
+    Підтримує перехід з вибору міста та спец-тег Дніпра.
     """
     query = update.callback_query
     
-    # Якщо прийшло "Dnipro_Klad", значить місто точно Дніпро
-    if city == "Dnipro_Klad":
-        real_city = "Дніпро"
-    else:
-        real_city = city
-        
+    # Обробка спец-кейсу для Дніпра
+    real_city = "Дніпро" if city == "Dnipro_Klad" else city
     context.user_data.setdefault('profile', {})['city'] = real_city
     
+    # Беремо райони з глобального реєстру
     districts = UKRAINE_CITIES.get(real_city, [])
     
     text = (
-        f"🏘 <b>МІСТО: {real_city.upper()}</b>\n"
+        f"🏘 <b>{real_city.upper()}: ОБЕРІТЬ ЛОКАЦІЮ</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Уточніть район для отримання замовлення:"
+        f"Оберіть найзручніший район для отримання стаффу:"
     )
 
     kb = []
-    
-    # Генеруємо кнопки районів
     if districts:
         for i in range(0, len(districts), 2):
             row = [InlineKeyboardButton(districts[i], callback_data=f"sel_dist_{districts[i]}")]
@@ -1669,16 +1428,16 @@ async def district_selection_handler(update: Update, context: ContextTypes.DEFAU
                 row.append(InlineKeyboardButton(districts[i+1], callback_data=f"sel_dist_{districts[i+1]}"))
             kb.append(row)
     else:
-        # Fallback якщо районів немає
-        text = f"📍 <b>{real_city}</b>\nНатисніть «Далі», щоб ввести адресу вручну."
-        kb.append([InlineKeyboardButton("➡️ Ввести адресу", callback_data=f"sel_dist_Центр")])
+        text = f"📍 <b>{real_city}</b>\nРайони ще оновлюються. Введіть адресу вручну."
+        kb.append([InlineKeyboardButton("➡️ Ввести адресу", callback_data="sel_dist_Центр")])
         
     kb.append([InlineKeyboardButton("🔙 Змінити місто", callback_data="choose_city")])
     
-    # Оновлюємо крок flow
+    # Оновлюємо крок для FSM (handle_data_input)
     context.user_data.setdefault('data_flow', {})['step'] = 'district_selection'
     
-    await _edit_or_reply(query, text, kb)
+    await _edit_or_reply(query, text, kb, context=context)
+    
     
     
 # =================================================================
@@ -3192,79 +2951,95 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
             
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP (FINAL PRODUCTION 101%)
+# 🚀 SECTION 31: ENGINE STARTUP (FINAL PRODUCTION 101% STABLE)
 # =================================================================
 
 async def post_init(application: Application) -> None:
-    """Сповіщення про успішний запуск."""
+    """Функція автоматичного сповіщення адміна після успішного старту."""
     try:
         await application.bot.send_message(
             chat_id=MANAGER_ID,
-            text=f"🚀 <b>GHO$$TY ENGINE ONLINE</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                 f"✅ Система успішно запущена\n🕒 Час: {datetime.now().strftime('%H:%M:%S')}\n"
-                 f"🛡 Версія: <b>STABLE v5.5.2 PRO</b>",
+            text=f"🚀 <b>GHO$$TY ENGINE ONLINE</b>\n"
+                 f"━━━━━━━━━━━━━━━━━━━━\n"
+                 f"✅ Система успішно запущена\n"
+                 f"🕒 Час: {datetime.now().strftime('%H:%M:%S')}\n"
+                 f"🛡 Версія: <b>TITAN PRO v5.5.5</b>",
             parse_mode='HTML'
         )
     except Exception as e:
         logger.error(f"Post-init notification failed: {e}")
 
 def main():
-    """Головна точка входу: СУВОРИЙ ПОРЯДОК."""
-    if not TOKEN or TOKEN == "ВСТАВ":
-        print("❌ FATAL: Token missing!"); sys.exit(1)
+    """
+    Головна точка входу. 
+    СУВОРИЙ ПОРЯДОК реєстрації хендлерів для уникнення конфліктів.
+    """
+    # 1. Попередня перевірка безпеки
+    if not TOKEN or "ВСТАВ" in TOKEN:
+        print("❌ FATAL ERROR: Bot token is missing or invalid!"); sys.exit(1)
         
-    # 1. Створення папок та бази
+    # 2. Ініціалізація бази даних та папок (Section 4)
     init_db() 
     
-    # 2. persistence для пам'яті кошиків
+    # 3. Налаштування Persistence (Збереження кошиків при рестарті)
     persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
     
-    # 3. Builder
+    # 4. Побудова додатку (v20.x Async Stack)
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(persistence)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .post_init(post_init)
+        .post_init(post_init) 
         .build()
     )
 
-    # 4. Реєстрація хендлерів (Пріоритет зверху вниз)
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("admin", admin_menu))
+    # 5. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (Пріоритет зверху вниз)
     
-    # Кнопки (Callback Queries)
-    app.add_handler(CallbackQueryHandler(global_callback_handler))
+    # Команди (Першочергові)
+    app.add_handler(CommandHandler("start", start_command)) 
+    app.add_handler(CommandHandler("admin", admin_menu)) 
     
-    # Текст, Фото, Відео (MessageHandler)
+    # Кнопки (Універсальний диспетчер Section 29)
+    app.add_handler(CallbackQueryHandler(global_callback_handler)) 
+    
+    # Текст та медіа (MessageHandler Section 30)
+    # Обробляє: Реєстрацію, Чеки, Розсилки та випадкові повідомлення
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.VOICE | filters.VIDEO_NOTE) & (~filters.COMMAND), 
         handle_user_input 
     ))
     
-    # КРИТИЧНО: Реєстрація щита помилок
-    app.add_error_handler(error_handler)
+    # Глобальний щит помилок (Section 2)
+    # МАЄ БУТИ ОСТАННІМ ДЛЯ ПЕРЕХОПЛЕННЯ ВСІХ ЗБОЇВ
+    app.add_error_handler(error_handler) 
     
-     # 6. ВІЗУАЛЬНА ДІАГНОСТИКА В КОНСОЛІ (BotHost Logging)
+    # 6. ВІЗУАЛЬНА ДІАГНОСТИКА (Для логів BotHost)
     token_masked = f"{TOKEN[:6]}...{TOKEN[-4:]}"
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print(f"🌫️  GHO$$TY STAFF PREMIUM ENGINE v5.2.2")
+    print(f"🌫️  GHO$$TY STAFF PREMIUM ENGINE v5.5.5")
     print(f"📡  STATUS:  [ ONLINE ]")
     print(f"🔑  TOKEN:   {token_masked}")
     print(f"📁  DB PATH: {DB_PATH}")
-    print(f"💾  STATE:   {PERSISTENCE_PATH}")
-    print(f"👮‍♂️  ADMIN:   ID:{MANAGER_ID} (@{MANAGER_USERNAME})")
+    print(f"👮‍♂️  ADMIN:   ID:{MANAGER_ID}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("🚀  POLLING STARTED: WAITING FOR UPDATES...")
     
-    # 6. Запуск (drop_pending_updates ігнорує старі повідомлення поки бот був офлайн)
+    # 7. ЗАПУСК
+    # drop_pending_updates=True ігнорує чергу повідомлень за час офлайну
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
+    # Гарантована ініціалізація START_TIME для адмін-статистики
+    if 'START_TIME' not in globals():
+        START_TIME = datetime.now()
+
     try:
         main()
     except KeyboardInterrupt:
-        print("\n🛑 System stopped by Admin.")
-    except Exception as e:
-        print(f"❌ CRITICAL CRASH: {e}")
+        print("\n🛑 System stopped by Administrator.")
+        sys.exit(0)
+    except Exception as fatal_e:
+        print(f"❌ CRITICAL CRASH: {fatal_e}")
         traceback.print_exc()
+        sys.exit(1)
