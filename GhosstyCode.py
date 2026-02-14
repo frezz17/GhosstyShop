@@ -1630,180 +1630,19 @@ async def view_item_details(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     await send_ghosty_message(update, caption, keyboard, photo=item.get('img'))
 
 # =================================================================
-# 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
+# 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO v5.5)
 # =================================================================
 
-async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
-    """Ініціалізація збору даних (Крок 1/4)."""
-    # Зберігаємо план дій (маршрут FSM), щоб не загубити його між кроками
-    context.user_data['data_flow'] = {
-        'step': 'name',
-        'next_action': next_action, 
-        'item_id': item_id
-    }
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = (
-        "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━\n"
-        "Як до вас звертатись? (Введіть Прізвище та Ім'я для накладної):"
-    )
-    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
-    
-    await _edit_or_reply(update, text, kb)
-
-
-async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головний обробник текстового вводу для реєстрації (маршрутизатор кроків)."""
-    if not update.message or not update.message.text: return
-    
-    flow = context.user_data.get('data_flow')
-    if not flow: return
-    
-    text = update.message.text.strip()
-    profile = context.user_data.setdefault('profile', {})
-    step = flow.get('step')
-
-    if step == 'name':
-        # Базова перевірка на адекватність вводу
-        if len(text) < 2:
-            await update.message.reply_text("⚠️ Ім'я занадто коротке. Спробуйте ще раз:")
-            return
-            
-        profile['full_name'] = text
-        flow['step'] = 'phone'
-        
-        msg = (
-            "📱 <b>КРОК 2/4: КОНТАКТ</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "Введіть ваш номер телефону (напр. 095...):"
-        )
-        await update.message.reply_text(msg, parse_mode='HTML')
-        
-    elif step == 'phone':
-        if len(text) < 9:
-            await update.message.reply_text("⚠️ Невірний формат телефону. Спробуйте ще раз:")
-            return
-            
-        profile['phone'] = text
-        # Після телефону автоматично перекидаємо на вибір міста
-        # State залишається COLLECTING_DATA
-        await choose_city_menu(update, context)
-
-    # 🔧 ВИПРАВЛЕНО: Додано обробку кроку адреси, якої раніше не було
-    elif step == 'address':
-        if len(text) < 2:
-            await update.message.reply_text("⚠️ Адреса занадто коротка. Введіть коректні дані:")
-            return
-            
-        profile['address_details'] = text
-        # Відправляємо на фіналізацію та збереження
-        await finalize_data_collection(update, context)
-
-
-async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """КРОК 4/4: Запит точної адреси після вибору району."""
-    context.user_data.setdefault('profile', {})['district'] = district
-    
-    # 🔧 ВИПРАВЛЕНО: Безпечно оновлюємо step, не затираючи next_action
-    if 'data_flow' not in context.user_data:
-         context.user_data['data_flow'] = {}
-         
-    context.user_data['data_flow']['step'] = 'address'
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = (
-        f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Ви обрали: <b>{district}</b>\n\n"
-        f"Напишіть номер відділення НП (напр. «№55») або адресу для кур'єра 👇"
-    )
-    await _edit_or_reply(update, text, [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]])
-
-
-async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Фінал: Атомарне збереження в БД та динамічна маршрутизація FSM."""
-    p = context.user_data.get('profile', {})
-    user_id = update.effective_user.id
-    
-    # 🔧 ВИПРАВЛЕНО: Використання context manager ('with') для безпечної роботи з БД
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("""
-                UPDATE users 
-                SET full_name=?, phone=?, city=?, district=?, address_details=? 
-                WHERE user_id=?""", 
-                (p.get('full_name'), p.get('phone'), p.get('city'), 
-                 p.get('district'), p.get('address_details'), user_id)
-            )
-# =================================================================
-# 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
-# =================================================================
-
-async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
-    """Ініціалізація збору даних (Крок 1/4)."""
-    # Ми використовуємо словник, щоб зберегти контекст: куди йти ПІСЛЯ реєстрації
-    context.user_data['data_flow'] = {
-        'step': 'name',
-        'next_action': next_action, 
-        'item_id': item_id
-    }
-    context.user_data['state'] = "COLLECTING_DATA"
-    
-    text = (
-        "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━\n"
-        "Як до вас звертатись?\n"
-        "<i>Будь ласка, введіть Прізвище та Ім'я для оформлення накладної:</i>"
-    )
-    kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
-    
-    await _edit_or_reply(update, text, kb)
-
-async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головний обробник текстового вводу. Маршрутизує кроки FSM."""
-    if not update.message or not update.message.text: 
-        return
-    
-    flow = context.user_data.get('data_flow')
-    if not flow: 
-        context.user_data['state'] = None
-        return
-    
-    text = update.message.text.strip()
-    profile = context.user_data.setdefault('profile', {})
-    step = flow.get('step')
-
-    # --- КРОК: ІМ'Я ---
-    if step == 'name':
-        if len(text) < 3:
-            await update.message.reply_text("⚠️ Ім'я занадто коротке. Напишіть Прізвище та Ім'я:")
-            return
-        profile['full_name'] = text
-        flow['step'] = 'phone'
-        await update.message.reply_text("📱 <b>КРОК 2/4: КОНТАКТ</b>\n\nВведіть ваш номер телефону (напр. 0951234567):")
-        
-    # --- КРОК: ТЕЛЕФОН ---
-    elif step == 'phone':
-        # Базова очистка номера від зайвих символів
-        clean_phone = "".join(filter(str.isdigit, text))
-        if len(clean_phone) < 10:
-            await update.message.reply_text("⚠️ Некоректний формат. Введіть 10 цифр номера телефону:")
-            return
-        
-        profile['phone'] = text
-        
-# =================================================================
-# 📝 SECTION 16: SMART DATA COLLECTION (FSM ENGINE PRO)
-# =================================================================
-
-import sqlite3 # Гарантуємо наявність імпорту
+import sqlite3
 from datetime import datetime
 
 async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action='none', item_id=None):
-    """Ініціалізація збору даних (Крок 1/4)."""
+    """
+    Ініціалізація збору даних (Крок 1/4).
+    Встановлює маршрут: куди відправити юзера після заповнення профілю.
+    """
     try:
-        # Ретельно ініціалізуємо flow, щоб уникнути KeyError в майбутньому
+        # Ретельно ініціалізуємо flow, щоб уникнути KeyError
         context.user_data['data_flow'] = {
             'step': 'name',
             'next_action': str(next_action), 
@@ -1814,7 +1653,7 @@ async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TY
         text = (
             "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "Як до вас звертатись?\n"
+            "Як до вас звертатись?\n\n"
             "<i>Будь ласка, введіть Прізвище та Ім'я для оформлення накладної:</i>"
         )
         kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
@@ -1824,8 +1663,10 @@ async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TY
         logger.error(f"Error in start_data_collection: {e}")
 
 async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Головний обробник текстового вводу. Маршрутизує кроки FSM."""
-    # Захист від апдейтів без повідомлення (наприклад, редагування)
+    """
+    Головний обробник текстового вводу. 
+    Керує логікою: ПІБ -> Телефон -> (Місто/Район) -> Адреса.
+    """
     if not update.message or not update.message.text: 
         return
     
@@ -1838,39 +1679,47 @@ async def handle_data_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = context.user_data.setdefault('profile', {})
     step = flow.get('step')
 
-    # --- КРОК: ІМ'Я ---
+    # --- КРОК: ПІБ ---
     if step == 'name':
         if len(text) < 3:
-            await update.message.reply_text("⚠️ Ім'я занадто коротке. Напишіть Прізвище та Ім'я:")
+            await update.message.reply_text("⚠️ Ім'я занадто коротке. Напишіть Прізвище та Ім'я повністю:")
             return
+        
         profile['full_name'] = text
         flow['step'] = 'phone'
-        await update.message.reply_text("📱 <b>КРОК 2/4: КОНТАКТ</b>\n\nВведіть ваш номер телефону (напр. 0951234567):")
+        await update.message.reply_text(
+            "📱 <b>КРОК 2/4: КОНТАКТ</b>\n\n"
+            "Введіть ваш номер телефону (напр. <code>0951234567</code>):",
+            parse_mode='HTML'
+        )
         
     # --- КРОК: ТЕЛЕФОН ---
     elif step == 'phone':
         clean_phone = "".join(filter(str.isdigit, text))
         if len(clean_phone) < 10:
-            await update.message.reply_text("⚠️ Некоректний формат. Введіть 10 цифр номера телефону:")
+            await update.message.reply_text("⚠️ Некоректний формат. Введіть 10 цифр номера мобільного:")
             return
         
-        profile['phone'] = text
+        profile['phone'] = clean_phone
         # Перехід до вибору міста (Секція 10)
-        # ВАЖЛИВО: state залишається COLLECTING_DATA для контролю потоку
+        # ВАЖЛИВО: залишаємо стан COLLECTING_DATA, щоб бот знав, що ми в процесі
         await choose_city_menu(update, context)
 
-    # --- КРОК: АДРЕСА ---
+    # --- КРОК: АДРЕСА (Останній текстовий крок) ---
     elif step == 'address':
         if len(text) < 2:
             await update.message.reply_text("⚠️ Будь ласка, вкажіть коректну адресу або номер відділення:")
             return
         
         profile['address_details'] = text
-        # Викликаємо фіналізацію через await
+        # Завершуємо збір та зберігаємо все в базу
         await finalize_data_collection(update, context)
 
 async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-    """КРОК 4/4: Запит точної адреси (викликається з Inline-кнопок районів)."""
+    """
+    КРОК 4/4: Запит точної адреси.
+    Викликається автоматично після того, як юзер натиснув кнопку району.
+    """
     try:
         profile = context.user_data.setdefault('profile', {})
         profile['district'] = district
@@ -1882,7 +1731,7 @@ async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_
         text = (
             f"📍 <b>КРОК 4/4: ТОЧНА АДРЕСА</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"Район: <b>{district}</b>\n\n"
+            f"Район/Тип: <b>{district}</b>\n\n"
             f"Вкажіть номер відділення Нової Пошти або повну адресу для кур'єра 👇"
         )
         kb = [[InlineKeyboardButton("❌ Скасувати", callback_data="menu_start")]]
@@ -1891,12 +1740,14 @@ async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_
         logger.error(f"Error in address_request_handler: {e}")
 
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Збереження даних в SQLite та перехід до цільової дії."""
+    """
+    Фіналізація: Зберігає дані в SQLite та миттєво повертає юзера до замовлення.
+    """
     user_id = update.effective_user.id
     p = context.user_data.get('profile', {})
     flow = context.user_data.get('data_flow', {})
     
-    # 1. АТОМАРНИЙ ЗАПИС (збільшено timeout для хостингу)
+    # 1. ЗАПИС В БАЗУ (з захистом від блокувань)
     try:
         with sqlite3.connect(DB_PATH, timeout=20) as conn:
             conn.execute("""
@@ -1907,34 +1758,29 @@ async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT
                  p.get('district'), p.get('address_details'), user_id)
             )
             conn.commit()
-    except sqlite3.OperationalError as e:
-        logger.error(f"Database Locked or Missing: {e}")
-        await update.message.reply_text("⚠️ База даних тимчасово зайнята. Повторюю спробу...")
-        # Можна додати невелику затримку і ретрай, але зазвичай timeout=20 вистачає
+            logger.info(f"✅ Profile finalized for {user_id}")
     except Exception as e:
-        logger.error(f"Finalize DB Critical Error: {e}")
+        logger.error(f"DB Finalize Error: {e}")
 
-    # 2. Отримуємо наступний крок ПЕРЕД очищенням
+    # 2. МАРШРУТИЗАЦІЯ (Куди йдемо далі?)
     next_action = str(flow.get('next_action', 'none'))
     
-    # 3. ПОВНЕ ОЧИЩЕННЯ СТАНУ
+    # Очищуємо стани, щоб не зациклити бот
     context.user_data['state'] = None 
-    context.user_data['data_flow'] = {} # Тепер чистимо повністю для безпеки
-    
-    # 
+    context.user_data['data_flow'] = {} 
 
-    # 4. ДИНАМІЧНА МАРШРУТИЗАЦІЯ
     if next_action == 'checkout':
-        await update.message.reply_text("✅ <b>Дані підтверджено!</b>\nПереходимо до оформлення замовлення...")
-        await checkout_init(update, context)
+        await update.message.reply_text("✅ <b>Дані збережено!</b>\nПовертаємось до оформлення замовлення...")
+        await checkout_init(update, context) # Миттєвий перехід до оплати
     
     elif next_action == 'manager_order':
-        await update.message.reply_text("✅ <b>Заявка сформована!</b> Менеджер зв'яжеться з вами найближчим часом.")
+        await update.message.reply_text("✅ <b>Дані прийнято!</b>\nМенеджер вже отримав вашу заявку.")
         await start_command(update, context)
         
     else:
-        await update.message.reply_text("✅ <b>Ваш профіль успішно оновлено!</b>")
+        await update.message.reply_text("✅ <b>Профіль успішно налаштовано!</b>\nТепер ви можете робити замовлення.")
         await start_command(update, context)
+        
 
 # =================================================================
 # 🛒 SECTION 18: CART LOGIC (PRO FIXED 2026)
