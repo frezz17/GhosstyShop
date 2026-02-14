@@ -407,9 +407,10 @@ async def district_selection_handler(update: Update, context: ContextTypes.DEFAU
     
 
 # =================================================================
-# 🛍 SECTION 3: ТОВАРНА БАЗА (FIXED SYNTAX & COLORS)
+# 🛍 SECTION 3: ТОВАРНА БАЗА (FIXED SYNTAX & STOCK LOGIC)
 # =================================================================
 
+# 0. БОНУСНІ РІДИНИ (Для подарунків)
 GIFT_LIQUIDS = {
     9001: {"name": "🎁 Pumpkin Latte 30ml", "desc": "Теплий осінній смак пряного гарбуза."},
     9002: {"name": "🎁 Glintwine 30ml", "desc": "Насичений виноград та зимові спеції."},
@@ -421,6 +422,7 @@ GIFT_LIQUIDS = {
     9008: {"name": "🎁 Wild Berries 30ml", "desc": "Класичний мікс лісових ягід."}
 }
 
+# 1. РІДИНИ (LIQUIDS)
 LIQUIDS = {
     301: {
         "name": "🍂 Fall Tea",
@@ -523,6 +525,7 @@ LIQUIDS = {
     }
 }
 
+# 2. HHC ВЕЙПИ
 HHC_VAPES = {
     100: {
         "name": "🌴 Packwoods Purple 1ml",
@@ -581,39 +584,37 @@ HHC_VAPES = {
     }
 }
 
-# =================================================================
-# 🛍 SECTION 3: ТОВАРНА БАЗА (PODS - FIXED SYNTAX)
-# =================================================================
-
+# 3. POD-СИСТЕМИ
+# FIX: Додано параметр 'stock', щоб товари відкривалися в каталозі
 PODS = {
     500: {
         "name": "🔌 Vaporesso XROS 3 Mini",
         "type": "pod",
+        "stock": 20,  # FIX: Додано наявність
         "gift_liquid": True,
         "price": 499.77,
         "discount": True,
         "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg",
         "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель. Надійна та смачна.\n✨ <i>Ідеальний вибір для старту.</i>",
         "colors": ["⚫️ Black", "🟢 Green", "🟣 Pink"],
-       # Посилання на фото конкретних кольорів
         "color_previews": {
             "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Black": "https://ibb.co/ycwSdT03",
             "Green": "https://ibb.co/5WQY1pjq",
-            "Pink": "hhttps://ibb.co/YB7XmmpZ"
+            "Pink": "https://ibb.co/YB7XmmpZ" # Fixed typo hhttps -> https
         },
         "payment_url": PAYMENT_LINK
     },
     501: {
         "name": "🔌 Vaporesso XROS 5 Mini",
         "type": "pod",
+        "stock": 15, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 674.77,
         "discount": True,
         "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg",
         "desc": "🔥 <b>НОВИНКА 2025 | COREX 2.0</b>\nМаксимальна передача смаку.\n💎 <i>Оновлений дизайн та швидка зарядка.</i>",
         "colors": ["⚫️ Core Black", "🟣 Pink", "🟢 Green"],
-       # Посилання на фото конкретних кольорів
         "color_previews": {
              "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Core Black": "https://ibb.co/234Ht3Qy",
@@ -625,13 +626,13 @@ PODS = {
     502: {
         "name": "🔌 Vaporesso XROS Pro",
         "type": "pod",
+        "stock": 10, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 974.77,
         "discount": True,
         "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg",
         "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.\n⚡ <i>Зарядка за 35 хвилин!</i>",
         "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red", "🔵 Blue"],
-       # Посилання на фото конкретних кольорів
         "color_previews": {
              "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Black": "https://i.ibb.co/url-to-black.jpg",
@@ -643,13 +644,13 @@ PODS = {
     503: {
         "name": "🔌 Vaporesso XROS Nano 5",
         "type": "pod",
+        "stock": 12, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 659.77,
         "discount": True,
         "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg",
         "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.\n🔋 <i>1000 mAh у міні-корпусі.</i>",
         "colors": ["⚫️ Black", "🟡 Yellow", "🟠 Orange", "🌸 Pink"],
-        # Посилання на фото конкретних кольорів
         "color_previews": {
              "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Black": "https://i.ibb.co/url-to-black.jpg",
@@ -661,13 +662,13 @@ PODS = {
     504: {
         "name": "🔌 Vaporesso XROS 4",
         "type": "pod",
+        "stock": 18, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 629.77,
         "discount": True,
         "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg",
         "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.\n🎯 <i>Універсальний солдат.</i>",
         "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient", "⚪️ Silver"],
-        # Посилання на фото конкретних кольорів
         "color_previews": {
              "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Black": "https://i.ibb.co/url-to-black.jpg",
@@ -679,13 +680,13 @@ PODS = {
     505: {
         "name": "🔌 Vaporesso XROS 5",
         "type": "pod",
+        "stock": 8, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 799.77,
         "discount": True,
         "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg",
         "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.\n🚀 <i>Найкраще, що створили Vaporesso.</i>",
         "colors": ["⚫️ Obsidian Black", "⚪️ Pearl White", "🔵 Ocean Blue"],
-        # Посилання на фото конкретних кольорів
         "color_previews": {
              "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Black": "https://i.ibb.co/url-to-black.jpg",
@@ -697,13 +698,13 @@ PODS = {
     506: {
         "name": "🔌 Voopoo Vmate Mini",
         "type": "pod",
+        "stock": 25, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 459.77,
         "discount": True,
         "img": "https://ilrnrwxhokrl5q.ldycdn.com/cloud/lpBqlKmrSRkllmojnpiq/Authentic-VOOPOO-Vmate-Mini-30W-Pod-Kit-1000mAh-3ml-0-7ohm-Classic-Black.jpg",
         "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.\n🧬 <i>Просто залий рідину і парь.</i>",
         "colors": ["⚫️ Black", "🔴 Red", "🔵 Blue", "🟢 Green"],
-       # Посилання на фото конкретних кольорів
         "color_previews": {
              "GhosstyLove Edition": "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯ",
             "Black": "https://i.ibb.co/url-to-black.jpg",
@@ -711,9 +712,22 @@ PODS = {
             "Phantom Red": "https://i.ibb.co/url-to-red.jpg"
         },
         "payment_url": PAYMENT_LINK
-    },
-    # ... інші товари за аналогією
+    }
 }
+
+# 4. УНІВЕРСАЛЬНА ФУНКЦІЯ ПОШУКУ
+# (Критично важлива для відкриття товарів)
+def get_item_data(item_id: int):
+    """Шукає товар у всіх категоріях за ID."""
+    # Перевіряємо всі бази (Включаючи SETS якщо вони з'являться)
+    all_dbs = [HHC_VAPES, PODS, LIQUIDS]
+    # Якщо ви додасте SETS, додайте сюди: [HHC_VAPES, PODS, LIQUIDS, SETS]
+    
+    for db in all_dbs:
+        if item_id in db:
+            return db[item_id]
+    return None
+    
 
 
 # =================================================================
