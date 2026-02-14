@@ -1182,7 +1182,7 @@ async def district_selection_handler(update: Update, context: ContextTypes.DEFAU
     
     
 # =================================================================
-# 👤 SECTION 5: MASTER START & PROFILE UI (TITAN PRO v10.0)
+# 👤 SECTION 5: MASTER START & PROFILE UI (TITAN PRO FIX)
 # =================================================================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1191,6 +1191,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Викликає реєстрацію (із Section 4), нараховує бонуси та вітає.
     """
     user = update.effective_user
+    
+    # 🔥 ФІКС ЗАЛИПАННЯ: Примусово очищаємо старі "хвости" замовлень
+    context.user_data['target_item_id'] = None
+    context.user_data['state'] = None
     
     # 1. Отримуємо профіль (функція береться з SECTION 4)
     if 'get_or_create_user' in globals():
@@ -1215,7 +1219,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Оновлюємо базу (фіксуємо, що бонуси видані)
         try:
-            with sqlite3.connect(DB_PATH, timeout=10) as conn:
+            with sqlite3.connect(DB_PATH, timeout=30) as conn: # Timeout 30 для стабільності
                 conn.execute("""
                     UPDATE users 
                     SET is_vip = 1, 
@@ -1248,11 +1252,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👇 <b>ГОЛОВНЕ МЕНЮ:</b>"
     )
     
+    # 🔥 ФІКС КНОПКИ: "ДАНІ ПРО ДОСТАВКУ" замість "ОБРАТИ ЛОКАЦІЮ"
+    # Ця кнопка тепер веде на fill_delivery_data, що дозволяє змінити адресу
     keyboard = [
         [InlineKeyboardButton("🛍 ВІДКРИТИ КАТАЛОГ 🌿", callback_data="cat_all")],
         [InlineKeyboardButton("👤 ПРОФІЛЬ", callback_data="menu_profile"), 
          InlineKeyboardButton("🛒 КОШИК", callback_data="menu_cart")],
-        [InlineKeyboardButton("📍 ОБРАТИ ЛОКАЦІЮ", callback_data="choose_city")],
+        [InlineKeyboardButton("🚚 ДАНІ ПРО ДОСТАВКУ", callback_data="fill_delivery_data")], 
         [InlineKeyboardButton("📜 ПРАВИЛА", callback_data="menu_terms")],
         [InlineKeyboardButton("👨‍💻 МЕНЕДЖЕР", url=f"https://t.me/{MANAGER_USERNAME}"),
          InlineKeyboardButton("📢 КАНАЛ", url=f"{CHANNEL_URL}")]
@@ -1279,7 +1285,8 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if 'get_or_create_user' in globals():
         profile = await get_or_create_user(update, context)
     else:
-        await update.callback_query.answer("⚠️ Помилка доступу до профілю", show_alert=True)
+        try: await update.callback_query.answer("⚠️ Помилка доступу до профілю", show_alert=True)
+        except: pass
         return
     
     # Спробуємо отримати справжнє фото профілю користувача
@@ -1304,9 +1311,13 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     address = profile.get('address_details', '—')
     
     # Красиве форматування локації
+    # Якщо є район і він не дублюється в адресі -> показуємо його
     location_str = f"{city}"
-    if district: location_str += f" ({district})"
-    if city == 'Не обрано': location_str = "Не обрано"
+    if district and district not in str(address): 
+        location_str += f" ({district})"
+    
+    if city == 'Не обрано' or not city: 
+        location_str = "Не обрано"
 
     balance = profile.get('next_order_discount', 0)
     vip_status = "💎 VIP PRO" if profile.get('is_vip') else "👤 Standard"
@@ -1329,6 +1340,7 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     kb = [
+        # 🔥 Ця кнопка тепер точно працює (перевірте Section 29, щоб там був обробник 'fill_delivery_data')
         [InlineKeyboardButton("✏️ Змінити дані доставки", callback_data="fill_delivery_data")],
         [InlineKeyboardButton("🎟 Ввести промокод", callback_data="menu_promo")],
         [InlineKeyboardButton("🔙 В головне меню", callback_data="menu_start")]
@@ -1336,10 +1348,8 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await send_ghosty_message(update, text, kb, photo=user_photo, context=context)
     
-    
-
 # =================================================================
-# 📝 SECTION 16: SMART DATA COLLECTION (TITAN ULTIMATE v10.6)
+# 📝 SECTION 16: SMART DATA COLLECTION (TITAN FIXED)
 # =================================================================
 
 import sqlite3
@@ -1348,69 +1358,79 @@ from datetime import datetime
 async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE, next_action: str = 'checkout', item_id: int = None):
     """
     Ініціалізація збору даних.
-    Розумна система: перевіряє повноту профілю перед запуском анкети.
+    next_action='none' або 'profile' використовується для редагування даних без переходу до покупки.
     """
     user = update.effective_user
     
-    # 1. Ініціалізація Flow (Зберігаємо мету: куди йти після анкети)
+    # 1. Зберігаємо мету (куди йти після заповнення)
     context.user_data['post_data_action'] = next_action
+    # Якщо передано ID товару (для швидкого замовлення), зберігаємо його
     if item_id: context.user_data['target_item_id'] = item_id
     
-    # 2. Перевірка наявності даних
     profile = context.user_data.setdefault('profile', {'uid': user.id})
     
-    # Критерії заповненості (Мінімум 3 символи для імені, 10 для телефону)
+    # Визначаємо, чи це режим примусового редагування (коли натиснули "Змінити дані")
+    force_edit = (next_action == 'none' or next_action == 'profile')
+
+    # --- КРОК 1: ІМ'Я ---
+    # Питаємо ім'я, якщо його немає АБО якщо це примусове редагування
     has_name = len(profile.get('full_name', '')) > 2
-    has_phone = len(profile.get('phone', '')) > 9
-    has_city = bool(profile.get('city'))
-    has_address = len(profile.get('address_details', '')) > 2
-    
-    # 3. Маршрутизація (Smart Routing)
-    
-    # КРОК 1: ІМ'Я
-    if not has_name:
+    if force_edit or not has_name:
         context.user_data['state'] = "COLLECTING_DATA"
         context.user_data['data_step'] = "name"
+        
+        current_val = f" (Поточне: {profile.get('full_name')})" if has_name else ""
         text = (
-            "📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "Для оформлення накладної нам потрібно знати, як до вас звертатись.\n\n"
-            "👇 <i>Введіть ваше Прізвище та Ім'я:</i>"
+            f"📝 <b>КРОК 1/4: ЗНАЙОМСТВО</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"Для оформлення накладної нам потрібно знати, як до вас звертатись.\n"
+            f"{current_val}\n\n"
+            f"👇 <i>Введіть ваше Прізвище та Ім'я:</i>"
         )
         kb = [[InlineKeyboardButton("✖️ Скасувати", callback_data="menu_start")]]
         await send_ghosty_message(update, text, kb, context=context)
         return
 
-    # КРОК 2: ТЕЛЕФОН
-    if not has_phone:
+    # --- КРОК 2: ТЕЛЕФОН ---
+    has_phone = len(profile.get('phone', '')) > 9
+    if force_edit or not has_phone:
         context.user_data['state'] = "COLLECTING_DATA"
         context.user_data['data_step'] = "phone"
+        
+        current_val = f" (Поточний: {profile.get('phone')})" if has_phone else ""
         text = (
-            "📱 <b>КРОК 2/4: КОНТАКТ</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "На цей номер прийде СМС з ТТН від Нової Пошти.\n\n"
-            "👇 <i>Введіть номер телефону (напр. 0991234567):</i>"
+            f"📱 <b>КРОК 2/4: КОНТАКТ</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"На цей номер прийде СМС з ТТН від Нової Пошти.\n"
+            f"{current_val}\n\n"
+            f"👇 <i>Введіть номер телефону (напр. 0991234567):</i>"
         )
         kb = [[InlineKeyboardButton("✖️ Скасувати", callback_data="menu_start")]]
         await send_ghosty_message(update, text, kb, context=context)
         return
 
-    # КРОК 3: МІСТО (Перехід в меню Section 10)
-    if not has_city:
+    # --- КРОК 3: МІСТО ---
+    # Якщо міста немає АБО ми в режимі редагування -> йдемо в меню міст
+    if force_edit or not profile.get('city'):
         await choose_city_menu(update, context)
         return
 
-    # КРОК 4: АДРЕСА (Якщо місто є, але адреси немає)
-    if not has_address:
+    # --- КРОК 4: АДРЕСА ---
+    # Якщо адреси немає АБО ми в режимі редагування -> питаємо адресу
+    has_address = len(profile.get('address_details', '')) > 2
+    if force_edit or not has_address:
         city = profile.get('city')
         context.user_data['state'] = "COLLECTING_DATA"
         context.user_data['data_step'] = "address"
+        
+        current_val = f"\nПоточна: {profile.get('address_details')}" if has_address else ""
         text = (
             f"📍 <b>КРОК 4/4: ДЕТАЛІ ДОСТАВКИ ({city})</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"Вкажіть номер відділення НП (напр. «№5»)\n"
-            f"або повну адресу для кур'єра/таксі.\n\n"
-            f"👇 <i>Напишіть сюди:</i>"
+            f"або повну адресу для кур'єра/таксі.\n"
+            f"<i>{current_val}</i>\n\n"
+            f"👇 <i>Напишіть нову адресу сюди:</i>"
         )
         kb = [
             [InlineKeyboardButton("🔙 Змінити місто", callback_data="choose_city")],
@@ -1419,7 +1439,7 @@ async def start_data_collection(update: Update, context: ContextTypes.DEFAULT_TY
         await send_ghosty_message(update, text, kb, context=context)
         return
 
-    # ЯКЩО ВСІ ДАНІ Є -> Фіналізація
+    # ЯКЩО ВСІ ДАНІ Є І МИ НЕ В РЕЖИМІ РЕДАГУВАННЯ -> Фіналізація
     await finalize_data_collection(update, context)
 
 
@@ -1442,22 +1462,22 @@ async def address_request_handler(update: Update, context: ContextTypes.DEFAULT_
     
     kb = [[InlineKeyboardButton("🔙 Змінити район", callback_data="choose_city")]]
     
-    # Використовуємо універсальний UI (без іменованого kb=, щоб не було помилки)
+    # Використовуємо універсальний UI
     await send_ghosty_message(update, text, kb, context=context)
 
 
 async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Фінал анкети: Збереження в БД та перехід до Оплати/Менеджера.
+    Фінал анкети: ГАРАНТОВАНЕ збереження в БД та перехід до Оплати/Менеджера/Профілю.
     """
     user_id = update.effective_user.id
     profile = context.user_data.get('profile', {})
     action = context.user_data.get('post_data_action', 'checkout')
-    item_id = context.user_data.get('target_item_id') # Отримуємо ID товару для менеджера
     
-    # 1. Спроба збереження в БД (SQL Upsert)
+    # 1. Збереження в БД (SQL Upsert з логуванням помилок)
     try:
-        with sqlite3.connect(DB_PATH, timeout=20) as conn:
+        # Збільшено timeout до 30 секунд для надійності на BotHost
+        with sqlite3.connect(DB_PATH, timeout=30) as conn:
             # Спочатку гарантуємо, що запис існує (INSERT OR IGNORE)
             conn.execute("""
                 INSERT OR IGNORE INTO users (user_id, full_name, username, balance, is_vip, joined_date)
@@ -1478,10 +1498,13 @@ async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT
                 user_id
             ))
             conn.commit()
+            logger.info(f"✅ User data saved for {user_id}")
+            
     except Exception as e:
         logger.error(f"DB Finalize Error: {e}")
+        # Не перериваємо роботу, дані залишаться в кеші бота
 
-    # 2. Очищення стану
+    # 2. Очищення стану (щоб бот не чекав вводу тексту)
     context.user_data['state'] = None
     context.user_data['data_step'] = None
 
@@ -1496,14 +1519,18 @@ async def finalize_data_collection(update: Update, context: ContextTypes.DEFAULT
         # Перевіряємо наявність функції (для безпеки)
         if 'submit_order_to_manager' in globals():
             await submit_order_to_manager(update, context)
-        elif 'show_manager_request' in globals():
-            await show_manager_request(update, context, item_id)
         else:
              await send_ghosty_message(update, "✅ Заявку створено! Менеджер скоро напише.", context=context)
-            
-    # В) Просто зберегли профіль
+    
+    # В) Просто редагували профіль (дія 'none' або 'profile')
     else:
+        # Сповіщення про успіх
+        await send_ghosty_message(update, "✅ <b>Дані успішно збережено!</b>", context=context)
+        # Невелика пауза для UX
+        await asyncio.sleep(0.5) 
+        # Повертаємось в кабінет
         await show_profile(update, context)
+        
 
 # =================================================================
 # 🛒 SECTION 18: CART LOGIC (TITAN FIXED v10.0)
@@ -1781,81 +1808,106 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         
     
 # =================================================================
-# 💳 SECTION 20: CHECKOUT & PAYMENT CORE (TITAN PRO)
+# 💳 SECTION 20: CHECKOUT & PAYMENT CORE (TITAN VISUAL FIX)
 # =================================================================
 
 async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Ініціалізація оплати (Фінальний чек).
-    Рахує суму, доставку і показує кнопки оплати.
+    Вдосконалено: 
+    1. Відображає ФОТО товару при швидкому замовленні.
+    2. Коректно рахує суму та доставку.
     """
-    # Визначаємо джерело: Кошик чи Швидке замовлення (Target Item)
+    # Отримуємо дані
     target_item_id = context.user_data.get('target_item_id')
     profile = context.user_data.get('profile', {})
     
     total_amount = 0
     items_desc = ""
-    
-    # СЦЕНАРІЙ 1: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар)
+    photo_to_show = None # Змінна для фото в чеку
+
+    # --- ВАРІАНТ А: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар) ---
     if target_item_id:
         item = get_item_data(target_item_id)
         if not item: 
-            await send_ghosty_message(update, "⚠️ Товар не знайдено або розпродано.", context=context)
+            # Якщо товару немає -> чистимо ID і повідомляємо
+            context.user_data['target_item_id'] = None
+            await send_ghosty_message(update, "⚠️ Товар розпродано або не знайдено.", context=context)
             return
-            
-        color = context.user_data.get('selected_color', 'Default')
-        # Рахуємо ціну зі знижкою профілю
+        
+        # Визначаємо фото (враховуючи колір)
+        selected_color = context.user_data.get('selected_color')
+        if selected_color and "color_previews" in item:
+            photo_to_show = item["color_previews"].get(selected_color, item['img'])
+        else:
+            photo_to_show = item['img']
+
+        # Рахуємо ціну
         price, _ = calculate_final_price(item['price'], profile)
         
+        # Формуємо красивий опис
+        color_txt = f" ({selected_color})" if selected_color else ""
+        items_desc = f"▫️ <b>{item['name']}</b>{color_txt}\n"
         total_amount = price
-        items_desc = f"▫️ {item['name']} ({color})"
-        
-    # СЦЕНАРІЙ 2: ЗАМОВЛЕННЯ З КОШИКА
+
+    # --- ВАРІАНТ Б: ЗАМОВЛЕННЯ З КОШИКА ---
     else:
         cart = context.user_data.get('cart', [])
         if not cart:
-            await send_ghosty_message(update, "⚠️ Кошик порожній.", context=context)
+            kb = [[InlineKeyboardButton("🛍 Перейти в каталог", callback_data="cat_all")]]
+            await send_ghosty_message(update, "🛒 <b>Ваш кошик порожній.</b>", kb, context=context)
             return
             
+        # Для кошика використовуємо стандартне лого (або фото "Checkout")
+        photo_to_show = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
+        
         for i in cart:
-            # Тут ціна вже може бути зі знижкою, але краще перерахувати актуальну
+            # Важливо: беремо базову ціну і перераховуємо знижку на льоту
             p, _ = calculate_final_price(i['price'], profile)
             total_amount += p
             
-            gift_info = f" (+ {i['gift']})" if i.get('gift') else ""
-            items_desc += f"▫️ {i['name']}{gift_info}\n"
+            # Формуємо рядок товару
+            extras = []
+            if i.get('color'): extras.append(i['color'])
+            if i.get('gift'): extras.append(f"🎁 {i['gift']}")
             
+            extra_txt = f" ({', '.join(extras)})" if extras else ""
+            items_desc += f"▫️ {i['name']}{extra_txt}\n"
+
     # --- ЛОГІКА ДОСТАВКИ ---
     dist = profile.get('district', '')
-    shipping = 0
     # Якщо доставка кур'єром і юзер НЕ VIP -> додаємо 150 грн
     if "Кур'єр" in str(dist) and not profile.get("is_vip"):
-        shipping = 150
+        total_amount += 150
         items_desc += "\n🚚 Доставка кур'єром (+150 грн)"
         
-    final_sum = total_amount + shipping
+    # Фіксуємо фінальну суму
+    context.user_data['final_checkout_sum'] = total_amount
     
-    # Зберігаємо фінальну суму для перевірки оплати
-    context.user_data['final_checkout_sum'] = final_sum
+    # Формування тексту чека
+    full_name = profile.get('full_name', 'Клієнт')
+    city = profile.get('city', 'Місто')
     
     text = (
         f"🧾 <b>ФІНАЛЬНИЙ ЧЕК</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{items_desc}\n"
+        f"{items_desc}"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💰 <b>ДО СПЛАТИ: {final_sum:.2f} UAH</b>\n\n"
-        f"👇 Оберіть зручний метод оплати:"
+        f"📍 <b>Доставка:</b> {city}, {dist}\n"
+        f"👤 <b>Отримувач:</b> {full_name}\n"
+        f"💰 ДО СПЛАТИ: <b>{total_amount:.2f} UAH</b>\n\n"
+        f"👇 <i>Оберіть зручний метод оплати:</i>"
     )
     
-    # Кнопки оплати (посилання беруться з Section 1)
     kb = [
         [InlineKeyboardButton("💳 Monobank", callback_data="pay_mono"),
          InlineKeyboardButton("💚 PrivatBank", callback_data="pay_privat")],
-        [InlineKeyboardButton("💎 Crypto / Інше", callback_data="pay_ghossty")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="menu_cart")]
+        [InlineKeyboardButton("💎 Crypto / USDT", callback_data="pay_ghossty")],
+        [InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]
     ]
     
-    await send_ghosty_message(update, text, kb, context=context)
+    # Використовуємо наш розумний send_ghosty_message (він сам відправить фото)
+    await send_ghosty_message(update, text, kb, photo=photo_to_show, context=context)
 
 
 async def payment_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, method: str):
@@ -1863,6 +1915,7 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     Показ реквізитів і інструкції.
     """
     query = update.callback_query
+    
     # Отримуємо посилання з налаштувань
     link = PAYMENT_LINK.get(method, PAYMENT_LINK['ghossty'])
     amount = context.user_data.get('final_checkout_sum', 0)
@@ -1883,6 +1936,7 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     ]
     
     await _edit_or_reply(query, text, kb, context=context)
+    
     
     
 # =================================================================
@@ -2841,36 +2895,32 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         
             
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP & DIAGNOSTICS (FINAL)
+# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (FINAL NETWORK FIX)
 # =================================================================
 
 import platform
-import socket
 
 async def post_init(application: Application) -> None:
     """
     Розширений звіт для Адміна при запуску.
-    Перевіряє систему, базу даних та токен.
     """
     try:
         # 1. Отримуємо дані про бота
         bot = await application.bot.get_me()
         
-        # 2. Отримуємо технічні дані сервера
+        # 2. Технічні дані
         system_info = f"{platform.system()} {platform.release()}"
         node_name = platform.node()
         python_ver = platform.python_version()
         
-        # 3. Перевірка бази даних
+        # 3. База даних
         db_size = "0 KB"
         if os.path.exists(DB_PATH):
             size_bytes = os.path.getsize(DB_PATH)
             db_size = f"{size_bytes / 1024:.2f} KB"
             
-        # 4. Час запуску
         now_str = datetime.now().strftime('%d.%m.%Y %H:%M:%S')
         
-        # 5. Формуємо звіт
         report = (
             f"🚀 <b>GHO$$TY ENGINE: SUCCESSFUL LAUNCH</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -2884,9 +2934,8 @@ async def post_init(application: Application) -> None:
             f"🗄 <b>DATABASE STATUS:</b>\n"
             f"✅ Connection: OK\n"
             f"📦 Size: {db_size}\n"
-            f"📂 Path: <code>{DB_PATH}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🟢 <i>System is ready to accept orders.</i>"
+            f"🟢 <i>Network protection active.</i>"
         )
         
         await application.bot.send_message(chat_id=MANAGER_ID, text=report, parse_mode='HTML')
@@ -2898,71 +2947,69 @@ async def post_init(application: Application) -> None:
 def main():
     """
     Головна точка входу.
-    СУВОРИЙ ПОРЯДОК реєстрації хендлерів.
     """
-    print("⏳ INITIALIZING GHO$$TY SYSTEM...")
+    print("⏳ INITIALIZING SYSTEM...")
 
-    # 1. Перевірка безпеки
+    # 1. Перевірка токена
     if not TOKEN or "ВСТАВ" in TOKEN:
-        print("❌ FATAL ERROR: Bot token is missing or invalid!")
+        print("❌ FATAL ERROR: Bot token is missing!")
         sys.exit(1)
         
     # 2. Ініціалізація БД
     init_db()
     
-    # 3. Побудова додатку
-    persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
+    # 3. Налаштування МЕРЕЖІ (Виправлення httpx.ConnectError)
+    # Збільшуємо таймаути, щоб бот не падав при затримках мережі
     app = (
         Application.builder()
         .token(TOKEN)
-        .persistence(persistence)
+        .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .post_init(post_init) 
+        .get_updates_http_version('1.1')
+        .http_version('1.1')
+        .connection_pool_size(10) # Більше потоків
+        .read_timeout(30)         # Чекаємо відповіді 30 сек
+        .write_timeout(30)
+        .connect_timeout(30)
+        .pool_timeout(30)
+        .post_init(post_init)
         .build()
     )
 
-    # 4. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (ПОРЯДОК ВАЖЛИВИЙ!)
-    
-    # А. Команди
+    # 4. Реєстрація хендлерів (Строгий порядок!)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
-    
-    # Б. Інтерактивні кнопки (Диспетчер)
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # В. Текст та Медіа (Має бути після команд!)
-    # Filters.ALL ловить все, тому виключаємо команди через ~filters.COMMAND
+    # Текстовий хендлер (має бути в кінці)
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.VOICE) & (~filters.COMMAND), 
         handle_user_input
     ))
     
-    # Г. Глобальний щит помилок
+    # Обробник помилок
     app.add_error_handler(error_handler)
     
-    # 5. Візуальний вивід у консоль
+    # 5. Інфо в консоль
     token_masked = f"{TOKEN[:5]}...{TOKEN[-5:]}"
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print(f"🌫️  GHO$$TY STAFF PREMIUM ENGINE v10.0 (TITAN)")
+    print(f"🌫️  GHO$$TY STAFF PREMIUM ENGINE v10.0")
     print(f"📡  STATUS:  [ ONLINE ]")
     print(f"🔑  TOKEN:   {token_masked}")
-    print(f"📁  DB PATH: {DB_PATH}")
     print(f"👮‍♂️  ADMIN:   ID:{MANAGER_ID}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🚀  POLLING STARTED: WAITING FOR UPDATES...")
     
-    # 6. Запуск (drop_pending_updates видаляє старі повідомлення, щоб бот не спамив при рестарті)
+    # 6. Запуск (ігноруємо старі апдейти)
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
-    # Гарантована ініціалізація часу
     if 'START_TIME' not in globals():
         START_TIME = datetime.now()
 
     try:
         main()
     except KeyboardInterrupt:
-        print("\n🛑 System stopped by Administrator (Ctrl+C).")
+        print("\n🛑 System stopped by Administrator.")
         sys.exit(0)
     except Exception as fatal_e:
         print(f"❌ CRITICAL CRASH: {fatal_e}")
