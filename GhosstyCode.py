@@ -1,6 +1,6 @@
 # =================================================================
 # 🤖 PROJECT: GHO$$TY STAFF PREMIUM E-COMMERCE ENGINE (PRO)
-# 🛠 VERSION: 5.5.0 (STABLE RELEASE 2026)
+# 🛠 VERSION: 5.5.5 (STABLE RELEASE 2026)
 # 🛡 DEVELOPER: Gho$$tyyy & Gemini AI
 # 🌐 HOSTING: BotHost.ru Optimized (AsyncIO Core)
 # =================================================================
@@ -13,9 +13,10 @@ import asyncio
 import random
 import traceback
 import warnings
+import ssl
 from datetime import datetime, timedelta
 from html import escape
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union, Literal
 
 # Telegram Core (v20.x+ Async Stack)
 from telegram import (
@@ -40,34 +41,21 @@ from telegram.ext import (
 )
 from telegram.error import NetworkError, BadRequest, TimedOut, Forbidden
 
-# Приховуємо некритичні попередження для чистих логів на BotHost
+# 🛡 ТЕХНІЧНА ГІГІЄНА: Приховуємо некритичні попередження для чистих логів
 warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# =================================================================
-# ⚙️ SECTION 1: SYSTEM INITIALIZATION
-# =================================================================
-
-# Час старту для розрахунку Uptime в адмін-панелі
-START_TIME = datetime.now()
-
-# Налаштування логування (Виводимо і в консоль, і в файл)
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('data/ghosty_debug.log', encoding='utf-8')
-    ]
-)
-logger = logging.getLogger("GhosstyCore")
+# Гарантуємо, що логування не буде дублюватися при гарячому перезапуску
+if 'GhostyCore' in logging.Logger.manager.loggerDict:
+    logging.getLogger("GhostyCore").handlers.clear()
 
 
 # =================================================================
-# ⚙️ SECTION 1: GLOBAL CONFIGURATION (PRO SETTINGS)
+# ⚙️ SECTION 1: GLOBAL CONFIGURATION (TITAN STABLE v6.6)
 # =================================================================
 
-# 1. СИСТЕМНІ ШЛЯХИ (Cross-platform compatibility)
-# Використовуємо абсолютні шляхи, щоб бот не "заблукав" на сервері
+# 1. СИСТЕМНІ ШЛЯХИ ТА СЕРЕДОВИЩЕ
+# Використовуємо абсолютні шляхи для стабільності на Linux/Windows
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 os.makedirs(DATA_DIR, exist_ok=True) 
@@ -76,31 +64,28 @@ DB_PATH = os.path.join(DATA_DIR, 'ghosty_pro_final.db')
 PERSISTENCE_PATH = os.path.join(DATA_DIR, 'ghosty_state_final.pickle')
 LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
 
-# 2. АВТЕНТИФІКАЦІЯ ТА БЕЗПЕКА
-# 🔥 ПОРАДА: Ніколи не залишай токен у відкритому коді при завантаженні на GitHub!
-TOKEN = os.getenv("8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ") 
+# 2. АВТЕНТИФІКАЦІЯ (Безпечний пріоритет)
+# Спочатку шукаємо в системних змінних "BOT_TOKEN", якщо немає — беремо ваш токен
+TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ")
 
-if not TOKEN:
-    # Якщо змінна оточення порожня, використовуємо твій фолбек
-    TOKEN = "8351638507:AAE8JbSIduGOMYnCu77WFRy_3s7-LRH34lQ"
-    # Але попереджаємо про це в логах
-    print("⚠️ WARNING: Running with hardcoded token. Use ENV variables for production!")
-
-# Реквізити адміністрації (Важливо: ID мають бути INTEGER)
+# Реквізити адміністрації (ID має бути цілим числом)
 MANAGER_ID = 7544847872
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
 WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
 
-# 3. ПЛАТІЖНІ ТА ТЕХНІЧНІ ПОСИЛАННЯ
+# 3. ТЕХНІЧНІ ПОСИЛАННЯ ТА ПЛАТЕЖІ
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",   
     "privat": "https://lnk.ua/RVd0OW6V3",
     "ghossty": "https://heylink.me/GhosstyShop"
 }
 
-# 4. ЛОГУВАННЯ (З покращеною обробкою UTF-8)
-# Створюємо логер з підтримкою емодзі та кирилиці в файлах
+# 4. ЄДИНА СИСТЕМА ЛОГУВАННЯ (UTF-8 Ready)
+# Видаляємо всі існуючі налаштування логування, щоб примусово встановити наші
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -110,18 +95,21 @@ logging.basicConfig(
         logging.FileHandler(LOG_PATH, mode='a', encoding='utf-8')
     ]
 )
-
 logger = logging.getLogger("GhostyCore")
+
+# 5. ГЛОБАЛЬНІ КОНСТАНТИ СТАТУСУ
+# Оголошуємо один раз тут, щоб не було дублікатів у всьому коді
+if 'START_TIME' not in globals():
+    START_TIME = datetime.now()
+
+BOT_VERSION = "5.5.5 PRO TITAN"
+
 
 # 5. ДЕБАГ-МОД (Автоматично вмикається, якщо ми на локалці)
 DEBUG_MODE = os.name == 'nt' # True для Windows, False для Linux серверов
 if DEBUG_MODE:
     logger.setLevel(logging.DEBUG)
     logger.info("🛠 DEBUG MODE: ENABLED (Detailed logging active)")
-
-# 6. ГЛОБАЛЬНІ КОНСТАНТИ
-START_TIME = datetime.now()
-BOT_VERSION = "5.5 PRO"
         
         
 # --- 🎁 ПОДАРУНКОВІ РІДИНИ (8 смаків для HHC) ---
@@ -215,32 +203,75 @@ DATA_ENGINE_STATUS = "LOADED_PRO_2026"
 
 
 # =================================================================
-# 🛠 SECTION 2: UI ENGINE & HELPERS (ULTIMATE PRO v6.0)
+# 🛠 SECTION 2: UI ENGINE & ERROR SHIELD (TITAN STABLE v6.5)
 # =================================================================
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Глобальний щит безпеки: перехоплює будь-які збої, сповіщає адміна 
+    та запобігає «падінню» бота.
+    """
+    # 1. Логування в консоль та файл
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+    
+    try:
+        # 2. Формування детального звіту
+        tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+        tb_string = "".join(tb_list)
+        error_snippet = escape(tb_string[-3500:]) # Обмеження довжини для TG
+        
+        user_info = "Unknown User"
+        if isinstance(update, Update) and update.effective_user:
+            u = update.effective_user
+            user_info = f"👤 <b>{escape(u.full_name)}</b> (@{u.username}) [<code>{u.id}</code>]"
+
+        admin_msg = (
+            f"🆘 <b>CRITICAL SYSTEM ERROR</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>User:</b> {user_info}\n"
+            f"⚙️ <b>Type:</b> <code>{type(context.error).__name__}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🔍 <b>Traceback:</b>\n<pre>{error_snippet}</pre>"
+        )
+        
+        # Відправка звіту менеджеру
+        await context.bot.send_message(chat_id=MANAGER_ID, text=admin_msg, parse_mode=ParseMode.HTML)
+        
+        # 3. Ввічливе сповіщення користувача
+        if isinstance(update, Update) and update.effective_chat:
+            fail_text = "⚠️ <b>Виникла помилка в системі.</b>\nМенеджер вже отримав сповіщення. Спробуйте натиснути /start"
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=fail_text, parse_mode=ParseMode.HTML)
+
+    except Exception as e:
+        logger.error(f"Failed to report error: {e}")
 
 async def _edit_or_reply(target, text: str, kb: list = None, photo: str = None, context: ContextTypes.DEFAULT_TYPE = None):
     """
-    Універсальний адаптер інтерфейсу.
-    Вирішує проблему переходу Текст <-> Фото та обробляє всі типи Update.
+    Універсальний адаптер інтерфейсу v6.5. 
+    Автоматично вирішує: редагувати чи надсилати нове.
+    Виправляє помилки при зміні Текст <-> Фото.
     """
-    # 1. Автоматична конвертація списку кнопок у розмітку
-    if isinstance(kb, list):
-        reply_markup = InlineKeyboardMarkup(kb)
-    else:
-        reply_markup = kb
+    # 1. Захист від порожнього тексту (Telegram не приймає порожнечу)
+    if not text:
+        text = "..."
 
-    # 2. Визначаємо об'єкти (Query / Message / Chat ID)
-    query = target if hasattr(target, 'data') else (getattr(target, 'callback_query', None))
-    message = query.message if query else (getattr(target, 'message', target))
-    chat_id = message.chat_id if message else None
-
-    if not message or not chat_id:
-        logger.error("UI Engine: Could not find message or chat_id context.")
+    # 2. Нормалізація клавіатури
+    reply_markup = InlineKeyboardMarkup(kb) if isinstance(kb, list) else (kb if kb else None)
+    
+    # 3. Визначаємо об'єкти (Query / Message / Chat ID)
+    query = target if hasattr(target, 'data') else getattr(target, 'callback_query', None)
+    message = query.message if query else getattr(target, 'message', target)
+    
+    if not message:
+        logger.error("UI Engine: Target message not found.")
         return
 
+    chat_id = message.chat_id
+    # Використовуємо переданий context або намагаємось отримати бот з повідомлення
+    bot = context.bot if context else message.get_bot()
+
     try:
-        # А) ЛОГІКА ДЛЯ КНОПОК (РЕДАГУВАННЯ)
-        if query:
+        if query: # Логіка редагування (якщо натиснуто кнопку)
             if photo:
                 if message.photo:
                     # Фото -> Фото (Редагуємо медіа)
@@ -249,20 +280,19 @@ async def _edit_or_reply(target, text: str, kb: list = None, photo: str = None, 
                         reply_markup=reply_markup
                     )
                 else:
-                    # Текст -> Фото (Telegram не дозволяє edit, тому Delete + Send)
-                    await message.delete()
-                    await context.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+                    # Текст -> Фото (Delete + Send)
+                    await safe_delete(message)
+                    await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             else:
                 if message.photo:
                     # Фото -> Текст (Delete + Send)
-                    await message.delete()
-                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+                    await safe_delete(message)
+                    await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                 else:
                     # Текст -> Текст (Стандартний Edit)
                     await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
         
-        # Б) ЛОГІКА ДЛЯ НОВИХ ПОВІДОМЛЕНЬ (КОМАНДИ)
-        else:
+        else: # Логіка для нових повідомлень (команди)
             if photo:
                 await message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             else:
@@ -270,32 +300,24 @@ async def _edit_or_reply(target, text: str, kb: list = None, photo: str = None, 
 
     except BadRequest as e:
         if "Message is not modified" not in str(e):
-            logger.warning(f"UI Update bypass: {e}")
-            # Ядерний фолбек: якщо все зламалось, просто шлемо нове повідомлення
-            try: await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            logger.warning(f"UI Engine bypass: {e}")
+            # Ядерний фолбек: просто нове повідомлення в чат
+            try:
+                await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             except: pass
 
-# --- ДОДАТКОВІ ХЕЛПЕРИ ДЛЯ ЛОГІВ ТА ГІГІЄНИ ЧАТУ ---
-
-def user_id_from_msg(message):
-    """Безпечне отримання ID юзера."""
-    try: return message.chat.id
-    except: return "UNKNOWN"
-
-async def safe_delete(update_obj):
-    """Видалення повідомлення без помилок."""
-    try:
-        if hasattr(update_obj, 'callback_query') and update_obj.callback_query:
-            await update_obj.callback_query.message.delete()
-        elif hasattr(update_obj, 'message') and update_obj.message:
-            await update_obj.message.delete()
-        elif hasattr(update_obj, 'delete'):
-            await update_obj.delete()
-    except: pass
-
 async def send_ghosty_message(update_obj, text: str, reply_markup=None, photo=None, context: ContextTypes.DEFAULT_TYPE = None):
-    """Високорівневий аліас для виклику двигуна."""
+    """Високорівневий аліас для двигуна."""
     await _edit_or_reply(update_obj, text, reply_markup, photo, context)
+
+async def safe_delete(message):
+    """Атомарне видалення повідомлення без помилок у логах."""
+    try:
+        if hasattr(message, 'delete'):
+            await message.delete()
+    except Exception:
+        pass
+        
     
         
 # =================================================================
@@ -2842,34 +2864,45 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
         
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL DISPATCHER (ULTIMATE PRO 2026)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (MASTER EDITION PRO)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Головний мозок GHO$$TY ENGINE: розподіляє всі натискання кнопок.
-    Виправлено: 100% стабільність, передача context, захист від NameError.
+    Центральний мозок GHO$$TY STAFF: розподіляє всі натискання кнопок.
+    100% СТАБІЛЬНІСТЬ: Виправлено передачу контексту та безпеку маршрутів.
     """
     query = update.callback_query
     data = query.data
     user = update.effective_user
     
-    # 1. Анти-зависання: миттєва відповідь серверу Telegram
+    # 1. МИТТЄВА ВІДПОВІДЬ (Anti-Freeze)
+    # Прибирає "годинник" на кнопці в Telegram
     try: 
         await query.answer()
     except Exception as e:
         logger.debug(f"Callback answer timeout: {e}")
 
     try:
-        # --- 0. АДМІН-ДІЇ (Найвищий пріоритет) ---
-        if data.startswith("adm_"): 
-            if 'admin_decision_handler' in globals():
-                await admin_decision_handler(update, context)
+        # --- 0. АДМІН-ПАНЕЛЬ (GOD MODE) ---
+        if data.startswith("adm_") or data.startswith("admin_"):
+            if user.id == MANAGER_ID:
+                if data.startswith("adm_"): 
+                    await admin_decision_handler(update, context)
+                elif data == "admin_main": await admin_menu(update, context)
+                elif data == "admin_stats": await admin_stats(update, context)
+                elif data == "admin_view_users": await admin_view_users(update, context)
+                elif data == "admin_broadcast": await start_broadcast(update, context)
+                elif data == "admin_cancel_action":
+                    context.user_data['state'] = None
+                    await admin_menu(update, context)
+            else:
+                await query.answer("⛔️ Доступ заборонено", show_alert=True)
             return
 
-        # --- 1. ГОЛОВНА НАВІГАЦІЯ ТА ПРОФІЛЬ ---
+        # --- 1. БАЗОВА НАВІГАЦІЯ ---
         if data == "menu_start":
-            context.user_data['state'] = None # Скидання FSM
+            context.user_data['state'] = None # Скидаємо всі очікування тексту
             await start_command(update, context)
             
         elif data == "menu_profile": 
@@ -2880,6 +2913,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             
         elif data == "menu_terms": 
             if 'TERMS_TEXT' in globals():
+                # Використовуємо UI адаптер з обов'язковою передачею context
                 await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]], context=context)
         
         elif data == "ref_system": 
@@ -2887,7 +2921,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             
         elif data == "menu_promo": 
             context.user_data['awaiting_promo'] = True
-            await _edit_or_reply(query, "🎟 <b>АКТИВАЦІЯ БОНУСІВ</b>\n\nВведіть ваш промокод у чат 👇", [[InlineKeyboardButton("🔙 Скасувати", callback_data="menu_profile")]], context=context)
+            await _edit_or_reply(query, "🎟 <b>АКТИВАЦІЯ БОНУСІВ</b>\n\nВведіть промокод прямо тут 👇", [[InlineKeyboardButton("🔙 Скасувати", callback_data="menu_profile")]], context=context)
 
         # --- 2. КАТАЛОГ ТА ТОВАРИ ---
         elif data == "cat_all": 
@@ -2900,20 +2934,23 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         
         elif data.startswith("view_item_"): 
             try:
-                item_id = int(data.split("_")[2])
+                # Безпечний парсинг ID: view_item_100
+                parts = data.split("_")
+                item_id = int(parts[2])
                 await view_item_details(update, context, item_id)
             except (IndexError, ValueError):
                 await catalog_main_menu(update, context)
 
         elif data.startswith("sel_col_"):
             try:
+                # sel_col_500
                 item_id = int(data.split("_")[2])
                 await show_color_selection(update, context, item_id)
             except: pass
 
-        # --- 3. КОШИК ТА ДОДАВАННЯ ---
+        # --- 3. ЛОГІКА КОШИКА ТА ДОДАВАННЯ ---
         elif data.startswith("add_"): 
-            # Універсальна функція додавання (обробляє і подарунки, і кольори)
+            # Додавання товару, вибір подарунків та кольорів
             await add_to_cart_handler(update, context)
             
         elif data == "cart_clear" or data.startswith("cart_del_"): 
@@ -2922,7 +2959,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         elif data.startswith("gift_sel_"): 
             await gift_selection_handler(update, context)
 
-        # --- 4. ЛОКАЦІЯ ТА ЛОГІСТИКА ---
+        # --- 4. ЛОКАЦІЇ ТА ДАНІ КЛІЄНТА ---
         elif data == "choose_city": 
             await choose_city_menu(update, context)
             
@@ -2934,30 +2971,36 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 await district_selection_handler(update, context, city_name)
                 
         elif data.startswith("sel_dist_"):
-            # Викликаємо запит адреси (Крок 4/4 реєстрації)
+            # Користувач обрав район -> просимо точну адресу
             dist_name = data.replace("sel_dist_", "")
             await address_request_handler(update, context, dist_name)
             
         elif data.startswith("save_dist_"):
-            dist_name = data.split("_")[2]
-            await save_location_handler(update, context, dist_name=dist_name)
+            # Збереження локації (Section 11)
+            try:
+                dist_name = data.split("_")[2]
+                await save_location_handler(update, context, dist_name=dist_name)
+            except: pass
             
         elif data == "fill_delivery_data":
+            # Запуск анкети (Section 16)
             await start_data_collection(update, context, next_action='none')
 
-        # --- 5. ОФОРМЛЕННЯ, ОПЛАТА ТА МЕНЕДЖЕР ---
+        # --- 5. ОФОРМЛЕННЯ ТА ОПЛАТА ---
         elif data.startswith("fast_order_"):
+            # "Швидке замовлення" з картки товару
             try:
                 iid = int(data.split("_")[2])
                 item = get_item_data(iid)
                 if item:
-                    # Створення миттєвого кошика
+                    # Очищуємо кошик і додаємо 1 товар
                     context.user_data['cart'] = [{"id": random.randint(1000,9999), "real_id": iid, "name": item['name'], "price": item['price'], "gift": None}]
                     await start_data_collection(update, context, next_action='manager_order', item_id=iid)
             except Exception as e: 
                 logger.error(f"Fast order route error: {e}")
             
         elif data.startswith("mgr_pre_"):
+            # Замовлення через менеджера (збір даних)
             try:
                 item_id = int(data.split("_")[2])
                 await start_data_collection(update, context, next_action='manager_order', item_id=item_id)
@@ -2968,38 +3011,26 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             
         elif data.startswith("pay_"): 
             method = data.split("_")[1]
-            await payment_selection_handler(update, context, method)
+            if 'payment_selection_handler' in globals():
+                await payment_selection_handler(update, context, method)
             
         elif data == "confirm_payment_start": 
             await payment_confirmation_handler(update, context)
         
         elif data == "confirm_manager_order":
+            # Відправка заявки в God-Mode (Section 27)
             if 'submit_order_to_manager' in globals():
                 await submit_order_to_manager(update, context)
 
-        # --- 6. АДМІНІСТРУВАННЯ (GOD MODE) ---
-        elif data.startswith("admin_"):
-            if user.id == MANAGER_ID:
-                if data == "admin_main": await admin_menu(update, context)
-                elif data == "admin_stats": await admin_stats(update, context)
-                elif data == "admin_view_users": await admin_view_users(update, context)
-                elif data == "admin_broadcast": await start_broadcast(update, context)
-                elif data == "admin_cancel_action":
-                    context.user_data['state'] = None
-                    await admin_menu(update, context)
-            else:
-                await query.answer("⛔️ Доступ обмежено", show_alert=True)
-
-    # 🛡 ФІНАЛЬНИЙ ЗАХИСТ ВІД КРАШУ
+    # 🛡 ФІНАЛЬНИЙ ЗАХИСТ (SHIELD 2.0)
     except NameError as ne:
-        logger.error(f"CRITICAL: Function missing in Dispatcher! Data: {data} | Error: {ne}")
-        await query.answer("⚠️ Цей модуль зараз оновлюється. Спробуйте через хвилину.", show_alert=True)
+        logger.error(f"ROUTING FAILURE (MISSING FUNC): {data} | Error: {ne}")
+        await query.answer("⚠️ Модуль оновлюється, зачекайте 10 секунд...", show_alert=True)
         
     except Exception as e:
-        logger.error(f"GLOBAL DISPATCHER FATAL: {e} | Data: {data}")
+        logger.error(f"GLOBAL DISPATCHER FATAL: {e} | DATA: {data}")
         traceback.print_exc()
-        await query.answer("❌ Сталася внутрішня помилка. Менеджера сповіщено.", show_alert=True)
-        
+        await query.answer("❌ Сталася внутрішня помилка. Ми вже фіксимо!", show_alert=True)
         
     
 # =================================================================
@@ -3161,71 +3192,60 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
             
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP (FINAL PRODUCTION)
+# 🚀 SECTION 31: ENGINE STARTUP (FINAL PRODUCTION 101%)
 # =================================================================
 
 async def post_init(application: Application) -> None:
-    """
-    Функція, що виконується ОДРАЗУ після запуску бота.
-    Надсилає менеджеру сповіщення, що система онлайн.
-    """
+    """Сповіщення про успішний запуск."""
     try:
-        # Сповіщення в Telegram для адміна
         await application.bot.send_message(
             chat_id=MANAGER_ID,
-            text=f"🚀 <b>GHO$$TY ENGINE ONLINE</b>\n"
-                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                 f"✅ Система успішно запущена\n"
-                 f"🕒 Час: {datetime.now().strftime('%H:%M:%S')}\n"
-                 f"🛡 Статус: <b>STABLE v5.2.2</b>",
+            text=f"🚀 <b>GHO$$TY ENGINE ONLINE</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                 f"✅ Система успішно запущена\n🕒 Час: {datetime.now().strftime('%H:%M:%S')}\n"
+                 f"🛡 Версія: <b>STABLE v5.5.2 PRO</b>",
             parse_mode='HTML'
         )
     except Exception as e:
         logger.error(f"Post-init notification failed: {e}")
 
 def main():
-    """
-    Головна точка входу. СУВОРИЙ порядок реєстрації та діагностики.
-    """
-    # 1. Попередня перевірка конфігурації
-    if not TOKEN or "ВСТАВ" in TOKEN:
-        print("❌ FATAL ERROR: Bot token is missing or invalid!"); sys.exit(1)
+    """Головна точка входу: СУВОРИЙ ПОРЯДОК."""
+    if not TOKEN or TOKEN == "ВСТАВ":
+        print("❌ FATAL: Token missing!"); sys.exit(1)
         
-    # 2. Ініціалізація архітектури (БД та Директорії)
-    init_db() #
+    # 1. Створення папок та бази
+    init_db() 
     
-    # 3. Налаштування Persistence (Збереження станів)
-    persistence = PicklePersistence(filepath=PERSISTENCE_PATH) #
+    # 2. persistence для пам'яті кошиків
+    persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
     
-    # 4. Побудова додатку через Builder (v20.x+)
+    # 3. Builder
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(persistence)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .post_init(post_init) # Реєструємо автоматичне сповіщення про запуск
+        .post_init(post_init)
         .build()
     )
 
-    # 5. РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (ПОРЯДОК КРИТИЧНО ВАЖЛИВИЙ)
-    # Команди (Найвищий пріоритет)
-    app.add_handler(CommandHandler("start", start_command)) #
-    app.add_handler(CommandHandler("admin", admin_menu)) #
+    # 4. Реєстрація хендлерів (Пріоритет зверху вниз)
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("admin", admin_menu))
     
     # Кнопки (Callback Queries)
-    app.add_handler(CallbackQueryHandler(global_callback_handler)) #
+    app.add_handler(CallbackQueryHandler(global_callback_handler))
     
-    # Текст, Фото, Відео (MessageHandler) - МАЄ БУТИ ОСТАННІМ
-    # Обробляє FSM (збір даних), Чеки та Розсилки
+    # Текст, Фото, Відео (MessageHandler)
     app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO | filters.VIDEO) & (~filters.COMMAND), 
-        handle_user_input #
+        (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.VOICE | filters.VIDEO_NOTE) & (~filters.COMMAND), 
+        handle_user_input 
     ))
     
-    # Глобальний обробник помилок (Error Shield)
-    app.add_error_handler(error_handler) #
+    # КРИТИЧНО: Реєстрація щита помилок
+    app.add_error_handler(error_handler)
     
-    # 6. ВІЗУАЛЬНА ДІАГНОСТИКА В КОНСОЛІ (BotHost Logging)
+     # 6. ВІЗУАЛЬНА ДІАГНОСТИКА В КОНСОЛІ (BotHost Logging)
     token_masked = f"{TOKEN[:6]}...{TOKEN[-4:]}"
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"🌫️  GHO$$TY STAFF PREMIUM ENGINE v5.2.2")
@@ -3237,22 +3257,14 @@ def main():
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("🚀  POLLING STARTED: WAITING FOR UPDATES...")
     
-    # 7. ЗАПУСК ПОЛЛІНГУ
-    # drop_pending_updates=True ігнорує старі повідомлення, щоб бот не спамив при старті
+    # 6. Запуск (drop_pending_updates ігнорує старі повідомлення поки бот був офлайн)
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
-    # Ініціалізуємо START_TIME в самому верху для адмін-панелі
-    # Якщо воно не ініціалізоване в глобальному просторі
-    if 'START_TIME' not in globals():
-        START_TIME = datetime.now() #
-
     try:
         main()
     except KeyboardInterrupt:
-        print("\n🛑 System stopped by Administrator.")
-        sys.exit(0)
-    except Exception as fatal_e:
-        print(f"❌ CRITICAL CRASH: {fatal_e}")
+        print("\n🛑 System stopped by Admin.")
+    except Exception as e:
+        print(f"❌ CRITICAL CRASH: {e}")
         traceback.print_exc()
-        sys.exit(1)
