@@ -139,7 +139,6 @@ COURIER_PRICE = 150.0
 HHC_VAPES = {} 
 LIQUIDS = {}
 PODS = {}
-SETS = {}
 
 # 🔥 4. БОНУСНІ РІДИНИ (ВАЖЛИВО: ВОНИ МАЮТЬ БУТИ ТУТ)
 GIFT_LIQUIDS = {
@@ -311,7 +310,7 @@ LIQUIDS = {
     301: {
         "name": "🍂 Fall Tea",
         "category": "Chaser Balance",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 15,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -322,7 +321,7 @@ LIQUIDS = {
     302: {
         "name": "👻 Mystery One",
         "category": "Chaser Balance",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 15,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -333,7 +332,7 @@ LIQUIDS = {
     303: {
         "name": "🍓 Strawberry Jelly",
         "category": "Chaser Balance",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 14,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -344,7 +343,7 @@ LIQUIDS = {
     304: {
         "name": "🍇 Grape BlackBerry",
         "category": "Limited Ultra",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 15,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -355,7 +354,7 @@ LIQUIDS = {
     305: {
         "name": "🥤 Cola Pomelo",
         "category": "Limited Ultra",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 15,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -366,7 +365,7 @@ LIQUIDS = {
     306: {
         "name": "🌹 BlackCurrant Rose",
         "category": "Limited Ultra",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 12,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -377,7 +376,7 @@ LIQUIDS = {
     307: {
         "name": "🍋 Berry Lemonade",
         "category": "Special Berry",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 15,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -388,7 +387,7 @@ LIQUIDS = {
     308: {
         "name": "⚡ Energetic",
         "category": "Special Berry",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 10,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -399,7 +398,7 @@ LIQUIDS = {
     309: {
         "name": "💊 Vitamin",
         "category": "Special Berry",
-        "price": 249.99,
+        "price": 349.99,
         "stock": 15,
         "discount": True,
         "strengths": [50, 65, 85],
@@ -414,7 +413,7 @@ HHC_VAPES = {
     100: {
         "name": "🌴 Packwoods Purple 1ml",
         "type": "hhc",
-        "price": 699.77,
+        "price": 999.99,
         "stock": 15,
         "discount": True,
         "gift_liquid": True,
@@ -425,7 +424,7 @@ HHC_VAPES = {
     101: {
         "name": "🍊 Packwoods Orange 1ml",
         "type": "hhc",
-        "price": 699.77,
+        "price": 999.99,
         "stock": 15,
         "discount": True,
         "gift_liquid": True,
@@ -436,7 +435,7 @@ HHC_VAPES = {
     102: {
         "name": "🌸 Packwoods Pink 1ml",
         "type": "hhc",
-        "price": 699.77,
+        "price": 999.99,
         "stock": 7,
         "discount": True,
         "gift_liquid": True,
@@ -447,7 +446,7 @@ HHC_VAPES = {
     103: {
         "name": "🌿 Whole Mint 2ml",
         "type": "hhc",
-        "price": 879.77,
+        "price": 1399.99,
         "stock": 9,
         "discount": True,
         "gift_liquid": True,
@@ -458,7 +457,7 @@ HHC_VAPES = {
     104: {
         "name": "🌴 Jungle Boys White 2ml",
         "type": "hhc",
-        "price": 999.77,
+        "price": 1799.99,
         "stock": 14,
         "discount": True,
         "gift_liquid": True,
@@ -477,7 +476,7 @@ PODS = {
         "stock": 20,  # FIX: Додано наявність
         "gift_liquid": True,
         "price": 499.77,
-        "discount": True,
+        "discount": False,
         "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg",
         "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель. Надійна та смачна.\n✨ <i>Ідеальний вибір для старту.</i>",
         "colors": ["⚫️ Black", "🟢 Green", "🟣 Pink"],
@@ -495,7 +494,7 @@ PODS = {
         "stock": 15, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 674.77,
-        "discount": True,
+        "discount": False,
         "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg",
         "desc": "🔥 <b>НОВИНКА 2025 | COREX 2.0</b>\nМаксимальна передача смаку.\n💎 <i>Оновлений дизайн та швидка зарядка.</i>",
         "colors": ["⚫️ Core Black", "🟣 Pink", "🟢 Green"],
@@ -513,7 +512,7 @@ PODS = {
         "stock": 10, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 974.77,
-        "discount": True,
+        "discount": False,
         "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg",
         "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.\n⚡ <i>Зарядка за 35 хвилин!</i>",
         "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red", "🔵 Blue"],
@@ -531,7 +530,7 @@ PODS = {
         "stock": 12, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 659.77,
-        "discount": True,
+        "discount": False,
         "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg",
         "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.\n🔋 <i>1000 mAh у міні-корпусі.</i>",
         "colors": ["⚫️ Black", "🟡 Yellow", "🟠 Orange", "🌸 Pink"],
@@ -549,7 +548,7 @@ PODS = {
         "stock": 18, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 629.77,
-        "discount": True,
+        "discount": False,
         "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg",
         "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.\n🎯 <i>Універсальний солдат.</i>",
         "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient", "⚪️ Silver"],
@@ -567,7 +566,7 @@ PODS = {
         "stock": 8, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 799.77,
-        "discount": True,
+        "discount": False,
         "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg",
         "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.\n🚀 <i>Найкраще, що створили Vaporesso.</i>",
         "colors": ["⚫️ Obsidian Black", "⚪️ Pearl White", "🔵 Ocean Blue"],
@@ -585,7 +584,7 @@ PODS = {
         "stock": 25, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 459.77,
-        "discount": True,
+        "discount": False,
         "img": "https://ilrnrwxhokrl5q.ldycdn.com/cloud/lpBqlKmrSRkllmojnpiq/Authentic-VOOPOO-Vmate-Mini-30W-Pod-Kit-1000mAh-3ml-0-7ohm-Classic-Black.jpg",
         "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.\n🧬 <i>Просто залий рідину і парь.</i>",
         "colors": ["⚫️ Black", "🔴 Red", "🔵 Blue", "🟢 Green"],
@@ -634,7 +633,7 @@ TERMS_TEXT = (
     "7️⃣ Магазин <b>НЕ Є РЕАЛЬНИМ</b>. Продаж не здійснюється.\n"
     "8️⃣ <b>ДОСТАВКИ НЕ ІСНУЄ</b>. Жодні товари не відправляються.\n"
     "9️⃣ Переказані кошти вважаються <b>добровільним донатом</b>.\n"
-    "🔟 Всі транзакції — це безповоротний подарунок розробнику.\n"
+    "🔟 Всі транзакції — це безповоротний подарунок розробнику.  Gho$$tyyy.\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━\n"
     "<i>Натискаючи «Прийняти» або продовжуючи роботу, ви підтверджуєте, "
     "що ознайомлені з цими пунктами.</i>"
@@ -778,16 +777,15 @@ async def catalog_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Тут тільки перевірений стафф. Обирай категорію 👇\n\n"
         "💨 <b>HHC Вейпи</b> — <i>Relax з США (Original)</i>\n"
         "🔌 <b>POD-Системи</b> — <i>Девайси на кожен день</i>\n"
-        "💧 <b>Рідини</b> — <i>Salt нікотин (Top tastes)</i>\n"
+        "💧 <b>Рідини</b> — <i>Chaser, нові колекції(Топові смаки)</i>\n"
         "🎁 <b>Набори</b> — <i>Вигідно (Девайс + Жижа)</i>"
     )
     
     kb = [
-        [InlineKeyboardButton("💨 HHC ВЕЙПИ (USA) 🇺🇸", callback_data="cat_list_hhc")],
+        [InlineKeyboardButton("💨 HHC ВЕЙПИ (USA)", callback_data="cat_list_hhc")],
         [InlineKeyboardButton("🔌 POD-СИСТЕМИ", callback_data="cat_list_pods")],
         [InlineKeyboardButton("💧 РІДИНИ (Salt)", callback_data="cat_list_liquids")],
         # Додаємо кнопку наборів, якщо вона знадобиться
-        [InlineKeyboardButton("🎁 ГОТОВІ НАБОРИ", callback_data="cat_list_sets")],
         [InlineKeyboardButton("🏠 ГОЛОВНЕ МЕНЮ", callback_data="menu_start")]
     ]
     
@@ -808,7 +806,6 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
         'hhc': ('HHC_VAPES', '💨 HHC Вейпи'),
         'pods': ('PODS', '🔌 POD-Системи'),
         'liquids': ('LIQUIDS', '💧 Рідини'),
-        'sets': ('SETS', '🎁 Набори')
     }
     
     map_data = cat_map.get(category_key)
@@ -830,8 +827,8 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
     text = (
         f"📂 <b>КАТЕГОРІЯ: {cat_title}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💎 — <i>акційна ціна (Знижка)</i>\n"
-        f"🔥 — <i>товар закінчується</i>\n"
+        f"🔥 — <i>акційна ціна (Знижка)</i>\n"
+        f"⌛ — <i>товар закінчується</i>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"👇 Натисніть на товар для детального перегляду:"
     )
@@ -839,7 +836,7 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
     kb = []
     
     # 3. Розумне сортування
-    # Пріоритет: Спочатку ті, де мало товару (🔥), потім звичайні, в кінці - продані
+    # Пріоритет: Спочатку ті, де мало товару (⌛), потім звичайні, в кінці - продані
     # (Сортуємо за stock reverse=True)
     sorted_items = sorted(items_dict.items(), key=lambda x: x[1].get('stock', 0), reverse=True)
 
@@ -860,8 +857,8 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
             btn_text = f"⛔️ {item['name']} (Sold Out)"
         else:
             # Динамічні маркери наявності
-            hot_mark = "🔥 " if stock < 5 else ""
-            vip_mark = " 💎" if is_discounted else ""
+            hot_mark = "🔥" if stock < 5 else ""
+            vip_mark = "💎" if is_discounted else ""
             
             # Структура: [Вогонь] Назва | Ціна [Алмаз]
             btn_text = f"{hot_mark}{item['name']} | {price_display}{vip_mark}"
@@ -1085,7 +1082,7 @@ async def choose_dnipro_delivery(update: Update, context: ContextTypes.DEFAULT_T
         "🏙 <b>ДНІПРО: СПОСІБ ОТРИМАННЯ</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "1️⃣ <b>Район (Клад)</b> — готовий сховок у вашому районі.\n"
-        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка прямо до дверей.\n\n"
+        "2️⃣ <b>Кур'єр (+150 грн)</b> — доставка прямо по адресі.\n\n"
         "👇 Що обираєте?"
     )
     
@@ -1215,7 +1212,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💸 Welcome Bonus: <b>-101 грн</b> на перше замовлення\n"
         f"🚚 Доставка: <b>БЕЗКОШТОВНА</b> (для VIP)\n\n"
         f"🔑 Твій реферальний код: <code>{personal_promo}</code>\n"
-        f"<i>(Поділись з другом: йому бонуси, тобі +7 днів VIP!)</i>\n"
+        f"<i>(Поділись з другом: йому +7 днів VIP, тобі 50 грн на баланс!)</i>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👇 <b>ГОЛОВНЕ МЕНЮ:</b>"
     )
@@ -1627,7 +1624,7 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 # =================================================================
 
 # Список ID товарів, які йдуть на подарунок (можна змінювати)
-GIFT_POOL = [9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008] 
+GIFT_LIQUIDS = [9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008] 
 
 async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1658,7 +1655,7 @@ async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     kb = []
     # Генеруємо кнопки подарунків
-    for gid in GIFT_POOL:
+    for gid in GIFT_LIQUIDS:
         gift_item = get_item_data(gid)
         if gift_item:
             # Формат: add_{main_id}_{gift_id}
@@ -1847,7 +1844,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Якщо доставка кур'єром і юзер НЕ VIP -> додаємо 150 грн
     if "Кур'єр" in str(dist) and not profile.get("is_vip"):
         total_amount += 150
-        items_desc += "\n🚚 Доставка кур'єром (+150 грн)"
+        items_desc += "\n🚚 Доставка кур'єром (+150 грн БЕЗ V.I.P)"
         
     # Фіксуємо фінальну суму
     context.user_data['final_checkout_sum'] = total_amount
