@@ -414,7 +414,7 @@ HHC_VAPES = {
         "name": "🌴 Packwoods Purple 1ml",
         "type": "hhc",
         "price": 999.99,
-        "stock": 15,
+        "stock": 11,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg",
@@ -425,7 +425,7 @@ HHC_VAPES = {
         "name": "🍊 Packwoods Orange 1ml",
         "type": "hhc",
         "price": 999.99,
-        "stock": 15,
+        "stock": 12,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/SDJFRTwk/Ghost-Vape-1.jpg",
@@ -436,7 +436,7 @@ HHC_VAPES = {
         "name": "🌸 Packwoods Pink 1ml",
         "type": "hhc",
         "price": 999.99,
-        "stock": 7,
+        "stock": 13,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
@@ -447,7 +447,7 @@ HHC_VAPES = {
         "name": "🌿 Whole Mint 2ml",
         "type": "hhc",
         "price": 1399.99,
-        "stock": 9,
+        "stock": 11,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/W4hqn2tZ/Ghost-Vape-4.jpg",
@@ -458,7 +458,7 @@ HHC_VAPES = {
         "name": "🌴 Jungle Boys White 2ml",
         "type": "hhc",
         "price": 1799.99,
-        "stock": 14,
+        "stock": 15,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
@@ -857,8 +857,8 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
             btn_text = f"⛔️ {item['name']} (Sold Out)"
         else:
             # Динамічні маркери наявності
-            hot_mark = "🔥" if stock < 5 else ""
-            vip_mark = "💎" if is_discounted else ""
+            hot_mark = "⌛" if stock < 10 else ""
+            vip_mark = "🔥" if is_discounted else ""
             
             # Структура: [Вогонь] Назва | Ціна [Алмаз]
             btn_text = f"{hot_mark}{item['name']} | {price_display}{vip_mark}"
@@ -918,9 +918,9 @@ async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # --- ЛОГІКА СКЛАДУ ---
     stock = item.get('stock', 0)
-    if stock >= 10: 
+    if stock >= 13: 
         stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
-    elif 1 <= stock < 10: 
+    elif 9 <= stock < 13: 
         stock_status = f"🟡 <b>Закінчується</b> ({stock})"
     else: 
         stock_status = "🔴 <b>Немає в наявності</b>"
@@ -1620,29 +1620,48 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     
 
 # =================================================================
-# 🎁 SECTION 19: GIFT & CART ENGINE (TITAN ULTIMATE v10.0)
+# 🎁 SECTION 19: GIFT & CART ENGINE (UNIVERSAL GIFTING)
 # =================================================================
 
-# Список ID товарів, які йдуть на подарунок (можна змінювати)
-GIFT_LIQUIDS = [9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008] 
+# Список ID товарів, які йдуть на подарунок
+# Важливо: самі дані про товари беруться з GIFT_LIQUIDS у Section 4
+GIFT_POOL = [9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008] 
 
 async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Показує меню вибору подарунка.
+    АДАПТОВАНА: Працює для Кошика, Швидкого замовлення та Менеджера.
     """
     query = update.callback_query
-    try:
-        # Отримуємо ID основного товару з callback_data (add_ITEMID...)
-        # Формат може бути: gift_sel_ITEMID або add_ITEMID (якщо перенаправили)
-        parts = query.data.split("_")
-        if query.data.startswith("gift_sel_"):
-            main_item_id = int(parts[2])
-        else:
-            main_item_id = int(parts[1])
-            
-        main_item = get_item_data(main_item_id)
-        if not main_item: raise ValueError("Item not found")
-    except:
+    data = query.data
+    
+    # 1. Розбираємо вхідні дані, щоб зрозуміти контекст (звідки прийшов юзер)
+    parts = data.split("_")
+    
+    # Визначаємо тип операції та ID товару
+    if data.startswith("fast_order_"):
+        prefix = "fast_order"
+        item_id = int(parts[2])
+    elif data.startswith("mgr_pre_"):
+        prefix = "mgr_pre"
+        item_id = int(parts[2])
+    elif data.startswith("add_"):
+        prefix = "add"
+        item_id = int(parts[1])
+    elif data.startswith("gift_sel_"):
+        # Якщо ми вже всередині меню (клікнули інший подарунок)
+        # Формат: gift_sel_PREFIX_ITEMID
+        prefix_code = parts[2]
+        if prefix_code == "fast": prefix = "fast_order"
+        elif prefix_code == "mgr": prefix = "mgr_pre"
+        else: prefix = "add"
+        item_id = int(parts[3])
+    else:
+        await query.answer("❌ Помилка контексту")
+        return
+
+    main_item = get_item_data(item_id)
+    if not main_item:
         await query.answer("❌ Товар не знайдено")
         return
 
@@ -1650,40 +1669,38 @@ async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_T
         f"🎁 <b>АКЦІЯ: ОБЕРІТЬ ВАШ БОНУС!</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"До товару <b>{main_item['name']}</b> ви можете додати одну рідину абсолютно <b>БЕЗКОШТОВНО</b>!\n\n"
-        f"👇 Оберіть смак зі списку:"
+        f"👇 <i>Оберіть смак зі списку:</i>"
     )
 
     kb = []
-    # Генеруємо кнопки подарунків
-    for gid in GIFT_LIQUIDS:
+    # Генеруємо кнопки подарунків. 
+    # Формат колбеку: PREFIX_ITEMID_GIFTID
+    for gid in GIFT_POOL:
         gift_item = get_item_data(gid)
         if gift_item:
-            # Формат: add_{main_id}_{gift_id}
-            # Важливо: якщо був обраний колір, він має бути збережений у context.user_data
-            kb.append([InlineKeyboardButton(f"🧪 {gift_item['name']}", callback_data=f"add_{main_item_id}_{gid}")])
+            # Скорочуємо назву для краси
+            short_name = gift_item['name'].replace("30ml", "").strip()
+            # Додаємо емодзі колби
+            kb.append([InlineKeyboardButton(f"🧪 {short_name}", callback_data=f"{prefix}_{item_id}_{gid}")])
 
-    # Опція без подарунка (0)
-    kb.append([InlineKeyboardButton("❌ Без подарунка", callback_data=f"add_{main_item_id}_0")])
-    kb.append([InlineKeyboardButton("🔙 Назад", callback_data=f"view_item_{main_item_id}")])
+    # Опція без подарунка (ID = 0)
+    kb.append([InlineKeyboardButton("❌ Без подарунка", callback_data=f"{prefix}_{item_id}_0")])
+    
+    # Кнопка "Назад" повертає до картки товару
+    kb.append([InlineKeyboardButton("🔙 Назад до товару", callback_data=f"view_item_{item_id}")])
 
-    # Оновлюємо повідомлення
-    # Використовуємо наш універсальний адаптер, щоб не було помилок з типами контенту
+    # Використовуємо універсальний едітор
     await _edit_or_reply(query, text, kb, context=context)
 
 
 async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    ЄДИНА функція додавання в кошик.
-    Обробляє: Товар + Колір + Подарунок.
+    Функція додавання в кошик.
+    Працює тільки для prefix='add'.
     """
     query = update.callback_query
-    data = query.data 
-    # Можливі формати data:
-    # 1. add_ID (просте додавання)
-    # 2. add_ID_col_COLOR (з кольором)
-    # 3. add_ID_GIFTID (з подарунком)
+    parts = query.data.split("_")
     
-    parts = data.split("_")
     try:
         item_id = int(parts[1])
         item = get_item_data(item_id)
@@ -1691,78 +1708,65 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.answer("❌ Товар не знайдено")
             return
 
-        # --- 1. ВИЗНАЧЕННЯ КОЛЬОРУ ---
-        # Пріоритет 1: Колір прямо в кнопці (add_100_col_Red)
+        # 1. Визначаємо колір (з колбеку або пам'яті)
         if "col" in parts:
             col_index = parts.index("col")
-            # Збираємо все, що після 'col', бо колір може мати пробіли (напр. "Core Black")
             selected_color = "_".join(parts[col_index+1:])
         else:
-            # Пріоритет 2: Колір збережено в сесії (від попереднього кліку)
             selected_color = context.user_data.get('selected_color')
 
-        # --- 2. ВИЗНАЧЕННЯ ПОДАРУНКА ---
+        # 2. Визначаємо подарунок (з колбеку add_ITEMID_GIFTID)
         gift_id = None
-        # Якщо третя частина - це число і це НЕ частина кольору
         if len(parts) > 2 and parts[2].isdigit() and "col" not in parts:
             gift_id = int(parts[2])
 
-        # --- 3. ЛОГІКА АКЦІЙ (ПЕРЕХОПЛЕННЯ) ---
-        # Якщо це Вейп (ID < 300) або товар з подарунком, і подарунок ще не обрано (gift_id is None)
-        # І ми не в процесі вибору кольору
-        if (item_id < 300 or item.get('gift_liquid')) and gift_id is None and "col" not in parts:
-            # Перед переходом зберігаємо колір, якщо він вже є
+        # 🔥 ПЕРЕХОПЛЕННЯ:
+        # Якщо товар має подарунок (gift_liquid=True або ID < 300), 
+        # а подарунок ще не обрано (gift_id is None) -> йдемо вибирати
+        needs_gift = (item_id < 300 or item.get('gift_liquid'))
+        
+        if needs_gift and gift_id is None and "col" not in parts:
+            # Зберігаємо колір перед переходом
             if selected_color: context.user_data['selected_color'] = selected_color
-            
-            # Перенаправляємо на вибір подарунка
-            await gift_selection_handler(update, context) 
+            await gift_selection_handler(update, context)
             return
 
-        # --- 4. ФОРМУВАННЯ ОБ'ЄКТА КОШИКА ---
-        cart = context.user_data.setdefault("cart", [])
-        
-        # Назва подарунка
+        # 3. Додавання в кошик
         gift_name = None
         if gift_id and gift_id > 0:
             g_item = get_item_data(gift_id)
             if g_item: gift_name = g_item['name']
 
-        # Створення запису
-        cart_item = {
-            "id": random.randint(100000, 999999), # Унікальний ID для видалення
-            "real_id": item_id,
+        context.user_data.setdefault("cart", []).append({
+            "id": random.randint(100000, 999999), # Унікальний ID запису
+            "real_id": item_id, 
             "name": item['name'],
-            "price": item['price'], # Базова ціна
-            "color": selected_color, # Зберігаємо колір!
+            "price": item['price'], 
+            "color": selected_color, 
             "gift": gift_name
-        }
-
-        cart.append(cart_item)
+        })
         
-        # Спливаюче повідомлення
-        try: await query.answer(f"✅ Додано в кошик!", show_alert=False)
+        try: await query.answer("✅ Додано в кошик!", show_alert=False)
         except: pass
-
-        # --- 5. ВІДПОВІДЬ КОРИСТУВАЧУ ---
         
-        # Формуємо красивий опис доданого
-        details = ""
-        if selected_color: details += f"\n🎨 Колір: <b>{selected_color}</b>"
-        if gift_name: details += f"\n🎁 Бонус: <b>{gift_name}</b>"
+        # 4. Формування звіту
+        info = ""
+        if selected_color: info += f"\n🎨 Колір: <b>{selected_color}</b>"
+        if gift_name: info += f"\n🎁 Бонус: <b>{gift_name}</b>"
         
         text = (
             f"✅ <b>ТОВАР У КОШИКУ!</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"📦 <b>{item['name']}</b>"
-            f"{details}\n"
+            f"{info}\n"
             f"💰 <b>{int(item['price'])} грн</b>\n\n"
-            f"👇 Що робимо далі?"
+            f"👇 <i>Що робимо далі?</i>"
         )
         
         kb = [
             [InlineKeyboardButton("🛒 Оформити замовлення", callback_data="menu_cart")],
             [InlineKeyboardButton("🛍 Продовжити покупки", callback_data="cat_all")],
-            [InlineKeyboardButton("🏠 Головне меню", callback_data="menu_start")]
+            [InlineKeyboardButton("🏠 В головне меню", callback_data="menu_start")]
         ]
         
         await _edit_or_reply(query, text, kb, context=context)
@@ -1771,49 +1775,60 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.error(f"Add to Cart Error: {e}")
         await query.answer("❌ Помилка додавання")
         
+        
     
 # =================================================================
-# 💳 SECTION 20: CHECKOUT & PAYMENT CORE (TITAN VISUAL FIX)
+# 💳 SECTION 20: CHECKOUT & PAYMENT CORE (TITAN FINAL REVISION)
 # =================================================================
 
 async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Ініціалізація оплати (Фінальний чек).
-    Вдосконалено: 
-    1. Відображає ФОТО товару при швидкому замовленні.
-    2. Коректно рахує суму та доставку.
+    Включає:
+    1. Відображення фото (для швидкого замовлення).
+    2. Автоматичне застосування знижок з балансу.
+    3. Розрахунок доставки.
     """
     # Отримуємо дані
     target_item_id = context.user_data.get('target_item_id')
     profile = context.user_data.get('profile', {})
     
-    total_amount = 0
+    # Баланс бонусів користувача
+    user_balance = float(profile.get('next_order_discount', 0.0))
+    
+    total_amount = 0.0
     items_desc = ""
-    photo_to_show = None # Змінна для фото в чеку
+    photo_to_show = None 
 
     # --- ВАРІАНТ А: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар) ---
     if target_item_id:
         item = get_item_data(target_item_id)
         if not item: 
-            # Якщо товару немає -> чистимо ID і повідомляємо
             context.user_data['target_item_id'] = None
             await send_ghosty_message(update, "⚠️ Товар розпродано або не знайдено.", context=context)
             return
         
-        # Визначаємо фото (враховуючи колір)
+        # Фото
         selected_color = context.user_data.get('selected_color')
         if selected_color and "color_previews" in item:
             photo_to_show = item["color_previews"].get(selected_color, item['img'])
         else:
             photo_to_show = item['img']
 
-        # Рахуємо ціну
+        # Ціна (вже з урахуванням VIP-знижки, якщо вона є в товарі)
         price, _ = calculate_final_price(item['price'], profile)
-        
-        # Формуємо красивий опис
-        color_txt = f" ({selected_color})" if selected_color else ""
-        items_desc = f"▫️ <b>{item['name']}</b>{color_txt}\n"
         total_amount = price
+        
+        # Опис
+        color_txt = f" ({selected_color})" if selected_color else ""
+        items_desc = f"▫️ <b>{item['name']}</b>{color_txt}\n   1 x {int(price)} грн"
+
+        # Подарунок
+        if context.user_data.get('target_gift_id'):
+            g_id = context.user_data['target_gift_id']
+            gift_item = get_item_data(g_id)
+            if gift_item:
+                items_desc += f"\n   🎁 Бонус: {gift_item['name']}"
 
     # --- ВАРІАНТ Б: ЗАМОВЛЕННЯ З КОШИКА ---
     else:
@@ -1823,15 +1838,12 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_ghosty_message(update, "🛒 <b>Ваш кошик порожній.</b>", kb, context=context)
             return
             
-        # Для кошика використовуємо стандартне лого (або фото "Checkout")
         photo_to_show = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
         
         for i in cart:
-            # Важливо: беремо базову ціну і перераховуємо знижку на льоту
             p, _ = calculate_final_price(i['price'], profile)
             total_amount += p
             
-            # Формуємо рядок товару
             extras = []
             if i.get('color'): extras.append(i['color'])
             if i.get('gift'): extras.append(f"🎁 {i['gift']}")
@@ -1841,12 +1853,29 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- ЛОГІКА ДОСТАВКИ ---
     dist = profile.get('district', '')
-    # Якщо доставка кур'єром і юзер НЕ VIP -> додаємо 150 грн
     if "Кур'єр" in str(dist) and not profile.get("is_vip"):
-        total_amount += 150
-        items_desc += "\n🚚 Доставка кур'єром (+150 грн БЕЗ V.I.P)"
+        total_amount += 150.0
+        items_desc += "\n🚚 Доставка кур'єром (+150 грн)"
         
-    # Фіксуємо фінальну суму
+    # --- 🔥 ЗАСТОСУВАННЯ БОНУСІВ З БАЛАНСУ ---
+    used_bonus = 0.0
+    if user_balance > 0:
+        # Можна списати все, але сума не може бути меншою за 1 грн (технічне обмеження)
+        max_possible_discount = max(0, total_amount - 1.0)
+        
+        if user_balance >= max_possible_discount:
+            used_bonus = max_possible_discount
+        else:
+            used_bonus = user_balance
+            
+        if used_bonus > 0:
+            total_amount -= used_bonus
+            items_desc += f"\n\n💎 <b>Використано бонусів: -{int(used_bonus)} грн</b>"
+            
+    # Зберігаємо суму списання, щоб потім відняти з БД при підтвердженні
+    context.user_data['planned_bonus_deduction'] = used_bonus
+    
+    # Фіксуємо фінальну суму до сплати
     context.user_data['final_checkout_sum'] = total_amount
     
     # Формування тексту чека
@@ -1856,7 +1885,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         f"🧾 <b>ФІНАЛЬНИЙ ЧЕК</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{items_desc}"
+        f"{items_desc}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"📍 <b>Доставка:</b> {city}, {dist}\n"
         f"👤 <b>Отримувач:</b> {full_name}\n"
@@ -1871,7 +1900,6 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]
     ]
     
-    # Використовуємо наш розумний send_ghosty_message (він сам відправить фото)
     await send_ghosty_message(update, text, kb, photo=photo_to_show, context=context)
 
 
@@ -1881,7 +1909,6 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     """
     query = update.callback_query
     
-    # Отримуємо посилання з налаштувань
     link = PAYMENT_LINK.get(method, PAYMENT_LINK['ghossty'])
     amount = context.user_data.get('final_checkout_sum', 0)
     
@@ -1904,6 +1931,7 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     
     
     
+    
 # =================================================================
 # ⚙️ SECTION 8: PROMO & REFERRAL (DB SYNCED & SECURE)
 # =================================================================
@@ -1911,8 +1939,8 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
 async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Обробка кодів: 
-    1. GHST2026 (Глобальний промо).
-    2. GHST+ID (Реферальна система).
+    1. GHST2026 (Глобальний промо: VIP + Гроші).
+    2. GHST+ID (Реферальна система: Вам VIP, Другу +50 грн).
     """
     if not update.message or not update.message.text: return
     
@@ -1923,93 +1951,135 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = ""
     is_success = False
     
-    # Підключення до БД для збереження статусів
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    # 1. Підключення до БД
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=30)
+        cursor = conn.cursor()
+    except Exception as e:
+        logger.error(f"DB Connect Error: {e}")
+        await update.message.reply_text("⚠️ Технічна помилка. Спробуйте пізніше.")
+        return
 
-    # --- 1. ГЛОБАЛЬНИЙ ПРОМО (GHST2026) ---
+    # --- ВАРІАНТ А: ГЛОБАЛЬНИЙ ПРОМО (GHST2026) ---
     if text == "GHST2026":
-        # Перевірка в профілі або в БД, чи вже використано
         if profile.get('promo_GHST2026_used'):
             msg = "⚠️ <b>Цей промокод ви вже активували!</b>"
         else:
-            # Логіка нагороди
-            profile["next_order_discount"] = 101.0  # Знижка
+            # Нагорода
+            profile["next_order_discount"] = 101.0
             profile["is_vip"] = True
-            profile["promo_GHST2026_used"] = True   # Мітка використання
+            profile["promo_GHST2026_used"] = True
             
-            # Розрахунок дати: +30 днів від сьогодні
+            # Дата +30 днів
             expiry_date = datetime.now() + timedelta(days=30)
             profile["vip_expiry"] = expiry_date.strftime("%Y-%m-%d")
             
             msg = (
                 "✅ <b>GHST2026 УСПІШНО АКТИВОВАНО!</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n"
-                "🎁 <b>Бонус:</b> Знижка -101 грн\n"
+                "🎁 <b>Баланс поповнено:</b> +101 грн\n"
                 "💎 <b>VIP статус:</b> Активовано на 30 днів\n"
                 f"📅 <b>Діє до:</b> {profile['vip_expiry']}"
             )
             is_success = True
 
-    # --- 2. РЕФЕРАЛЬНИЙ КОД (GHST12345) ---
+    # --- ВАРІАНТ Б: РЕФЕРАЛЬНИЙ КОД (GHST12345) ---
     elif text.startswith("GHST") and text[4:].isdigit():
         target_id = int(text[4:])
         
-        # Перевірки на шахрайство
+        # Перевірки
         if target_id == user.id:
             msg = "❌ <b>Ви не можете активувати свій власний код.</b>"
         elif profile.get('referral_used'):
             msg = "⚠️ <b>Ви вже активували реферальний код раніше.</b>"
         else:
-            # Нарахування бонусу (+7 днів VIP)
-            current_expiry_str = profile.get("vip_expiry")
+            # Перевіряємо існування власника коду
+            referrer = cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (target_id,)).fetchone()
             
-            if current_expiry_str:
-                try:
-                    current_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
-                    # Якщо VIP вже минув, рахуємо від сьогодні
-                    if current_date < datetime.now():
-                        current_date = datetime.now()
-                except:
-                    current_date = datetime.now()
+            if not referrer:
+                msg = "❌ <b>Такого коду не існує. Перевірте цифри.</b>"
             else:
-                current_date = datetime.now()
-            
-            new_expiry = current_date + timedelta(days=7)
-            profile["vip_expiry"] = new_expiry.strftime("%Y-%m-%d")
-            profile["is_vip"] = True
-            profile["referral_used"] = True # Блокуємо повторне введення
-            
-            msg = (
-                f"🤝 <b>Реферальний код прийнято!</b>\n"
-                f"Вам нараховано <b>+7 днів VIP</b> статусу.\n"
-                f"📅 Ваш VIP діє до: <b>{profile['vip_expiry']}</b>"
-            )
-            is_success = True
-            
-            # TODO: Тут можна додати логіку нарахування бонусу тому, чий код ввели (target_id)
-            
-    else:
-        msg = "❌ <b>Невірний код або помилка у форматі.</b>"
+                # 1. НАГОРОДА ВАМ (Поточному користувачу)
+                # Логіка продовження VIP: якщо є активний, додаємо до нього, інакше від сьогодні
+                current_expiry_str = profile.get("vip_expiry")
+                if current_expiry_str:
+                    try:
+                        current_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
+                        if current_date < datetime.now(): current_date = datetime.now()
+                    except: current_date = datetime.now()
+                else:
+                    current_date = datetime.now()
+                
+                new_expiry = current_date + timedelta(days=7)
+                profile["vip_expiry"] = new_expiry.strftime("%Y-%m-%d")
+                profile["is_vip"] = True
+                profile["referral_used"] = True
+                
+                msg = (
+                    f"🤝 <b>Реферальний код прийнято!</b>\n"
+                    f"Вам нараховано <b>+7 днів VIP</b> статусу.\n"
+                    f"📅 Ваш VIP діє до: <b>{profile['vip_expiry']}</b>"
+                )
+                is_success = True
+                
+                # 2. НАГОРОДА ДРУГУ (Власнику коду)
+                try:
+                    # Додаємо гроші в БД
+                    cursor.execute("""
+                        UPDATE users 
+                        SET next_order_discount = next_order_discount + 50 
+                        WHERE user_id = ?
+                    """, (target_id,))
+                    conn.commit()
+                    
+                    # Надсилаємо йому повідомлення
+                    await context.bot.send_message(
+                        chat_id=target_id,
+                        text=(
+                            f"🎉 <b>ТВІЙ КОД АКТИВОВАНО!</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"Хтось щойно скористався твоїм запрошенням.\n"
+                            f"💰 <b>+50 ГРН</b> нараховано на твій бонусний баланс!\n\n"
+                            f"<i>Використовуй їх для знижок на наступні замовлення.</i>"
+                        ),
+                        parse_mode='HTML'
+                    )
+                    logger.info(f"💰 +50 UAH reward sent to referrer {target_id}")
+                except Exception as e:
+                    # Якщо бот заблокований другом або інша помилка - не ламаємо флоу поточному юзеру
+                    logger.error(f"Failed to reward referrer {target_id}: {e}")
 
-    # --- 3. ЗБЕРЕЖЕННЯ В БД (КРИТИЧНО ВАЖЛИВО) ---
+    else:
+        msg = "❌ <b>Невірний формат коду.</b>"
+
+    # --- 3. ЗБЕРЕЖЕННЯ В БД (ДЛЯ ВАС) ---
     if is_success:
         try:
-            # Оновлюємо статус VIP та інші поля в базі
             cursor.execute("""
                 UPDATE users 
                 SET is_vip = 1, 
-                    vip_expiry = ? 
+                    vip_expiry = ?,
+                    next_order_discount = ?,
+                    promo_applied = ?
                 WHERE user_id = ?
-            """, (profile.get('vip_expiry'), user.id))
+            """, (
+                profile.get('vip_expiry'), 
+                profile.get('next_order_discount'), 
+                1 if profile.get('promo_GHST2026_used') else (1 if profile.get('referral_used') else 0),
+                user.id
+            ))
             conn.commit()
+            
+            # Оновлюємо кеш, щоб кнопка в меню показала актуальний баланс
+            context.user_data['profile'] = profile
+            
         except Exception as e:
-            print(f"DB Update Error: {e}")
+            logger.error(f"DB Update Error (Current User): {e}")
     
     conn.close()
 
-    # --- 4. ВІДПОВІДЬ ЮЗЕРУ ---
-    kb = [[InlineKeyboardButton("👤 У Кабінет", callback_data="menu_profile")],
+    # --- 4. ВІДПОВІДЬ ---
+    kb = [[InlineKeyboardButton("👤 У Кабінет (Перевірити)", callback_data="menu_profile")],
           [InlineKeyboardButton("🛍 До покупок", callback_data="cat_all")]]
     
     await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
@@ -2021,22 +2091,25 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ реферальної інформації."""
     user = update.effective_user
-    # Отримуємо ім'я бота безпечно
-    bot = await context.bot.get_me()
-    bot_name = bot.username
+    try:
+        bot = await context.bot.get_me()
+        bot_name = bot.username
+    except: bot_name = "GhostyShopBot"
     
     text = (
         f"🤝 <b>ПАРТНЕРСЬКА ПРОГРАМА</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Запрошуйте друзів та отримуйте безкоштовний VIP!\n\n"
+        f"Запрошуйте друзів та заробляйте реальні знижки!\n\n"
         f"🔑 <b>Твій промокод:</b> <code>GHST{user.id}</code>\n\n"
         f"🔗 <b>Твоє посилання:</b>\n"
         f"<code>https://t.me/{bot_name}?start={user.id}</code>\n\n"
-        f"🎁 <b>Бонус:</b> +7 днів VIP за кожного друга."
+        f"🎁 <b>Тобі:</b> +50 грн на баланс за кожного друга.\n"
+        f"🎁 <b>Другу:</b> +7 днів VIP статусу."
     )
     
     kb = [[InlineKeyboardButton("🔙 Назад", callback_data="menu_profile")]]
-    await _edit_or_reply(update.callback_query, text, kb)
+    await _edit_or_reply(update.callback_query, text, kb, context=context)
+    
     
     
 async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2176,130 +2249,167 @@ async def payment_confirmation_handler(update: Update, context: ContextTypes.DEF
     await _edit_or_reply(query, text, kb)
 
 # =================================================================
-# 🤵 SECTION 27: MANAGER ORDER HUB (TITAN PRO v9.5 - AUTOFILL)
+# 🤵 SECTION 27: MANAGER ORDER HUB (WITH BALANCE DEDUCTION)
 # =================================================================
 
-from urllib.parse import quote # Імпорт для кодування тексту в посилання
+from urllib.parse import quote 
 
 async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Генератор заявки для менеджера.
-    🔥 ФІШКА: Кнопка автоматично відкриває діалог і вставляє текст!
+    🔥 ФУНКЦІОНАЛ: 
+    1. Рахує товари та доставку.
+    2. Списує бонуси з балансу (якщо є).
+    3. Формує готове повідомлення менеджеру.
     """
     user = update.effective_user
     profile = context.user_data.get('profile', {})
     
-    # Визначаємо джерело замовлення
+    # 1. Визначаємо джерело (Швидке замовлення чи Кошик)
     target_item_id = context.user_data.get('target_item_id')
     cart = context.user_data.get('cart', [])
     
-    items_text = ""
-    total_amount = 0
+    # 2. Отримуємо подарунок (якщо був обраний)
+    target_gift_id = context.user_data.get('target_gift_id')
     
-    # --- 1. ЗБІР ТОВАРІВ ---
+    items_text = ""
+    total_goods_price = 0.0
+    
+    # --- ЛОГІКА ЗБОРУ ТОВАРІВ ---
     if target_item_id:
-        # Одиночний товар
+        # Швидке замовлення (1 товар)
         item = get_item_data(target_item_id)
         if item:
             color = context.user_data.get('selected_color', 'Не обрано')
-            if 'calculate_final_price' in globals():
-                price, _ = calculate_final_price(item['price'], profile)
-            else:
-                price = item['price']
+            # Ціна з урахуванням VIP статусу
+            price, _ = calculate_final_price(item['price'], profile)
             
-            items_text = f"▫️ {item['name']}\n   🎨 Колір: {color}\n   💵 Ціна: {int(price)} грн"
-            total_amount = price
+            # Інфо про подарунок
+            gift_info = ""
+            if target_gift_id:
+                g = get_item_data(target_gift_id)
+                if g: gift_info = f"\n   🎁 Бонус: {g['name']}"
+
+            items_text = f"▫️ {item['name']}\n   🎨 {color}\n   💵 {int(price)} грн{gift_info}"
+            total_goods_price = price
             
     elif cart:
-        # Кошик
+        # Замовлення з кошика
         for i in cart:
-            name = i['name']
+            p, _ = calculate_final_price(i['price'], profile)
+            total_goods_price += p
+            
             details = []
-            if i.get('gift'): details.append(f"🎁 {i['gift']}")
             if i.get('color'): details.append(f"🎨 {i['color']}")
+            if i.get('gift'): details.append(f"🎁 {i['gift']}")
             
             details_str = f" ({', '.join(details)})" if details else ""
-            items_text += f"▫️ {name}{details_str} - {int(i['price'])} грн\n"
-            total_amount += i['price']
+            items_text += f"▫️ {i['name']}{details_str} — {int(p)} грн\n"
     else:
+        # Якщо пусто
         await update.callback_query.answer("⚠️ Кошик порожній", show_alert=True)
         await catalog_main_menu(update, context)
         return
 
-    # --- 2. ID ЗАМОВЛЕННЯ ---
-    order_id = f"GH-{user.id}-{random.randint(1000, 9999)}"
+    # --- ЛОГІКА ДОСТАВКИ ---
+    delivery_price = 0.0
+    dist = profile.get('district', '')
+    # Якщо доставка кур'єром і юзер НЕ VIP -> додаємо 150 грн
+    if "Кур'єр" in str(dist) and not profile.get("is_vip"):
+        delivery_price = 150.0
+        items_text += f"\n🚚 Доставка кур'єром: {int(delivery_price)} грн"
 
-    # --- 3. ЗБЕРЕЖЕННЯ В БД ---
+    # --- ЛОГІКА БОНУСІВ (СПИСАННЯ) ---
+    current_balance = float(profile.get('next_order_discount', 0.0))
+    discount_to_apply = 0.0
+    
+    # Розрахунок проміжної суми
+    pre_total = total_goods_price + delivery_price
+    
+    if current_balance > 0:
+        # Списуємо баланс, але залишаємо мінімум 0 (повна оплата бонусами можлива)
+        if current_balance >= pre_total:
+            discount_to_apply = pre_total
+        else:
+            discount_to_apply = current_balance
+
+    # Фінальна сума до сплати
+    final_amount = pre_total - discount_to_apply
+    
+    # --- РОБОТА З БАЗОЮ ДАНИХ ---
+    order_id = f"GH-{user.id}-{random.randint(1000, 9999)}"
+    
     try:
         with sqlite3.connect(DB_PATH, timeout=20) as conn:
+            # 1. Зберігаємо замовлення
             conn.execute("""
                 INSERT OR REPLACE INTO orders (order_id, user_id, amount, status, created_at) 
                 VALUES (?, ?, ?, ?, ?)
-            """, (order_id, user.id, total_amount, 'manager_pending', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            """, (order_id, user.id, final_amount, 'manager_pending', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            
+            # 2. Якщо використали бонуси — списуємо їх з бази
+            if discount_to_apply > 0:
+                conn.execute("""
+                    UPDATE users 
+                    SET next_order_discount = next_order_discount - ? 
+                    WHERE user_id = ?
+                """, (discount_to_apply, user.id))
+                
+                # Оновлюємо локальний профіль, щоб юзер одразу бачив зміни
+                profile['next_order_discount'] -= discount_to_apply
+                
             conn.commit()
+            
     except Exception as e:
         logger.error(f"Manager Order DB Error: {e}")
 
-    # --- 4. ФОРМУВАННЯ ТЕКСТУ ---
+    # --- ФОРМУВАННЯ ПОВІДОМЛЕННЯ МЕНЕДЖЕРУ ---
     full_name = profile.get('full_name', 'Гість')
     phone = profile.get('phone', 'Не вказано')
-    
-    # Формування локації
-    city = profile.get('city', '')
-    district = profile.get('district', '')
     address = profile.get('address_details', '')
     
-    loc_str = f"{city}"
-    if district: loc_str += f" ({district})"
+    # Рядок про знижку у звіті
+    discount_line = ""
+    if discount_to_apply > 0:
+        discount_line = f"\n💎 Знижка з балансу: -{int(discount_to_apply)} грн"
     
-    # ТЕКСТ ЗАМОВЛЕННЯ
     report = (
-        f"👋 Привіт! Хочу оформити замовлення: #{order_id}\n\n"
-        f"👤 Клієнт: {full_name}\n"
-        f"📱 Телефон: {phone}\n"
-        f"🏙 Доставка: {loc_str}\n"
-        f"📍 Адреса: {address}\n\n"
-        f"🛒 ТОВАРИ:\n{items_text}\n\n"
-        f"💰 СУМА: {int(total_amount)} грн"
+        f"👋 Привіт! Замовлення #{order_id}\n"
+        f"👤 {full_name} | 📞 {phone}\n"
+        f"📍 {profile.get('city')}, {dist}\n"
+        f"🏠 {address}\n\n"
+        f"🛒 ЗАМОВЛЕННЯ:\n{items_text}"
+        f"{discount_line}\n"
+        f"💰 ДО СПЛАТИ: {final_amount:.2f} грн"
     )
     
-    # Екранування для відображення в боті (HTML)
-    safe_report_html = escape(report)
-
-    # --- 5. МАГІЯ ПОСИЛАННЯ (URL ENCODING) ---
-    # Чистимо юзернейм від @
-    clean_manager = MANAGER_USERNAME.replace("@", "").strip()
-    
-    # Кодуємо текст для URL (пробіли -> %20, ентери -> %0A і т.д.)
+    # Кодування тексту для URL
     encoded_text = quote(report)
-    
-    # Створюємо Deep Link
+    clean_manager = MANAGER_USERNAME.replace("@", "").strip()
     magic_link = f"https://t.me/{clean_manager}?text={encoded_text}"
 
-    # --- 6. ВІДПРАВКА ---
+    # --- ВІДПРАВКА КЛІЄНТУ ---
     text = (
         f"✅ <b>ЗАЯВКУ СФОРМОВАНО!</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Замовлення <code>#{order_id}</code> готове.\n\n"
-        f"👇 <b>Натисніть кнопку нижче!</b>\n"
-        f"Вас перекине в діалог з менеджером, і текст замовлення <b>вставиться автоматично</b>."
+        f"Замовлення <code>#{order_id}</code> готове до відправки.\n"
+        f"Ми врахували ваші бонуси.\n\n"
+        f"👇 <b>Натисніть кнопку нижче:</b>\n"
+        f"Вас перекине в діалог з менеджером, і текст замовлення вставиться автоматично."
     )
     
-    # Кнопка веде прямо в діалог з заповненим текстом
     kb = [
-        [InlineKeyboardButton("✈️ ВІДПРАВИТИ ЗАМОВЛЕННЯ", url=magic_link)],
-        [InlineKeyboardButton("📋 Скопіювати текст (резерв)", callback_data="ignore_click")], # Просто заголовок
+        [InlineKeyboardButton("✈️ ВІДПРАВИТИ МЕНЕДЖЕРУ", url=magic_link)],
+        [InlineKeyboardButton("🏠 В головне меню", callback_data="menu_start")]
     ]
-    
-    # Додаємо текст для ручного копіювання як резерв
-    text += f"\n\n<i>Якщо кнопка не спрацювала, скопіюйте цей код:</i>\n<code>{safe_report_html}</code>"
-    
-    kb.append([InlineKeyboardButton("🏠 В головне меню", callback_data="menu_start")])
 
     await send_ghosty_message(update, text, kb, context=context)
     
-    # Очистка
+    # Очистка сесії
     context.user_data['target_item_id'] = None
+    context.user_data['target_gift_id'] = None
+    context.user_data['cart'] = [] # Очищаємо кошик, бо замовлення оформлено
+    
 
 # =================================================================
 # 📝 SECTION 17: DATA INPUT HANDLER (TEXT PROCESSOR)
