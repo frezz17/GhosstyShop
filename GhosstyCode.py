@@ -270,34 +270,60 @@ async def safe_delete(message):
 # 🛠 SECTION 3: MATH CORE (TITAN FINAL)
 # =================================================================
 
-def calculate_final_price(item_price, user_profile):
+# =================================================================
+# ===== ПІДКАЗКА: КЕРУВАННЯ ЗНИЖКАМИ =====
+# Додайте назву категорії у список нижче, щоб на неї ДІЯЛА знижка -35%.
+# Якщо категорії немає в списку — товар буде продаватися за повною ціною.
+# Доступні категорії: 'hhc', 'pods', 'liquids'
+# =================================================================
+VIP_DISCOUNT_CATEGORIES = ['hhc', 'pods'] 
+# =================================================================
+
+def calculate_final_price(item_price, user_profile, item_id=None):
     """
-    Універсальне ядро розрахунку ціни.
-    Повертає: (Фінальна ціна, Чи була знижка)
+    Універсальне ядро розрахунку ціни (v11.0).
+    Динамічно перевіряє категорію товару та статус користувача.
     """
     try:
-        # Гарантуємо, що працюємо з числом
         price = float(item_price)
-        # Отримуємо профілі безпечно
         up = user_profile if user_profile else {}
-        
         is_vip = bool(up.get('is_vip', False))
-        discounted = False
-
-        # Застосовуємо VIP-коефіцієнт (знижка 35%)
-        # Знижка діє на всі товари
-        if is_vip:
-            price *= 0.65
-            discounted = True
-            
-        # Фінальне округлення та захист від нуля (мінімум 10 грн)
-        final_val = round(max(price, 10.0), 2)
         
-        return final_val, discounted
-    except (ValueError, TypeError) as e:
+        # Якщо ID товару не передано — рахуємо без знижки (захист від помилок)
+        if item_id is None:
+            return round(price, 2), False
+
+        # Отримуємо дані товару, щоб дізнатися його категорію
+        item_data = get_item_data(int(item_id))
+        if not item_data:
+            return round(price, 2), False
+
+        # Визначаємо категорію (за типом або за діапазоном ID)
+        item_category = item_data.get('type') 
+        
+        # Якщо тип не вказаний явно, визначаємо за ID (як у твоєму реєстрі)
+        if not item_category:
+            iid = int(item_id)
+            if 100 <= iid < 300: item_category = 'hhc'
+            elif 300 <= iid < 500: item_category = 'liquids'
+            elif 500 <= iid < 700: item_category = 'pods'
+
+        # ===== ПЕРЕВІРКА ПРАВА НА ЗНИЖКУ =====
+        # Знижка діє тільки якщо: 
+        # 1. Користувач — VIP
+        # 2. Категорія товару є у списку VIP_DISCOUNT_CATEGORIES
+        if is_vip and item_category in VIP_DISCOUNT_CATEGORIES:
+            final_price = price * 0.65 # -35%
+            return round(max(final_price, 10.0), 2), True
+            
+        # В усіх інших випадках — повна ціна
+        return round(price, 2), False
+        
+    except Exception as e:
         if 'logger' in globals():
             logger.error(f"❌ Critical Math Error: {e}")
-        return float(item_price) if isinstance(item_price, (int, float)) else 0.0, False
+        return float(item_price), False
+        
         
 
 # =================================================================
@@ -312,7 +338,7 @@ LIQUIDS = {
         "category": "Chaser Balance",
         "price": 349.99,
         "stock": 15,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/Kxmrpm1C/Fall-Tea.jpg",
         "desc": "☕ <b>Осінній Чай</b>\nСпокійний аромат чаю з нотками лимону.",
@@ -323,7 +349,7 @@ LIQUIDS = {
         "category": "Chaser Balance",
         "price": 349.99,
         "stock": 15,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/bMMVHXG6/Mystery-One.jpg",
         "desc": "🔮 <b>Ghost Edition</b>\nТаємничий фруктовий мікс.",
@@ -334,7 +360,7 @@ LIQUIDS = {
         "category": "Chaser Balance",
         "price": 349.99,
         "stock": 14,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/sd9ZSfyH/Strawberry-Jelly.jpg",
         "desc": "🍮 <b>Полуничне Желе</b>\nНіжний десертний смак.",
@@ -345,7 +371,7 @@ LIQUIDS = {
         "category": "Limited Ultra",
         "price": 349.99,
         "stock": 15,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/nMJ2VdQK/Grape-Black-Berry.jpg",
         "desc": "🍇 <b>Виноград-Ожина</b>\nВибух темних ягід.",
@@ -356,7 +382,7 @@ LIQUIDS = {
         "category": "Limited Ultra",
         "price": 349.99,
         "stock": 15,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/zdpDg2K/Cola-Pomelo.jpg",
         "desc": "🍊 <b>Кола-Помело</b>\nНезвичне поєднання.",
@@ -367,7 +393,7 @@ LIQUIDS = {
         "category": "Limited Ultra",
         "price": 349.99,
         "stock": 12,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/0pLKnvx2/Black-Currant-Rose.jpg",
         "desc": "🥀 <b>Смородина-Троянда</b>\nВишуканий аромат.",
@@ -378,7 +404,7 @@ LIQUIDS = {
         "category": "Special Berry",
         "price": 349.99,
         "stock": 15,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/21xt8N1p/Berry-Lemonade.jpg",
         "desc": "🍹 <b>Ягідний Лимонад</b>\nОсвіжаючий літній мікс.",
@@ -389,7 +415,7 @@ LIQUIDS = {
         "category": "Special Berry",
         "price": 349.99,
         "stock": 10,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/TBwR7NTP/Energetic.jpg",
         "desc": "🔋 <b>Енергетик</b>\nСмак, що бадьорить.",
@@ -400,7 +426,7 @@ LIQUIDS = {
         "category": "Special Berry",
         "price": 349.99,
         "stock": 15,
-        "discount": True,
+        "discount": False,
         "strengths": [50, 65, 85],
         "img": "https://i.ibb.co/tTLrsGGT/Vitamin.jpg",
         "desc": "🍏 <b>Вітамін</b>\nМікс фруктів.",
@@ -475,7 +501,7 @@ PODS = {
         "type": "pod",
         "stock": 20,  # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 499.77,
+        "price": 749,
         "discount": False,
         "img": "https://i.ibb.co/yFSQ5QSn/vaporesso-xros-3-mini.jpg",
         "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель. Надійна та смачна.\n✨ <i>Ідеальний вибір для старту.</i>",
@@ -493,7 +519,7 @@ PODS = {
         "type": "pod",
         "stock": 15, # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 674.77,
+        "price": 849,
         "discount": False,
         "img": "https://i.ibb.co/RkNgt1Qr/vaporesso-xros-5-mini.jpg",
         "desc": "🔥 <b>НОВИНКА 2025 | COREX 2.0</b>\nМаксимальна передача смаку.\n💎 <i>Оновлений дизайн та швидка зарядка.</i>",
@@ -511,7 +537,7 @@ PODS = {
         "type": "pod",
         "stock": 10, # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 974.77,
+        "price": 1199,
         "discount": False,
         "img": "https://i.ibb.co/ynYwSMt6/vaporesso-xros-pro.jpg",
         "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.\n⚡ <i>Зарядка за 35 хвилин!</i>",
@@ -529,7 +555,7 @@ PODS = {
         "type": "pod",
         "stock": 12, # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 659.77,
+        "price": 929,
         "discount": False,
         "img": "https://i.ibb.co/5XW2yN80/vaporesso-xros-nano.jpg",
         "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.\n🔋 <i>1000 mAh у міні-корпусі.</i>",
@@ -547,7 +573,7 @@ PODS = {
         "type": "pod",
         "stock": 18, # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 629.77,
+        "price": 719,
         "discount": False,
         "img": "https://i.ibb.co/LDRbQxr1/vaporesso-xros-4.jpg",
         "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.\n🎯 <i>Універсальний солдат.</i>",
@@ -565,7 +591,7 @@ PODS = {
         "type": "pod",
         "stock": 8, # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 799.77,
+        "price": 999,
         "discount": False,
         "img": "https://i.ibb.co/hxjmpHF2/vaporesso-xros-5.jpg",
         "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.\n🚀 <i>Найкраще, що створили Vaporesso.</i>",
@@ -583,7 +609,7 @@ PODS = {
         "type": "pod",
         "stock": 25, # FIX: Додано наявність
         "gift_liquid": True,
-        "price": 459.77,
+        "price": 619,
         "discount": False,
         "img": "https://ilrnrwxhokrl5q.ldycdn.com/cloud/lpBqlKmrSRkllmojnpiq/Authentic-VOOPOO-Vmate-Mini-30W-Pod-Kit-1000mAh-3ml-0-7ohm-Classic-Black.jpg",
         "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.\n🧬 <i>Просто залий рідину і парь.</i>",
@@ -777,8 +803,7 @@ async def catalog_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Тут тільки перевірений стафф. Обирай категорію 👇\n\n"
         "💨 <b>HHC Вейпи</b> — <i>Relax з США (Original)</i>\n"
         "🔌 <b>POD-Системи</b> — <i>Девайси на кожен день</i>\n"
-        "💧 <b>Рідини</b> — <i>Chaser, нові колекції(Топові смаки)</i>\n"
-        "🎁 <b>Набори</b> — <i>Вигідно (Девайс + Жижа)</i>"
+        "💧 <b>Рідини</b> — <i>Chaser, нові колекції (Топові смаки)</i>\n"
     )
     
     kb = [
@@ -846,7 +871,7 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Розрахунок ціни через ядро знижок
         # (Перевіряємо, чи існує функція, щоб уникнути помилок)
         if 'calculate_final_price' in globals():
-            price, is_discounted = calculate_final_price(item['price'], profile)
+            price, is_discounted = calculate_final_price(item['price'], profile, item_id=i_id)
         else:
             price, is_discounted = item['price'], False
 
@@ -861,7 +886,7 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
             vip_mark = "🔥" if is_discounted else ""
             
             # Структура: [Вогонь] Назва | Ціна [Алмаз]
-            btn_text = f"{hot_mark}{item['name']} | {price_display}{vip_mark}"
+            btn_text = f"{hot_mark}{item['name']} | {price_display}"
         
         kb.append([InlineKeyboardButton(btn_text, callback_data=f"view_item_{i_id}")])
     
@@ -1285,7 +1310,7 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         location_str = "Не обрано"
 
     balance = profile.get('next_order_discount', 0)
-    vip_status = "💎 VIP PRO" if profile.get('is_vip') else "👤 Standard"
+    vip_status = "💎 - V.I.P PRO" if profile.get('is_vip') else "👤 Standard"
     vip_till = profile.get('vip_expiry', '—')
     
     text = (
@@ -1776,7 +1801,6 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("❌ Помилка додавання")
         
         
-    
 # =================================================================
 # 💳 SECTION 20: CHECKOUT & PAYMENT CORE (TITAN FINAL REVISION)
 # =================================================================
@@ -1788,9 +1812,11 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     1. Відображення фото (для швидкого замовлення).
     2. Автоматичне застосування знижок з балансу.
     3. Розрахунок доставки.
+    4. Відображення подарунків (з кошика та швидкого замовлення).
     """
     # Отримуємо дані
     target_item_id = context.user_data.get('target_item_id')
+    target_gift_id = context.user_data.get('target_gift_id') # Отримуємо ID подарунка
     profile = context.user_data.get('profile', {})
     
     # Баланс бонусів користувача
@@ -1800,37 +1826,37 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     items_desc = ""
     photo_to_show = None 
 
-    # --- ВАРІАНТ А: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар) ---
+    # --- ВАРІАНТ А: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар + Подарунок) ---
     if target_item_id:
         item = get_item_data(target_item_id)
         if not item: 
             context.user_data['target_item_id'] = None
+            context.user_data['target_gift_id'] = None
             await send_ghosty_message(update, "⚠️ Товар розпродано або не знайдено.", context=context)
             return
         
-        # Фото
+        # Фото (враховуючи обраний колір)
         selected_color = context.user_data.get('selected_color')
         if selected_color and "color_previews" in item:
             photo_to_show = item["color_previews"].get(selected_color, item['img'])
         else:
             photo_to_show = item['img']
 
-        # Ціна (вже з урахуванням VIP-знижки, якщо вона є в товарі)
-        price, _ = calculate_final_price(item['price'], profile)
+        # Ціна (вже з урахуванням VIP-знижки, якщо вона є)
+        price, _ = calculate_final_price(item['price'], profile, item_id=target_item_id)
         total_amount = price
         
-        # Опис
+        # Опис основного товару
         color_txt = f" ({selected_color})" if selected_color else ""
         items_desc = f"▫️ <b>{item['name']}</b>{color_txt}\n   1 x {int(price)} грн"
 
-        # Подарунок
-        if context.user_data.get('target_gift_id'):
-            g_id = context.user_data['target_gift_id']
-            gift_item = get_item_data(g_id)
+        # 🎁 ВІДОБРАЖЕННЯ ПОДАРУНКА ДЛЯ ШВИДКОГО ЗАМОВЛЕННЯ
+        if target_gift_id and target_gift_id > 0:
+            gift_item = get_item_data(target_gift_id)
             if gift_item:
-                items_desc += f"\n   🎁 Бонус: {gift_item['name']}"
+                items_desc += f"\n   🎁 Бонус: <b>{gift_item['name']}</b>"
 
-    # --- ВАРІАНТ Б: ЗАМОВЛЕННЯ З КОШИКА ---
+    # --- ВАРІАНТ Б: ЗАМОВЛЕННЯ З КОШИКА (Декілька товарів + Подарунки) ---
     else:
         cart = context.user_data.get('cart', [])
         if not cart:
@@ -1841,15 +1867,16 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo_to_show = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
         
         for i in cart:
-            p, _ = calculate_final_price(i['price'], profile)
+            p, _ = calculate_final_price(i['price'], profile, item_id=i.get('real_id'))
             total_amount += p
             
+            # Формуємо деталі (колір та подарунок)
             extras = []
-            if i.get('color'): extras.append(i['color'])
+            if i.get('color'): extras.append(f"🎨 {i['color']}")
             if i.get('gift'): extras.append(f"🎁 {i['gift']}")
             
             extra_txt = f" ({', '.join(extras)})" if extras else ""
-            items_desc += f"▫️ {i['name']}{extra_txt}\n"
+            items_desc += f"▫️ <b>{i['name']}</b>{extra_txt} — {int(p)} грн\n"
 
     # --- ЛОГІКА ДОСТАВКИ ---
     dist = profile.get('district', '')
@@ -1861,7 +1888,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     used_bonus = 0.0
     if user_balance > 0:
         # Можна списати все, але сума не може бути меншою за 1 грн (технічне обмеження)
-        max_possible_discount = max(0, total_amount - 1.0)
+        max_possible_discount = max(0.0, total_amount - 1.0)
         
         if user_balance >= max_possible_discount:
             used_bonus = max_possible_discount
@@ -1872,7 +1899,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total_amount -= used_bonus
             items_desc += f"\n\n💎 <b>Використано бонусів: -{int(used_bonus)} грн</b>"
             
-    # Зберігаємо суму списання, щоб потім відняти з БД при підтвердженні
+    # Зберігаємо суму списання, щоб потім відняти з БД при підтвердженні/відправці менеджеру
     context.user_data['planned_bonus_deduction'] = used_bonus
     
     # Фіксуємо фінальну суму до сплати
@@ -1889,7 +1916,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"📍 <b>Доставка:</b> {city}, {dist}\n"
         f"👤 <b>Отримувач:</b> {full_name}\n"
-        f"💰 ДО СПЛАТИ: <b>{total_amount:.2f} UAH</b>\n\n"
+        f"💰 <b>ДО СПЛАТИ: {total_amount:.2f} UAH</b>\n\n"
         f"👇 <i>Оберіть зручний метод оплати:</i>"
     )
     
@@ -1928,9 +1955,6 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
     ]
     
     await _edit_or_reply(query, text, kb, context=context)
-    
-    
-    
     
 # =================================================================
 # ⚙️ SECTION 8: PROMO & REFERRAL (DB SYNCED & SECURE)
@@ -2603,7 +2627,7 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "✅ <b>Квитанцію отримано!</b>\n\n"
                 "Ваш платіж передано на перевірку.\n"
-                "Очікуйте підтвердження протягом 10 хвилин.",
+                "Очікуйте підтвердження протягом 10-15 хвилин.",
                 parse_mode='HTML'
             )
             # Скидаємо стан, щоб бот не чекав ще фото
@@ -2801,7 +2825,7 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
         
 # =================================================================
-# ⚙️ SECTION 29: GLOBAL DISPATCHER (TITAN FINAL)
+# ⚙️ SECTION 29: GLOBAL DISPATCHER (TITAN FINAL - BULLETPROOF)
 # =================================================================
 
 async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2822,9 +2846,16 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     except Exception: pass
 
     try:
-        # --- 0. АДМІН-ПАНЕЛЬ ---
+        # --- 0. АДМІН-ПАНЕЛЬ (Доступ для всіх з ADMIN_LIST) ---
         if data.startswith(("adm_", "admin_")):
-            if user.id == MANAGER_ID:
+            # Перевіряємо, чи є юзер в списку адмінів
+            is_admin = False
+            if 'ADMIN_LIST' in globals():
+                if user.id in ADMIN_LIST: is_admin = True
+            elif user.id == MANAGER_ID:
+                is_admin = True
+                
+            if is_admin:
                 if data.startswith("adm_"): await admin_decision_handler(update, context)
                 elif data == "admin_main": await admin_menu(update, context)
                 elif data == "admin_stats": await admin_stats(update, context)
@@ -2840,20 +2871,17 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         # --- 1. БАЗОВА НАВІГАЦІЯ ---
         if data == "menu_start":
             context.user_data['state'] = None
+            context.user_data['target_item_id'] = None
+            context.user_data['target_gift_id'] = None
             await start_command(update, context)
             
-        elif data == "menu_profile": 
-            await show_profile(update, context)
-            
-        elif data == "menu_cart": 
-            await show_cart_logic(update, context)
-            
+        elif data == "menu_profile": await show_profile(update, context)
+        elif data == "menu_cart": await show_cart_logic(update, context)
         elif data == "menu_terms": 
-            if 'TERMS_TEXT' in globals():
+             if 'TERMS_TEXT' in globals():
                 await _edit_or_reply(query, TERMS_TEXT, [[InlineKeyboardButton("🔙 Назад", callback_data="menu_start")]], context=context)
-        
-        elif data == "ref_system": 
-            await show_ref_info(update, context)
+
+        elif data == "ref_system": await show_ref_info(update, context)
             
         elif data == "menu_promo": 
             context.user_data['awaiting_promo'] = True
@@ -2876,7 +2904,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except (IndexError, ValueError):
                 await catalog_main_menu(update, context)
 
-        # --- ІНТЕРАКТИВНІ КОЛЬОРИ ---
+        # --- 3. КОЛЬОРИ ТА КОШИК ---
         elif data.startswith("sel_col_"):
             try:
                 parts = data.split("_")
@@ -2887,63 +2915,82 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except Exception as e:
                 logger.error(f"Color handler error: {e}")
 
-        # --- 3. ЛОГІКА КОШИКА ТА ДОДАВАННЯ ---
-        elif data.startswith("add_"): 
-            await add_to_cart_handler(update, context)
-            
-        elif data == "cart_clear" or data.startswith("cart_del_"): 
-            await cart_action_handler(update, context)
-            
-        elif data.startswith("gift_sel_"): 
-            await gift_selection_handler(update, context)
+        elif data.startswith("add_"): await add_to_cart_handler(update, context)
+        elif data == "cart_clear" or data.startswith("cart_del_"): await cart_action_handler(update, context)
+        elif data.startswith("gift_sel_"): await gift_selection_handler(update, context)
 
-        # --- 4. ЛОКАЦІЇ ТА ДАНІ КЛІЄНТА ---
-        elif data == "choose_city": 
-            await choose_city_menu(update, context)
+        # --- 4. ДАНІ ТА ЛОКАЦІЯ ---
+        elif data == "choose_city": await choose_city_menu(update, context)
+        
+        elif data.startswith("sel_city_"): 
+            city = data.replace("sel_city_", "")
+            if city == "Дніпро": await choose_dnipro_delivery(update, context)
+            elif city == "Dnipro_Klad": await district_selection_handler(update, context, "Дніпро")
+            else: await district_selection_handler(update, context, city)
             
-        elif data.startswith("sel_city_"):
-            city_name = data.replace("sel_city_", "")
-            if city_name == "Дніпро":
-                await choose_dnipro_delivery(update, context)
-            elif city_name == "Dnipro_Klad":
-                await district_selection_handler(update, context, "Дніпро")
-            else:
-                await district_selection_handler(update, context, city_name)
-                
-        elif data.startswith("sel_dist_"):
+        elif data.startswith("sel_dist_"): 
             dist_name = data.replace("sel_dist_", "")
             if 'address_request_handler' in globals():
                 await address_request_handler(update, context, dist_name)
             
-        elif data == "fill_delivery_data":
+        elif data == "fill_delivery_data": 
             await start_data_collection(update, context, next_action='none')
+            
+        elif data == "checkout_init": 
+            context.user_data['target_item_id'] = None 
+            await start_data_collection(update, context, next_action='checkout')
 
-        # --- 5. ОФОРМЛЕННЯ ТА ОПЛАТА ---
+        # --- 5. ШВИДКЕ ЗАМОВЛЕННЯ (ІДЕАЛЬНЕ ПЕРЕХОПЛЕННЯ ПОДАРУНКА) ---
         elif data.startswith("fast_order_"):
             try:
-                parts = data.split("_")
-                iid = int(parts[2])
-                # Зберігаємо колір з кнопки, якщо він є
-                if len(parts) > 3:
-                    context.user_data['selected_color'] = "_".join(parts[3:])
+                parts = data.split("_") # fast_order_100 або fast_order_100_Black або fast_order_100_9001
+                item_id = int(parts[2])
+                item = get_item_data(item_id)
                 
-                # Запускаємо анкету -> потім fast_order
-                await start_data_collection(update, context, next_action='fast_order', item_id=iid)
+                gift_id = None
+                # Якщо є більше 3 частин, це або колір, або обраний подарунок
+                if len(parts) > 3:
+                    if parts[-1].isdigit(): # Це ID обраного подарунка (напр. 9001)
+                        gift_id = int(parts[-1])
+                    else: # Це назва кольору (напр. Black)
+                        context.user_data['selected_color'] = "_".join(parts[3:])
+
+                # Перевіряємо, чи взагалі потрібен подарунок для цього товару
+                needs_gift = item and (item_id < 300 or item.get('gift_liquid'))
+                
+                if needs_gift and gift_id is None:
+                    await gift_selection_handler(update, context)
+                else:
+                    context.user_data['target_item_id'] = item_id
+                    context.user_data['target_gift_id'] = gift_id if (gift_id and gift_id > 0) else None
+                    await start_data_collection(update, context, next_action='fast_order')
             except Exception as e: 
                 logger.error(f"Fast order route error: {e}")
-            
+
+        # --- 6. МЕНЕДЖЕР (ІДЕАЛЬНЕ ПЕРЕХОПЛЕННЯ ПОДАРУНКА) ---
         elif data.startswith("mgr_pre_"):
             try:
                 parts = data.split("_")
                 item_id = int(parts[2])
+                item = get_item_data(item_id)
+                
+                gift_id = None
                 if len(parts) > 3:
-                    context.user_data['selected_color'] = "_".join(parts[3:])
-                    
-                await start_data_collection(update, context, next_action='manager_order', item_id=item_id)
-            except: pass
-        
-        elif data == "checkout_init": 
-            await checkout_init(update, context)
+                    if parts[-1].isdigit(): 
+                        gift_id = int(parts[-1])
+                    else: 
+                        context.user_data['selected_color'] = "_".join(parts[3:])
+
+                needs_gift = item and (item_id < 300 or item.get('gift_liquid'))
+                
+                if needs_gift and gift_id is None:
+                    await gift_selection_handler(update, context)
+                else:
+                    context.user_data['target_item_id'] = item_id
+                    context.user_data['target_gift_id'] = gift_id if (gift_id and gift_id > 0) else None
+                    await start_data_collection(update, context, next_action='manager_order')
+            except Exception as e: 
+                logger.error(f"Manager route error: {e}")
             
         elif data.startswith("pay_"): 
             method = data.split("_")[1]
@@ -2966,8 +3013,6 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         logger.error(f"GLOBAL DISPATCHER FATAL: {e} | DATA: {data}")
         traceback.print_exc()
         await query.answer("❌ Внутрішня помилка.", show_alert=True)
-        
-        
             
 # =================================================================
 # 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (FINAL NETWORK FIX)
