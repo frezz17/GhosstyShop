@@ -440,7 +440,7 @@ HHC_VAPES = {
         "name": "🌴 Packwoods Purple 1ml",
         "type": "hhc",
         "price": 999.99,
-        "stock": 11,
+        "stock": 16,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg",
@@ -451,7 +451,7 @@ HHC_VAPES = {
         "name": "🍊 Packwoods Orange 1ml",
         "type": "hhc",
         "price": 999.99,
-        "stock": 12,
+        "stock": 14,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/SDJFRTwk/Ghost-Vape-1.jpg",
@@ -462,7 +462,7 @@ HHC_VAPES = {
         "name": "🌸 Packwoods Pink 1ml",
         "type": "hhc",
         "price": 999.99,
-        "stock": 13,
+        "stock": 4,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg",
@@ -473,7 +473,7 @@ HHC_VAPES = {
         "name": "🌿 Whole Mint 2ml",
         "type": "hhc",
         "price": 1399.99,
-        "stock": 11,
+        "stock": 9,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/W4hqn2tZ/Ghost-Vape-4.jpg",
@@ -484,7 +484,7 @@ HHC_VAPES = {
         "name": "🌴 Jungle Boys White 2ml",
         "type": "hhc",
         "price": 1799.99,
-        "stock": 15,
+        "stock": 8,
         "discount": True,
         "gift_liquid": True,
         "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg",
@@ -499,7 +499,7 @@ PODS = {
     500: {
         "name": "🔌 Vaporesso XROS 3 Mini",
         "type": "pod",
-        "stock": 20,  # FIX: Додано наявність
+        "stock": 15,  # FIX: Додано наявність
         "gift_liquid": True,
         "price": 749,
         "discount": False,
@@ -571,7 +571,7 @@ PODS = {
     504: {
         "name": "🔌 Vaporesso XROS 4",
         "type": "pod",
-        "stock": 18, # FIX: Додано наявність
+        "stock": 11, # FIX: Додано наявність
         "gift_liquid": True,
         "price": 719,
         "discount": False,
@@ -589,7 +589,7 @@ PODS = {
     505: {
         "name": "🔌 Vaporesso XROS 5",
         "type": "pod",
-        "stock": 8, # FIX: Додано наявність
+        "stock": 8,
         "gift_liquid": True,
         "price": 999,
         "discount": False,
@@ -943,9 +943,9 @@ async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # --- ЛОГІКА СКЛАДУ ---
     stock = item.get('stock', 0)
-    if stock >= 13: 
+    if stock >= 12: 
         stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
-    elif 9 <= stock < 13: 
+    elif 1 <= stock < 12: 
         stock_status = f"🟡 <b>Закінчується</b> ({stock})"
     else: 
         stock_status = "🔴 <b>Немає в наявності</b>"
@@ -1645,25 +1645,24 @@ async def cart_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     
 
 # =================================================================
-# 🎁 SECTION 19: GIFT & CART ENGINE (UNIVERSAL GIFTING)
+# 🎁 SECTION 19: GIFT & CART ENGINE (TITAN ULTIMATE v10.5 - PRO FIX)
 # =================================================================
 
-# Список ID товарів, які йдуть на подарунок
-# Важливо: самі дані про товари беруться з GIFT_LIQUIDS у Section 4
+# Список ID товарів, які йдуть на подарунок.
+# Самі дані беруться з бази (Section 4) через get_item_data.
 GIFT_POOL = [9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008] 
 
 async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Показує меню вибору подарунка.
-    АДАПТОВАНА: Працює для Кошика, Швидкого замовлення та Менеджера.
+    Генератор меню вибору подарунка.
+    АДАПТОВАНО: Розуміє звідки прийшов запит (Кошик, Швидко, Менеджер).
     """
     query = update.callback_query
     data = query.data
     
-    # 1. Розбираємо вхідні дані, щоб зрозуміти контекст (звідки прийшов юзер)
+    # 1. Розбираємо вхідні дані, щоб зберегти контекст операції
     parts = data.split("_")
     
-    # Визначаємо тип операції та ID товару
     if data.startswith("fast_order_"):
         prefix = "fast_order"
         item_id = int(parts[2])
@@ -1674,54 +1673,50 @@ async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_T
         prefix = "add"
         item_id = int(parts[1])
     elif data.startswith("gift_sel_"):
-        # Якщо ми вже всередині меню (клікнули інший подарунок)
-        # Формат: gift_sel_PREFIX_ITEMID
+        # Якщо ми перемикаємось всередині меню подарунків
         prefix_code = parts[2]
         if prefix_code == "fast": prefix = "fast_order"
         elif prefix_code == "mgr": prefix = "mgr_pre"
         else: prefix = "add"
         item_id = int(parts[3])
     else:
-        await query.answer("❌ Помилка контексту")
+        await query.answer("❌ Помилка контексту", show_alert=True)
         return
 
     main_item = get_item_data(item_id)
     if not main_item:
-        await query.answer("❌ Товар не знайдено")
+        await query.answer("❌ Товар не знайдено", show_alert=True)
         return
 
     text = (
         f"🎁 <b>АКЦІЯ: ОБЕРІТЬ ВАШ БОНУС!</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"До товару <b>{main_item['name']}</b> ви можете додати одну рідину абсолютно <b>БЕЗКОШТОВНО</b>!\n\n"
+        f"До товару <b>{main_item['name']}</b> йде рідина у подарунок.\n"
+        f"Це абсолютно <b>БЕЗКОШТОВНО</b>!\n\n"
         f"👇 <i>Оберіть смак зі списку:</i>"
     )
 
     kb = []
-    # Генеруємо кнопки подарунків. 
-    # Формат колбеку: PREFIX_ITEMID_GIFTID
+    # 2. Генеруємо кнопки подарунків (формат PREFIX_ITEMID_GIFTID)
     for gid in GIFT_POOL:
         gift_item = get_item_data(gid)
         if gift_item:
-            # Скорочуємо назву для краси
-            short_name = gift_item['name'].replace("30ml", "").strip()
-            # Додаємо емодзі колби
+            # Очищаємо назву для гарного вигляду на кнопці
+            short_name = gift_item['name'].replace("🎁 ", "").replace(" 30ml", "").strip()
             kb.append([InlineKeyboardButton(f"🧪 {short_name}", callback_data=f"{prefix}_{item_id}_{gid}")])
 
-    # Опція без подарунка (ID = 0)
+    # 3. Керуючі кнопки
     kb.append([InlineKeyboardButton("❌ Без подарунка", callback_data=f"{prefix}_{item_id}_0")])
-    
-    # Кнопка "Назад" повертає до картки товару
     kb.append([InlineKeyboardButton("🔙 Назад до товару", callback_data=f"view_item_{item_id}")])
 
-    # Використовуємо універсальний едітор
+    # Відправляємо оновлене меню
     await _edit_or_reply(query, text, kb, context=context)
 
 
 async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Функція додавання в кошик.
-    Працює тільки для prefix='add'.
+    ЄДИНА функція додавання в кошик (Prefix: 'add').
+    ✅ ПОВНІСТЮ ВИПРАВЛЕНИЙ ПАРСИНГ: Не плутає ID товару, колір та подарунок.
     """
     query = update.callback_query
     parts = query.data.split("_")
@@ -1733,37 +1728,40 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.answer("❌ Товар не знайдено")
             return
 
-        # 1. Визначаємо колір (з колбеку або пам'яті)
+        # --- 1. ПАРСИНГ КОЛЬОРУ ---
+        selected_color = context.user_data.get('selected_color')
         if "col" in parts:
             col_index = parts.index("col")
             selected_color = "_".join(parts[col_index+1:])
-        else:
-            selected_color = context.user_data.get('selected_color')
 
-        # 2. Визначаємо подарунок (з колбеку add_ITEMID_GIFTID)
+        # --- 2. ПАРСИНГ ПОДАРУНКА ---
         gift_id = None
-        if len(parts) > 2 and parts[2].isdigit() and "col" not in parts:
-            gift_id = int(parts[2])
+        # Якщо частин більше 2 і остання - це число (і вона не стоїть одразу після слова 'col')
+        if len(parts) > 2 and parts[-1].isdigit() and parts[-2] != "col":
+            gift_id = int(parts[-1])
 
-        # 🔥 ПЕРЕХОПЛЕННЯ:
-        # Якщо товар має подарунок (gift_liquid=True або ID < 300), 
-        # а подарунок ще не обрано (gift_id is None) -> йдемо вибирати
-        needs_gift = (item_id < 300 or item.get('gift_liquid'))
+        # --- 3. ЛОГІКА ПЕРЕХОПЛЕННЯ (АВТОВИБІР ПОДАРУНКА) ---
+        # Перевіряємо, чи підпадає товар під акцію (Вейпи 100-299, Поди 500-699, або прапорець)
+        is_hhc = 100 <= item_id < 300
+        is_pod = 500 <= item_id < 700
+        has_gift_flag = item.get('gift_liquid') == True
         
-        if needs_gift and gift_id is None and "col" not in parts:
-            # Зберігаємо колір перед переходом
+        needs_gift = is_hhc or is_pod or has_gift_flag
+        
+        if needs_gift and gift_id is None:
+            # Зберігаємо колір перед переходом у меню подарунків
             if selected_color: context.user_data['selected_color'] = selected_color
-            await gift_selection_handler(update, context)
+            await gift_selection_handler(update, context) 
             return
 
-        # 3. Додавання в кошик
+        # --- 4. ДОДАВАННЯ В КОШИК ---
         gift_name = None
         if gift_id and gift_id > 0:
             g_item = get_item_data(gift_id)
             if g_item: gift_name = g_item['name']
 
         context.user_data.setdefault("cart", []).append({
-            "id": random.randint(100000, 999999), # Унікальний ID запису
+            "id": random.randint(100000, 999999), # Унікальний ID для кошика
             "real_id": item_id, 
             "name": item['name'],
             "price": item['price'], 
@@ -1774,7 +1772,7 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         try: await query.answer("✅ Додано в кошик!", show_alert=False)
         except: pass
         
-        # 4. Формування звіту
+        # --- 5. ВІЗУАЛЬНИЙ ЗВІТ ---
         info = ""
         if selected_color: info += f"\n🎨 Колір: <b>{selected_color}</b>"
         if gift_name: info += f"\n🎁 Бонус: <b>{gift_name}</b>"
@@ -1799,7 +1797,6 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     except Exception as e:
         logger.error(f"Add to Cart Error: {e}")
         await query.answer("❌ Помилка додавання")
-        
         
 # =================================================================
 # 💳 SECTION 20: CHECKOUT & PAYMENT CORE (TITAN FINAL REVISION)
@@ -2873,6 +2870,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             context.user_data['state'] = None
             context.user_data['target_item_id'] = None
             context.user_data['target_gift_id'] = None
+            context.user_data['selected_color'] = None # Додано очищення кольору
             await start_command(update, context)
             
         elif data == "menu_profile": await show_profile(update, context)
@@ -2943,24 +2941,32 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         # --- 5. ШВИДКЕ ЗАМОВЛЕННЯ (ІДЕАЛЬНЕ ПЕРЕХОПЛЕННЯ ПОДАРУНКА) ---
         elif data.startswith("fast_order_"):
             try:
-                parts = data.split("_") # fast_order_100 або fast_order_100_Black або fast_order_100_9001
+                parts = data.split("_") # fast_order_100 або fast_order_100_Black або fast_order_100_Black_9001
                 item_id = int(parts[2])
                 item = get_item_data(item_id)
                 
                 gift_id = None
-                # Якщо є більше 3 частин, це або колір, або обраний подарунок
+                
+                # Аналізуємо "хвіст" кнопки, щоб витягти колір та подарунок
                 if len(parts) > 3:
-                    if parts[-1].isdigit(): # Це ID обраного подарунка (напр. 9001)
+                    # Якщо останній елемент - цифра (і це не частина назви кольору)
+                    if parts[-1].isdigit(): 
                         gift_id = int(parts[-1])
-                    else: # Це назва кольору (напр. Black)
+                        # Якщо елементів більше 4, значить між ID і подарунком є колір
+                        if len(parts) > 4:
+                            context.user_data['selected_color'] = "_".join(parts[3:-1])
+                    else: 
+                        # Якщо останній елемент не цифра - це колір (подарунка ще немає)
                         context.user_data['selected_color'] = "_".join(parts[3:])
 
-                # Перевіряємо, чи взагалі потрібен подарунок для цього товару
-                needs_gift = item and (item_id < 300 or item.get('gift_liquid'))
+                # Перевіряємо, чи взагалі потрібен подарунок для цього товару (HHC < 300, POD 500-699)
+                needs_gift = item and (item_id < 300 or 500 <= item_id < 700 or item.get('gift_liquid'))
                 
                 if needs_gift and gift_id is None:
+                    # Перекидаємо на вибір подарунка
                     await gift_selection_handler(update, context)
                 else:
+                    # Все є, йдемо оформлювати
                     context.user_data['target_item_id'] = item_id
                     context.user_data['target_gift_id'] = gift_id if (gift_id and gift_id > 0) else None
                     await start_data_collection(update, context, next_action='fast_order')
@@ -2978,10 +2984,12 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 if len(parts) > 3:
                     if parts[-1].isdigit(): 
                         gift_id = int(parts[-1])
+                        if len(parts) > 4:
+                            context.user_data['selected_color'] = "_".join(parts[3:-1])
                     else: 
                         context.user_data['selected_color'] = "_".join(parts[3:])
 
-                needs_gift = item and (item_id < 300 or item.get('gift_liquid'))
+                needs_gift = item and (item_id < 300 or 500 <= item_id < 700 or item.get('gift_liquid'))
                 
                 if needs_gift and gift_id is None:
                     await gift_selection_handler(update, context)
