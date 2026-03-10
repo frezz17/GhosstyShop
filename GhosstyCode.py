@@ -2355,44 +2355,103 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except Exception as e: 
                 logger.error(f"Order route error: {e}")
 
-except Exception as e:
-        logger.error(f"General dispatcher error: {e}")
-
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (SHIELDED VERSION)
+# 🚀 SECTION 31: ENGINE STARTUP & ELITE MONITORING (TITAN v10.5)
 # =================================================================
 
-import platform, socket
+import time
+import platform
 
 async def post_init(application: Application) -> None:
+    """Професійний звіт системи моніторингу GHO$$TY для Адміна."""
     try:
+        start_ping = time.time()
         bot = await application.bot.get_me()
-        now = datetime.now().strftime('%H:%M:%S')
-        report = f"🛰 <b>GHO$$TY ONLINE</b>\n🤖 @{bot.username}\n🕒 {now}"
+        ping = round((time.time() - start_ping) * 1000, 2)
+        
+        # 💻 Системні дані
+        db_sz = f"{os.path.getsize(DB_PATH) / 1024:.2f} KB" if os.path.exists(DB_PATH) else "🛠 NEW"
+        uptime = str(datetime.now() - START_TIME).split('.')[0]
+        py_ver = platform.python_version()
+        
+        # 💎 Дизайнерський звіт в Telegram
+        report = (
+            f"🛰 <b>GHO$$TY STAFF | MONITORING CENTER</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🤖 <b>BOT-NODE:</b> @{bot.username}\n"
+            f"🛡 <b>VERSION:</b> <code>TITAN ULTIMATE v10.5</code>\n"
+            f"🟢 <b>STATUS:</b> <code>STABLE / ONLINE</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"⚡️ <b>PERFORMANCE:</b>\n"
+            f"⏱ Ping: <code>{ping} ms</code>\n"
+            f"🆙 Uptime: <code>{uptime}</code>\n"
+            f"🐍 Python: <code>{py_ver}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🗄 <b>STORAGE & DB:</b>\n"
+            f"📝 Database: <code>CONNECTED</code>\n"
+            f"📦 DB Weight: <code>{db_sz}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🕒 <code>{datetime.now().strftime('%d.%m.%Y | %H:%M:%S')}</code>\n\n"
+            f"👑 <i>System fully operational. Waiting for customers...</i>"
+        )
         await application.bot.send_message(chat_id=MANAGER_ID, text=report, parse_mode='HTML')
-    except: pass
+    except Exception as e:
+        logger.error(f"Post-init reporting failed: {e}")
 
 def main():
-    if not TOKEN or "ВСТАВ" in TOKEN: sys.exit(1)
-    init_db()
+    # 🔥 ЕЛІТНИЙ СИСАДМІН-ВИВІД У КОНСОЛЬ
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\n" + "═"*60)
+    print(f"  ☁️  GHO$$TY STAFF PREMIUM ENGINE v10.5  ☁️")
+    print("═"*60)
+    print(f"  [⏳] TIME:      {datetime.now().strftime('%H:%M:%S')}")
+    print(f"  [👤] ADMIN:     {MANAGER_ID}")
+    print(f"  [⚙️] CORE:      Initializing Async Stack...")
     
+    if not TOKEN or "ВСТАВ" in TOKEN:
+        print(f"  [❌] FATAL:     BOT_TOKEN IS MISSING!")
+        print("═"*60 + "\n")
+        sys.exit(1)
+        
+    init_db()
+    print(f"  [💾] DATABASE:  SQLITE3 Connection Active")
+    
+    # Конфігурація додатка
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
         .defaults(Defaults(parse_mode=ParseMode.HTML))
+        .connection_pool_size(25)
+        .read_timeout(60)
+        .write_timeout(60)
         .post_init(post_init)
         .build()
     )
 
+    # Реєстрація хендлерів (Bulletproof Routing)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.VIDEO) & ~filters.COMMAND, handle_user_input))
+    
     app.add_error_handler(error_handler)
     
-    print(" GHO$$TY ENGINE ONLINE ")
-    app.run_polling(drop_pending_updates=True)
+    print(f"  [🌐] NETWORK:   Pool Size: 25 | Protocols: HTTP/1.1")
+    print(f"  [🚀] STATUS:    POLLING STARTED - SYSTEM ONLINE")
+    print("═"*60 + "\n")
+    
+    app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
-    main()
+    if 'START_TIME' not in globals():
+        START_TIME = datetime.now()
+    try:
+        main()
+    except (KeyboardInterrupt, SystemExit):
+        print(f"\n  [🚫] SHUTDOWN:  System manually terminated.")
+    except Exception as fatal_e:
+        print(f"\n  [💥] CRASH:     CRITICAL ERROR DETECTED!")
+        print(f"  [!] REASON:    {fatal_e}")
+        traceback.print_exc()
+        sys.exit(1)
