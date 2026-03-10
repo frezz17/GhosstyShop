@@ -45,7 +45,7 @@ MANAGER_ID = 7544847872
 ADMIN_LIST = [MANAGER_ID] # 🔥 Глобальний список адмінів
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
-WELCOME_PHOTO = "https://i.ibb.co/y7Q194N/1770068775663.png"
+WELCOME_PHOTO = "https://i.ibb.co/7tzym5zQ/Polish-20260310-051407282.png"
 
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",    
