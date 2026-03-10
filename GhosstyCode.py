@@ -2356,125 +2356,86 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 logger.error(f"Order route error: {e}")
 
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (ULTRA MONITORING)
+# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (FINAL STABLE)
 # =================================================================
 
 import platform
 import socket
 
 async def post_init(application: Application) -> None:
-    """
-    Професійний звіт системи моніторингу GHO$$TY.
-    """
+    """Професійний звіт системи моніторингу GHO$$TY."""
     try:
         bot = await application.bot.get_me()
-        
-        # 🔧 Збір технічних даних
         sys_info = f"🖥 {platform.system()} {platform.release()}"
         py_ver = f"🐍 Python {platform.python_version()}"
         host_name = socket.gethostname()
         
-        # 🗄 Перевірка бази даних
         db_status = "❌ NOT FOUND"
         db_size = "0 KB"
         if os.path.exists(DB_PATH):
-            size_bytes = os.path.getsize(DB_PATH)
-            db_size = f"{size_bytes / 1024:.2f} KB"
+            db_size = f"{os.path.getsize(DB_PATH) / 1024:.2f} KB"
             db_status = "🟢 ONLINE"
-
-        # 🧠 Перевірка цілісності коду (наявність ключових функцій)
-        critical_funcs = ['global_callback_handler', 'handle_user_input', 'init_db']
-        health_check = "✅ OK" if all(f in globals() for f in critical_funcs) else "⚠️ INCOMPLETE"
 
         now_str = datetime.now().strftime('%d.%m.%Y | %H:%M:%S')
         
-        # 💎 Формування елітного звіту в Telegram
         report = (
             f"🛰 <b>GHO$$TY MONITORING CENTER</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🤖 <b>BOT:</b> @{bot.username}\n"
-            f"🆔 <b>ID:</b> <code>{bot.id}</code>\n"
             f"🛡 <b>ENGINE:</b> TITAN ULTIMATE v10.5\n"
-            f"📊 <b>HEALTH:</b> {health_check}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📡 <b>SERVER NODE:</b>\n"
             f"📍 Host: <code>{host_name}</code>\n"
             f"⚙️ System: <code>{sys_info}</code>\n"
-            f"💎 Runtime: <code>{py_ver}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🗄 <b>DATABASE OPS:</b>\n"
-            f"📝 Status: <code>{db_status}</code>\n"
-            f"📦 Weight: <code>{db_size}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🕒 <b>TIMESTAMP:</b> <code>{now_str}</code>\n\n"
-            f"✅ <i>Всі системи працюють у штатному режимі. Канал зв'язку стабільний.</i>"
+            f"🗄 <b>DATABASE:</b> <code>{db_status}</code> ({db_size})\n"
+            f"🕒 <b>TIME:</b> <code>{now_str}</code>\n"
         )
-        
         await application.bot.send_message(chat_id=MANAGER_ID, text=report, parse_mode='HTML')
-        
     except Exception as e:
-        logger.error(f"❌ Critical Post-init failed: {e}")
+        logger.error(f"❌ Post-init failed: {e}")
 
 def main():
-    # 🔥 ГАРНИЙ ВИВІД У КОНСОЛЬ
+    # Очищення консолі та вивід лого
     os.system('cls' if os.name == 'nt' else 'clear')
     print("\n" + "═"*55)
     print(f"  🌫️  GHO$$TY STAFF PREMIUM ENGINE v10.5  🌫️")
     print("═"*55)
-    print(f"  [ SYSTEM ]:    Initializing Core...")
     
     if not TOKEN or "ВСТАВ" in TOKEN:
-        print(f"  [ FATAL ]:     Bot token is missing!")
-        print("═"*55 + "\n")
+        print(f"  [ FATAL ]: Bot token is missing!")
         sys.exit(1)
         
     init_db()
-    print(f"  [ DATABASE ]:  Connection Established.")
     
-    # Створення додатку
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .get_updates_http_version('1.1')
-        .http_version('1.1')
         .connection_pool_size(20)
         .read_timeout(60)
         .write_timeout(60)
-        .connect_timeout(60)
-        .pool_timeout(60)
         .post_init(post_init)
         .build()
     )
 
-    # Реєстрація хендлерів
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.VIDEO | filters.VOICE) & ~filters.COMMAND, handle_user_input))
-    
     app.add_error_handler(error_handler)
     
-    # Фінальна таблиця в консолі
-    token_masked = f"{TOKEN[:8]}********{TOKEN[-5:]}"
-    print(f"  [ NETWORK ]:   Connection Pool Active (size: 20)")
-    print(f"  [ AUTH ]:      Token: {token_masked}")
-    print(f"  [ ADMIN ]:     Manager ID: {MANAGER_ID}")
-    print(f"  [ STATUS ]:    POLLING STARTED...")
+    print(f"  [ STATUS ]: POLLING STARTED...")
     print("═"*55 + "\n")
     
     app.run_polling(drop_pending_updates=True, close_loop=False)
 
 if __name__ == "__main__":
-    if 'START_TIME' not in globals():
-        START_TIME = datetime.now()
     try:
         main()
-    except KeyboardInterrupt:
-        print(f"\n  [ STOP ]:      System manually terminated by Admin.")
-        sys.exit(0)
+    except (KeyboardInterrupt, SystemExit):
+        print(f"\n  [ STOP ]: System terminated.")
     except Exception as fatal_e:
-        print(f"\n  [ CRASH ]:     CRITICAL ERROR: {fatal_e}")
+        print(f"\n  [ CRASH ]: {fatal_e}")
         traceback.print_exc()
-        sys.exit(1)
