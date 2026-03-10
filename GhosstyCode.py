@@ -652,7 +652,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin:
         keyboard.append([InlineKeyboardButton("⚙️ GOD MODE (ADMIN)", callback_data="admin_main")])
 
-    photo = globals().get('WELCOME_PHOTO', "https://i.ibb.co/y7Q194N/1770068775663.png")
+    photo = globals().get('WELCOME_PHOTO', "https://i.ibb.co/35K9Zp5p/Polish-20260310-051407282.png")
     await send_ghosty_message(update, welcome_text, keyboard, photo=photo, context=context)
 
 
@@ -692,7 +692,7 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     balance = int(profile.get('next_order_discount', 0))
     vip_status = "💎 V.I.P PRO" if profile.get('is_vip') else "👤 Standard"
-   raw_vip_date = profile.get('vip_expiry')
+    raw_vip_date = profile.get('vip_expiry')
     vip_till = raw_vip_date if raw_vip_date else '—'
     ref_link = f"https://t.me/{bot.username}?start={user.id}"
     
