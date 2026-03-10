@@ -2355,24 +2355,20 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except Exception as e: 
                 logger.error(f"Order route error: {e}")
 
+except Exception as e:
+        logger.error(f"General dispatcher error: {e}")
+
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (CLEAN VERSION)
+# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (SHIELDED VERSION)
 # =================================================================
 
 import platform, socket
 
-async def post_init(application):
+async def post_init(application: Application) -> None:
     try:
         bot = await application.bot.get_me()
-        db_sz = f"{os.path.getsize(DB_PATH)/1024:.1f}KB" if os.path.exists(DB_PATH) else "0"
-        report = (
-            f"🛰 <b>GHO$$TY MONITORING</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🤖 <b>BOT:</b> @{bot.username}\n"
-            f"🛡 <b>VER:</b> TITAN v10.5\n"
-            f"🗄 <b>DB:</b> {db_sz}\n"
-            f"🕒 <b>ON:</b> {datetime.now().strftime('%H:%M:%S')}"
-        )
+        now = datetime.now().strftime('%H:%M:%S')
+        report = f"🛰 <b>GHO$$TY ONLINE</b>\n🤖 @{bot.username}\n🕒 {now}"
         await application.bot.send_message(chat_id=MANAGER_ID, text=report, parse_mode='HTML')
     except: pass
 
@@ -2380,14 +2376,15 @@ def main():
     if not TOKEN or "ВСТАВ" in TOKEN: sys.exit(1)
     init_db()
     
-    # Створюємо додаток з нуля
-    builder = Application.builder().token(TOKEN)
-    builder.persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
-    builder.defaults(Defaults(parse_mode=ParseMode.HTML))
-    builder.post_init(post_init)
-    app = builder.build()
+    app = (
+        Application.builder()
+        .token(TOKEN)
+        .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
+        .defaults(Defaults(parse_mode=ParseMode.HTML))
+        .post_init(post_init)
+        .build()
+    )
 
-    # Реєструємо всі хендлери заново (переконайся, що назви збігаються!)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
