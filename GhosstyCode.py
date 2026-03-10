@@ -45,7 +45,7 @@ MANAGER_ID = 7544847872
 ADMIN_LIST = [MANAGER_ID] # 🔥 Глобальний список адмінів
 MANAGER_USERNAME = "ghosstydp"
 CHANNEL_URL = "https://t.me/GhostyStaffDP"
-WELCOME_PHOTO = "https://i.ibb.co/7tzym5zQ/Polish-20260310-051407282.png"
+WELCOME_PHOTO = "https://i.ibb.co/35K9Zp5p/Polish-20260310-051407282.png"
 
 PAYMENT_LINK = {
     "mono": "https://lnk.ua/k4xJG21Vy",    
@@ -802,13 +802,19 @@ async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_color_selection_click(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int, color_name: str):
-    """Обробляє клік по кольору: змінює фото та оновлює галочки."""
+    """Обробляє клік по кольору: розумний пошук фото (ігнорує емодзі) та оновлення галочки."""
     item = get_item_data(item_id)
     if not item: return
 
     context.user_data['selected_color'] = color_name
     previews = item.get("color_previews", {})
-    new_photo = previews.get(color_name, item['img'])
+    
+    new_photo = item['img']
+    # Розумний пошук: перевіряємо, чи є слово "Black" у "⚫️ Black"
+    for key, url in previews.items():
+        if key in color_name:
+            new_photo = url
+            break
     
     await render_product_card(update, context, item, item_id, new_photo)
     
@@ -1186,10 +1192,7 @@ async def gift_selection_handler(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    ЄДИНА функція додавання в кошик (Prefix: 'add').
-    🔥 ПРОБЛЕМА №6: Впроваджено ліміт 1 подарунок на кошик!
-    """
+    """ЄДИНА функція додавання в кошик (Оптимізована під кольори)."""
     query = update.callback_query
     parts = query.data.split("_")
     
@@ -1200,45 +1203,32 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.answer("❌ Товар не знайдено")
             return
 
-        # --- 1. ПАРСИНГ КОЛЬОРУ ---
+        # 1. Беремо колір з пам'яті (він там гарантовано є)
         selected_color = context.user_data.get('selected_color')
-        if "col" in parts:
-            col_index = parts.index("col")
-            selected_color = "_".join(parts[col_index+1:])
 
         # --- 2. ПАРСИНГ ПОДАРУНКА ---
         gift_id = None
-        # Якщо частин більше 2 і остання - це число (і вона не стоїть одразу після слова 'col')
-        if len(parts) > 2 and parts[-1].isdigit() and parts[-2] != "col":
+        # 🔥 Виправлено: Прибрали жорсткий ліміт на 4 символи
+        if len(parts) > 2 and parts[-1].isdigit():
             gift_id = int(parts[-1])
 
-        # --- 3. ЛОГІКА ПЕРЕХОПЛЕННЯ (АВТОВИБІР ПОДАРУНКА) ---
-        # Перевіряємо, чи є вже подарунок у кошику (Ліміт 1)
+        # 3. Перевірка акції
         cart = context.user_data.get("cart", [])
         has_gift_in_cart = any(i.get('gift') for i in cart)
+        needs_gift = item and (item_id < 300 or 500 <= item_id < 700 or item.get('gift_liquid'))
         
-        # Перевіряємо, чи підпадає товар під акцію (Вейпи 100-299, Поди 500-699, або прапорець)
-        is_hhc = 100 <= item_id < 300
-        is_pod = 500 <= item_id < 700
-        has_gift_flag = item.get('gift_liquid') == True
-        
-        needs_gift = is_hhc or is_pod or has_gift_flag
-        
-        # Перехоплюємо на вибір ТІЛЬКИ якщо подарунка ще немає в кошику
         if needs_gift and gift_id is None and not has_gift_in_cart:
-            # Зберігаємо колір перед переходом у меню подарунків
-            if selected_color: context.user_data['selected_color'] = selected_color
             await gift_selection_handler(update, context) 
             return
 
-        # --- 4. ДОДАВАННЯ В КОШИК ---
+        # 4. Додавання
         gift_name = None
         if gift_id and gift_id > 0:
             g_item = get_item_data(gift_id)
             if g_item: gift_name = g_item['name']
 
         context.user_data.setdefault("cart", []).append({
-            "id": random.randint(100000, 999999), # Унікальний ID для кошика
+            "id": random.randint(100000, 999999), 
             "real_id": item_id, 
             "name": item['name'],
             "price": item['price'], 
@@ -1249,12 +1239,11 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         try: await query.answer("✅ Додано в кошик!", show_alert=False)
         except: pass
         
-        # --- 5. ВІЗУАЛЬНИЙ ЗВІТ ---
+        # 5. Звіт
         info = ""
         if selected_color: info += f"\n🎨 Колір: <b>{selected_color}</b>"
         if gift_name: info += f"\n🎁 Бонус: <b>{gift_name}</b>"
         
-        # 🔥 Фікс ціни для звіту про додавання
         price_display = f"{int(item['price'])} ₴"
         if 'get_price_display' in globals():
             price_display = get_price_display(item['price'], context.user_data.get('profile', {}), item_id)[0]
@@ -1273,7 +1262,6 @@ async def add_to_cart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             [InlineKeyboardButton("🛍 Продовжити покупки", callback_data="cat_all")],
             [InlineKeyboardButton("🏠 В головне меню", callback_data="menu_start")]
         ]
-        
         await _edit_or_reply(query, text, kb, context=context)
 
     except Exception as e:
@@ -1305,7 +1293,7 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
     items_desc = ""
     photo_to_show = None 
 
-    # --- ВАРІАНТ А: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар + Подарунок) ---
+  # --- ВАРІАНТ А: ШВИДКЕ ЗАМОВЛЕННЯ (Один товар + Подарунок) ---
     if target_item_id:
         item = get_item_data(target_item_id)
         if not item: 
@@ -1314,12 +1302,17 @@ async def checkout_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_ghosty_message(update, "⚠️ Товар розпродано або не знайдено.", context=context)
             return
         
-        # Фото (враховуючи обраний колір)
+        # 🔥 РОЗУМНЕ ФОТО (Ігнорує емодзі)
         selected_color = context.user_data.get('selected_color')
+        photo_to_show = item['img']
+        
         if selected_color and "color_previews" in item:
-            photo_to_show = item["color_previews"].get(selected_color, item['img'])
-        else:
-            photo_to_show = item['img']
+            for key, url in item["color_previews"].items():
+                if key in selected_color:
+                    photo_to_show = url
+                    break
+
+        # Ціна через нове ядро відображення
 
         # 🔥 Ціна через нове ядро відображення
         if 'get_price_display' in globals():
@@ -2338,7 +2331,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             context.user_data['target_item_id'] = None 
             await start_data_collection(update, context, next_action='checkout')
 
-        # --- 5. ШВИДКЕ ЗАМОВЛЕННЯ ТА МЕНЕДЖЕР (ПЕРЕХОПЛЕННЯ) ---
+# --- 5. ШВИДКЕ ЗАМОВЛЕННЯ ТА МЕНЕДЖЕР (ПЕРЕХОПЛЕННЯ) ---
         elif data.startswith("fast_order_") or data.startswith("mgr_pre_"):
             try:
                 parts = data.split("_")
@@ -2347,30 +2340,20 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 item = get_item_data(item_id)
                 
                 gift_id = None
-                if len(parts) > 3:
-                    if parts[-1].isdigit(): 
-                        gift_id = int(parts[-1])
-                        if len(parts) > 4 and not parts[3].isdigit(): context.user_data['selected_color'] = "_".join(parts[3:-1])
-                    else: context.user_data['selected_color'] = "_".join(parts[3:])
+                # 🔥 Виправлено: Просто перевіряємо, чи є цифри в кінці
+                if len(parts) > 3 and parts[-1].isdigit():
+                    gift_id = int(parts[-1])
 
                 needs_gift = item and (item_id < 300 or 500 <= item_id < 700 or item.get('gift_liquid'))
                 
-                if needs_gift and gift_id is None: await gift_selection_handler(update, context)
+                if needs_gift and gift_id is None: 
+                    await gift_selection_handler(update, context)
                 else:
                     context.user_data['target_item_id'] = item_id
                     context.user_data['target_gift_id'] = gift_id if (gift_id and gift_id > 0) else None
                     await start_data_collection(update, context, next_action='fast_order' if is_fast else 'manager_order')
             except Exception as e: 
                 logger.error(f"Order route error: {e}")
-            
-        elif data.startswith("pay_"): await payment_selection_handler(update, context, data.split("_")[1])
-        elif data == "confirm_payment_start": await payment_confirmation_handler(update, context)
-        elif data == "confirm_manager_order":
-            if 'submit_order_to_manager' in globals(): await submit_order_to_manager(update, context)
-
-    except Exception as e:
-        logger.error(f"GLOBAL DISPATCHER FATAL: {e} | DATA: {data}")
-        traceback.print_exc()
 
 # =================================================================
 # 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP
