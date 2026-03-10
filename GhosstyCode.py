@@ -2356,86 +2356,46 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 logger.error(f"Order route error: {e}")
 
 # =================================================================
-# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (FINAL STABLE)
+# 🚀 SECTION 31: ENGINE STARTUP & MAIN LOOP (CLEAN VERSION)
 # =================================================================
 
-import platform
-import socket
+import platform, socket
 
-async def post_init(application: Application) -> None:
-    """Професійний звіт системи моніторингу GHO$$TY."""
+async def post_init(application):
     try:
         bot = await application.bot.get_me()
-        sys_info = f"🖥 {platform.system()} {platform.release()}"
-        py_ver = f"🐍 Python {platform.python_version()}"
-        host_name = socket.gethostname()
-        
-        db_status = "❌ NOT FOUND"
-        db_size = "0 KB"
-        if os.path.exists(DB_PATH):
-            db_size = f"{os.path.getsize(DB_PATH) / 1024:.2f} KB"
-            db_status = "🟢 ONLINE"
-
-        now_str = datetime.now().strftime('%d.%m.%Y | %H:%M:%S')
-        
+        db_sz = f"{os.path.getsize(DB_PATH)/1024:.1f}KB" if os.path.exists(DB_PATH) else "0"
         report = (
-            f"🛰 <b>GHO$$TY MONITORING CENTER</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛰 <b>GHO$$TY MONITORING</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
             f"🤖 <b>BOT:</b> @{bot.username}\n"
-            f"🛡 <b>ENGINE:</b> TITAN ULTIMATE v10.5\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📡 <b>SERVER NODE:</b>\n"
-            f"📍 Host: <code>{host_name}</code>\n"
-            f"⚙️ System: <code>{sys_info}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🗄 <b>DATABASE:</b> <code>{db_status}</code> ({db_size})\n"
-            f"🕒 <b>TIME:</b> <code>{now_str}</code>\n"
+            f"🛡 <b>VER:</b> TITAN v10.5\n"
+            f"🗄 <b>DB:</b> {db_sz}\n"
+            f"🕒 <b>ON:</b> {datetime.now().strftime('%H:%M:%S')}"
         )
         await application.bot.send_message(chat_id=MANAGER_ID, text=report, parse_mode='HTML')
-    except Exception as e:
-        logger.error(f"❌ Post-init failed: {e}")
+    except: pass
 
 def main():
-    # Очищення консолі та вивід лого
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print("\n" + "═"*55)
-    print(f"  🌫️  GHO$$TY STAFF PREMIUM ENGINE v10.5  🌫️")
-    print("═"*55)
-    
-    if not TOKEN or "ВСТАВ" in TOKEN:
-        print(f"  [ FATAL ]: Bot token is missing!")
-        sys.exit(1)
-        
+    if not TOKEN or "ВСТАВ" in TOKEN: sys.exit(1)
     init_db()
     
-    app = (
-        Application.builder()
-        .token(TOKEN)
-        .persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
-        .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .connection_pool_size(20)
-        .read_timeout(60)
-        .write_timeout(60)
-        .post_init(post_init)
-        .build()
-    )
+    # Створюємо додаток з нуля
+    builder = Application.builder().token(TOKEN)
+    builder.persistence(PicklePersistence(filepath=PERSISTENCE_PATH))
+    builder.defaults(Defaults(parse_mode=ParseMode.HTML))
+    builder.post_init(post_init)
+    app = builder.build()
 
+    # Реєструємо всі хендлери заново (переконайся, що назви збігаються!)
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CallbackQueryHandler(global_callback_handler))
-    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.VIDEO | filters.VOICE) & ~filters.COMMAND, handle_user_input))
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.VIDEO) & ~filters.COMMAND, handle_user_input))
     app.add_error_handler(error_handler)
     
-    print(f"  [ STATUS ]: POLLING STARTED...")
-    print("═"*55 + "\n")
-    
-    app.run_polling(drop_pending_updates=True, close_loop=False)
+    print(" GHO$$TY ENGINE ONLINE ")
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (KeyboardInterrupt, SystemExit):
-        print(f"\n  [ STOP ]: System terminated.")
-    except Exception as fatal_e:
-        print(f"\n  [ CRASH ]: {fatal_e}")
-        traceback.print_exc()
+    main()
