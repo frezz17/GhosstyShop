@@ -179,20 +179,16 @@ LIQUIDS = {
 
 HHC_VAPES = {
     100: {"name": "🌴 Packwoods Purple 1ml", "type": "hhc", "price": 999.99, "stock": 16, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg", "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+
     101: {"name": "🍊 Packwoods Orange 1ml", "type": "hhc", "price": 999.99, "stock": 14, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/SDJFRTwk/Ghost-Vape-1.jpg", "desc": "🧠 <b>90% HHC | Сатіва</b>\n⚡ Бадьорить та фокусує\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+
     102: {"name": "🌸 Packwoods Pink 1ml", "type": "hhc", "price": 999.99, "stock": 4, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg", "desc": "🧠 <b>90% HHC | Індіка</b>\n😇 Спокій + підйом настрою\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+
     103: {"name": "🌿 Whole Mint 2ml", "type": "hhc", "price": 1399.99, "stock": 9, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/W4hqn2tZ/Ghost-Vape-4.jpg", "desc": "🧠 <b>95% HHC | Сатіва</b>\n⚡ Енергія та ясність (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
-    104: {"name": "🌴 Jungle Boys White 2ml", "type": "hhc", "price": 1799.99, "stock": 8, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK}
-    105: {
-    "name": "🔥 Ace&Gold Ghossty Edition 1.5ml",
-    "type": "hhc",
-    "price": 1599.99,
-    "stock": 7,
-    "discount": True,
-    "gift_liquid": True,
-    "img": "https://i.ibb.co/5h9VDkF6/photo-2026-02-21-17-39-26.jpg",
-    "desc": "👑 <b>95% HHC | Гібрид (Потужний)</b>\n🔥 Ексклюзивна <b>Ghossty Edition</b> у преміальному золотому корпусі\n✨ Насичений смак + стабільна тяга\n🌿 Потужний ефект та комфортне використання\n🎁 Стильний девайс ідеально підійде для себе або подарунка\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>",
-    "payment_url": PAYMENT_LINK
+
+    104: {"name": "🌴 Jungle Boys White 2ml", "type": "hhc", "price": 1799.99, "stock": 8, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+
+    105: {"name": "🔥 Ace&Gold Ghossty Edition 1.5ml", "type": "hhc", "price": 1599.99, "stock": 7, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/5h9VDkF6/photo-2026-02-21-17-39-26.jpg", "desc": "👑 <b>95% HHC | Гібрид (Потужний)</b>\n🔥 Ексклюзивна <b>Ghossty Edition</b> у преміальному золотому корпусі\n✨ Насичений смак + стабільна тяга\n🌿 Потужний ефект та комфортне використання\n🎁 Стильний девайс ідеально підійде для себе або подарунка\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK}
 }
 
 PODS = {
