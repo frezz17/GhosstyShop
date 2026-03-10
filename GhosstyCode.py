@@ -250,7 +250,7 @@ def get_item_data(item_id: int):
     return None
 
 # =================================================================
-# ⚙️ SECTION 4: MATH CORE, DATABASE & AUTH
+# ⚙️ SECTION 4: MATH CORE, DATABASE & AUTH (DB FIX)
 # =================================================================
 
 VIP_DISCOUNT_CATEGORIES = ['hhc', 'pods'] 
@@ -300,13 +300,21 @@ def init_db():
                     reg_date TEXT, balance REAL DEFAULT 0, joined_date TEXT
                 )
             ''')
+            
+            # 🔥 АВТОМІГРАЦІЯ: Додаємо колонки для промокодів безпечно
+            try: cur.execute("ALTER TABLE users ADD COLUMN promo_GHST2026_used INTEGER DEFAULT 0")
+            except sqlite3.OperationalError: pass
+            
+            try: cur.execute("ALTER TABLE users ADD COLUMN referral_used INTEGER DEFAULT 0")
+            except sqlite3.OperationalError: pass
+
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS orders (
                     order_id TEXT PRIMARY KEY, user_id INTEGER, amount REAL, status TEXT, created_at TEXT
                 )
             ''')
             conn.commit()
-            logger.info("✅ Database initialized.")
+            logger.info("✅ Database initialized and migrated.")
     except Exception as e:
         logger.critical(f"❌ DB SCHEMA FATAL ERROR: {e}")
 
@@ -318,7 +326,8 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "uid": user.id, "username": f"@{user.username}" if user.username else "Hidden",
             "full_name": user.full_name, "phone": None, "city": None, "district": None,
             "address_details": None, "is_vip": False, "vip_expiry": None,
-            "next_order_discount": 0.0, "promo_applied": False
+            "next_order_discount": 0.0, "promo_applied": False,
+            "promo_GHST2026_used": False, "referral_used": False
         }
     if 'cart' not in context.user_data: context.user_data['cart'] = []
 
@@ -331,8 +340,8 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if not row:
                 reg_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 cursor.execute("""
-                    INSERT INTO users (user_id, username, full_name, reg_date, is_vip, next_order_discount, promo_applied) 
-                    VALUES (?, ?, ?, ?, 0, 0, 0)
+                    INSERT INTO users (user_id, username, full_name, reg_date, is_vip, next_order_discount, promo_applied, promo_GHST2026_used, referral_used) 
+                    VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0)
                 """, (user.id, user.username, user.full_name, reg_time))
                 conn.commit()
             else:
@@ -341,6 +350,11 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 p['vip_expiry'] = row['vip_expiry']
                 p['next_order_discount'] = float(row['next_order_discount']) if row['next_order_discount'] is not None else 0.0
                 p['promo_applied'] = bool(row['promo_applied'])
+                
+                # Завантаження статусу промокодів з бази
+                p['promo_GHST2026_used'] = bool(row['promo_GHST2026_used'])
+                p['referral_used'] = bool(row['referral_used'])
+                
                 if row['full_name']: p['full_name'] = row['full_name']
                 if row['phone']: p['phone'] = row['phone']
                 if row['city']: p['city'] = row['city']
@@ -350,6 +364,7 @@ async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logger.error(f"❌ DB Sync Failure: {e}")
         
     return context.user_data['profile']
+    
     
 # =================================================================
 # 🛍 SECTION 14: CATALOG MASTER ENGINE (TITAN PRO v10.5)
@@ -677,7 +692,8 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     balance = int(profile.get('next_order_discount', 0))
     vip_status = "💎 V.I.P PRO" if profile.get('is_vip') else "👤 Standard"
-    vip_till = profile.get('vip_expiry', '—')
+   raw_vip_date = profile.get('vip_expiry')
+    vip_till = raw_vip_date if raw_vip_date else '—'
     ref_link = f"https://t.me/{bot.username}?start={user.id}"
     
     text = (
@@ -1444,13 +1460,6 @@ async def payment_selection_handler(update: Update, context: ContextTypes.DEFAUL
 # =================================================================
 
 async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, silent=False):
-    """
-    Обробка кодів: 
-    1. GHST2026 (Глобальний промо: +69 грн без VIP).
-    2. GHST+ID (Реферальна система: +50 грн та VIP на 7 днів обом).
-    silent=True використовується, коли код активується через посилання (щоб не було спаму).
-    """
-    # Безпечне отримання тексту (навіть якщо це фейковий update з Deep Linking)
     if hasattr(update, 'message') and update.message and update.message.text:
         text = update.message.text.strip().upper()
     else:
@@ -1476,7 +1485,6 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
         if profile.get('promo_GHST2026_used'):
             msg = "⚠️ <b>Цей промокод ви вже активували!</b>"
         else:
-            # Нараховуємо ТІЛЬКИ +69 грн (без VIP)
             profile["next_order_discount"] = float(profile.get("next_order_discount", 0)) + 69.0
             profile["promo_GHST2026_used"] = True
             
@@ -1497,13 +1505,11 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
         elif profile.get('referral_used'):
             msg = "⚠️ <b>Ви вже активували реферальний код або переходили за посиланням раніше.</b>"
         else:
-            # Перевіряємо, чи існує власник коду в базі
             referrer = cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (target_id,)).fetchone()
             
             if not referrer:
                 msg = "❌ <b>Такого коду не знайдено. Перевірте цифри.</b>"
             else:
-                # --- 1. НАГОРОДА ВАМ (Тому, хто перейшов/ввів код) ---
                 current_expiry_str = profile.get("vip_expiry")
                 if current_expiry_str:
                     try:
@@ -1513,7 +1519,6 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
                 else:
                     current_date = datetime.now()
                 
-                # Додаємо +7 днів VIP та +50 грн
                 new_expiry = current_date + timedelta(days=7)
                 profile["vip_expiry"] = new_expiry.strftime("%Y-%m-%d")
                 profile["is_vip"] = True
@@ -1528,9 +1533,7 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
                 )
                 is_success = True
                 
-                # --- 2. НАГОРОДА ДРУГУ (Власнику коду) ---
                 try:
-                    # Додаємо гроші та VIP другу в БД
                     cursor.execute("""
                         UPDATE users 
                         SET next_order_discount = next_order_discount + 50,
@@ -1540,7 +1543,6 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
                     """, (new_expiry.strftime("%Y-%m-%d"), target_id))
                     conn.commit()
                     
-                    # Надсилаємо йому повідомлення (оскільки він не в боті в даний момент)
                     await context.bot.send_message(
                         chat_id=target_id,
                         text=(
@@ -1553,7 +1555,6 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
                         ),
                         parse_mode='HTML'
                     )
-                    logger.info(f"💰 +50 UAH and VIP reward sent to referrer {target_id}")
                 except Exception as e:
                     logger.error(f"Failed to reward referrer {target_id}: {e}")
 
@@ -1563,13 +1564,15 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
     # --- 3. ЗБЕРЕЖЕННЯ В БД (ДЛЯ ПОТОЧНОГО ЮЗЕРА) ---
     if is_success:
         try:
+            # 🔥 ВИПРАВЛЕНО: Тепер SQL-запит містить ВСІ колонки, включаючи referral_used!
             cursor.execute("""
                 UPDATE users 
                 SET is_vip = ?, 
                     vip_expiry = ?,
                     next_order_discount = ?,
                     promo_applied = ?,
-                    promo_GHST2026_used = ?
+                    promo_GHST2026_used = ?,
+                    referral_used = ?
                 WHERE user_id = ?
             """, (
                 1 if profile.get('is_vip') else 0, 
@@ -1577,19 +1580,18 @@ async def process_promo(update: Update, context: ContextTypes.DEFAULT_TYPE, sile
                 profile.get('next_order_discount'), 
                 1,
                 1 if profile.get('promo_GHST2026_used') else 0,
+                1 if profile.get('referral_used') else 0,
                 user.id
             ))
             conn.commit()
-            context.user_data['profile'] = profile # Оновлюємо кеш
+            context.user_data['profile'] = profile 
         except Exception as e:
             logger.error(f"DB Update Error (Promo): {e}")
             
     conn.close()
 
-    # --- 4. ВІДПОВІДЬ ---
     context.user_data['awaiting_promo'] = False
     
-    # Якщо це був не тихий запуск (через посилання), то відповідаємо
     if not silent:
         kb = [[InlineKeyboardButton("👤 У Кабінет (Перевірити)", callback_data="menu_profile")],
               [InlineKeyboardButton("🛍 До покупок", callback_data="cat_all")]]
@@ -1619,7 +1621,6 @@ async def show_ref_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     kb = [[InlineKeyboardButton("🔙 Назад", callback_data="menu_profile")]]
     await _edit_or_reply(update.callback_query, text, kb, context=context)
-    
 
 # =================================================================
 # 🛡 SECTION 26: ORDER CONFIRMATION & RECEIPT REQUEST
