@@ -76,7 +76,7 @@ if DEBUG_MODE:
 
 
 # =================================================================
-# 🛠 SECTION 2: UI ENGINE & ERROR SHIELD
+# 🛠 SECTION 2: UI ENGINE & ERROR SHIELD (PRO FIX)
 # =================================================================
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -103,16 +103,23 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     except Exception as e:
         logger.error(f"Failed to report error: {e}")
 
+
 async def _edit_or_reply(target, text: str, kb: list = None, photo: str = None, context: ContextTypes.DEFAULT_TYPE = None):
+    """
+    Головний рушій відображення повідомлень.
+    🔥 ВДОСКОНАЛЕНО: Додано Fallback-систему відправки тексту, якщо фото недоступне.
+    """
     if not text: text = "..."
     reply_markup = InlineKeyboardMarkup(kb) if isinstance(kb, list) else (kb if kb else None)
     query = target if hasattr(target, 'data') else getattr(target, 'callback_query', None)
     message = query.message if query else getattr(target, 'message', target)
+    
     if not message: return
     chat_id = message.chat_id
     bot = context.bot if context else message.get_bot()
 
     try:
+        # Спроба стандартної відправки/редагування
         if query:
             if photo:
                 if message.photo:
@@ -127,23 +134,46 @@ async def _edit_or_reply(target, text: str, kb: list = None, photo: str = None, 
                 else:
                     await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
         else:
-            if photo: await message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-            else: await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            if photo: 
+                await message.reply_photo(photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            else: 
+                await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+                
     except BadRequest as e:
+        # Якщо повідомлення не змінилося - ігноруємо
         if "Message is not modified" not in str(e):
             try: 
-                if photo: await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-                else: await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-            except: pass
+                # Спроба відправити новим повідомленням (якщо редагування неможливе)
+                if photo: 
+                    await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+                else: 
+                    await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            except Exception as photo_err:
+                # 🔥 ФОЛБЕК (FALLBACK): Якщо хостинг заблокував завантаження фото, відправляємо ТІЛЬКИ ТЕКСТ
+                try:
+                    logger.warning(f"⚠️ Фото недоступне (таймаут/блок хостингу). Відправляю текст. Причина: {photo_err}")
+                    await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+                except Exception as final_err:
+                    logger.error(f"❌ Критична помилка UI Engine: {final_err}")
+                    
+    except Exception as general_e:
+        # Страховка від будь-яких інших збоїв
+        logger.error(f"Неочікувана помилка в _edit_or_reply: {general_e}")
+        try:
+            await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+        except: 
+            pass
+
 
 async def send_ghosty_message(update_obj, text: str, kb=None, photo=None, context: ContextTypes.DEFAULT_TYPE = None):
     await _edit_or_reply(update_obj, text, kb, photo, context)
+
 
 async def safe_delete(message):
     try:
         if hasattr(message, 'delete'): await message.delete()
     except: pass
-
+        
 
 # =================================================================
 # 🛍 SECTION 3: DATA REGISTRY (PRODUCTS & CITIES)
