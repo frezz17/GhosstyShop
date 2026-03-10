@@ -2340,7 +2340,7 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 item = get_item_data(item_id)
                 
                 gift_id = None
-                # 🔥 Виправлено: Просто перевіряємо, чи є цифри в кінці
+                # Просто перевіряємо, чи є цифри в кінці
                 if len(parts) > 3 and parts[-1].isdigit():
                     gift_id = int(parts[-1])
 
@@ -2354,6 +2354,10 @@ async def global_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     await start_data_collection(update, context, next_action='fast_order' if is_fast else 'manager_order')
             except Exception as e: 
                 logger.error(f"Order route error: {e}")
+
+    except Exception as e:
+        logger.error(f"GLOBAL DISPATCHER FATAL: {e} | DATA: {data}")
+        traceback.print_exc()
 
 # =================================================================
 # 🚀 SECTION 31: ENGINE STARTUP & ELITE MONITORING (TITAN v10.5)
@@ -2369,12 +2373,12 @@ async def post_init(application: Application) -> None:
         bot = await application.bot.get_me()
         ping = round((time.time() - start_ping) * 1000, 2)
         
-        # 💻 Системні дані
+        # Системні дані
         db_sz = f"{os.path.getsize(DB_PATH) / 1024:.2f} KB" if os.path.exists(DB_PATH) else "🛠 NEW"
         uptime = str(datetime.now() - START_TIME).split('.')[0]
         py_ver = platform.python_version()
         
-        # 💎 Дизайнерський звіт в Telegram
+        # Дизайнерський звіт в Telegram
         report = (
             f"🛰 <b>GHO$$TY STAFF | MONITORING CENTER</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
