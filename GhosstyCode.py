@@ -749,17 +749,17 @@ async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE
     """
     profile = context.user_data.get("profile", {})
     
-    # 🔥 ВИПРАВЛЕННЯ ЦІНИ (Пункт №7): Використовуємо універсальну функцію
+    # 🔥 ВИПРАВЛЕННЯ ЦІНИ: Використовуємо універсальну функцію
     price_html, final_price, is_discounted = get_price_display(item['price'], profile, item_id)
 
-# --- ЛОГІКА СКЛАДУ (FIXED) ---
-stock = item.get('stock', 0)
-if stock >= 13: 
-    stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
-elif 1 <= stock < 13: 
-    stock_status = f"🟡 <b>Залишилось небагато</b> ({stock} шт) 🔥"
-else: 
-    stock_status = "🔴 <b>Тимчасово відсутній</b>"
+    # --- ЛОГІКА СКЛАДУ (FIXED & INDENTED) ---
+    stock = item.get('stock', 0)
+    if stock >= 13: 
+        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
+    elif 1 <= stock < 13: 
+        stock_status = f"🟡 <b>Залишилось небагато</b> ({stock} шт) 🔥"
+    else: 
+        stock_status = "🔴 <b>Тимчасово відсутній</b>"
 
     # --- ЛОГІКА КОЛЬОРУ ---
     selected_color = context.user_data.get('selected_color')
@@ -816,9 +816,8 @@ else:
     kb.append([InlineKeyboardButton("🔙 До каталогу", callback_data="cat_all")])
     await send_ghosty_message(update, caption, kb, photo=current_photo, context=context)
 
-
 async def handle_color_selection_click(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: int, color_name: str):
-    """Обробляє клік по кольору: розумний пошук фото (ігнорує емодзі) та оновлення галочки."""
+    """Обробляє клік по кольору: розумний пошук фото та оновлення картки."""
     item = get_item_data(item_id)
     if not item: return
 
@@ -826,7 +825,6 @@ async def handle_color_selection_click(update: Update, context: ContextTypes.DEF
     previews = item.get("color_previews", {})
     
     new_photo = item['img']
-    # Розумний пошук: перевіряємо, чи є слово "Black" у "⚫️ Black"
     for key, url in previews.items():
         if key in color_name:
             new_photo = url
