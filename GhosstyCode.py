@@ -208,27 +208,27 @@ LIQUIDS = {
 }
 
 HHC_VAPES = {
-    100: {"name": "🌴 Packwoods Purple 1ml", "type": "hhc", "price": 999.99, "stock": 16, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg", "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+    100: {"name": "🌴 Packwoods Purple 1ml", "type": "hhc", "price": 999.99, "stock": 24, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/svXqXPgL/Ghost-Vape-3.jpg", "desc": "🧠 <b>90% HHC | Гібрид</b>\n😌 Розслаблення + ейфорія\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
 
-    101: {"name": "🍊 Packwoods Orange 1ml", "type": "hhc", "price": 999.99, "stock": 14, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/SDJFRTwk/Ghost-Vape-1.jpg", "desc": "🧠 <b>90% HHC | Сатіва</b>\n⚡ Бадьорить та фокусує\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+    101: {"name": "🍊 Packwoods Orange 1ml", "type": "hhc", "price": 999.99, "stock": 21, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/SDJFRTwk/Ghost-Vape-1.jpg", "desc": "🧠 <b>90% HHC | Сатіва</b>\n⚡ Бадьорить та фокусує\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
 
-    102: {"name": "🌸 Packwoods Pink 1ml", "type": "hhc", "price": 999.99, "stock": 4, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg", "desc": "🧠 <b>90% HHC | Індіка</b>\n😇 Спокій + підйом настрою\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+    102: {"name": "🌸 Packwoods Pink 1ml", "type": "hhc", "price": 999.99, "stock": 19, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/65j1901/Ghost-Vape-2.jpg", "desc": "🧠 <b>90% HHC | Індіка</b>\n😇 Спокій + підйом настрою\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
 
-    103: {"name": "🌿 Whole Mint 2ml", "type": "hhc", "price": 1399.99, "stock": 9, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/W4hqn2tZ/Ghost-Vape-4.jpg", "desc": "🧠 <b>95% HHC | Сатіва</b>\n⚡ Енергія та ясність (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+    103: {"name": "🌿 Whole Mint 2ml", "type": "hhc", "price": 1399.99, "stock": 6, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/W4hqn2tZ/Ghost-Vape-4.jpg", "desc": "🧠 <b>95% HHC | Сатіва</b>\n⚡ Енергія та ясність (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
 
-    104: {"name": "🌴 Jungle Boys White 2ml", "type": "hhc", "price": 1799.99, "stock": 8, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
+    104: {"name": "🌴 Jungle Boys White 2ml", "type": "hhc", "price": 1799.99, "stock": 3, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/Zzk29HMy/Ghost-Vape-5.jpg", "desc": "🧠 <b>95% HHC | Індика</b>\n😴 Глибокий релакс (2ml)\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK},
 
-    105: {"name": "🔥 Ace&Gold Ghossty Edition 1.5ml", "type": "hhc", "price": 1599.99, "stock": 7, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/5h9VDkF6/photo-2026-02-21-17-39-26.jpg", "desc": "👑 <b>95% HHC | Гібрид (Потужний)</b>\n🔥 Ексклюзивна <b>Ghossty Edition</b> у преміальному золотому корпусі\n✨ Насичений смак + стабільна тяга\n🌿 Потужний ефект та комфортне використання\n🎁 Стильний девайс ідеально підійде для себе або подарунка\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK}
+    105: {"name": "🔥 Ace&Gold Ghossty Edition 1.5ml", "type": "hhc", "price": 1599.99, "stock": 4, "discount": True, "gift_liquid": True, "img": "https://i.ibb.co/5h9VDkF6/photo-2026-02-21-17-39-26.jpg", "desc": "👑 <b>95% HHC | Гібрид (Потужний)</b>\n🔥 Ексклюзивна <b>Ghossty Edition</b> у преміальному золотому корпуси\n✨ Насичений смак + стабільна тяга\n🎁 <b>+ РІДИНА БЕЗКОШТОВНО!</b>", "payment_url": PAYMENT_LINK}
 }
 
 PODS = {
-    500: {"name": "🔌 Vaporesso XROS Pro", "type": "pod", "stock": 10, "gift_liquid": True, "price": 999, "discount": False, "img": "https://i.ibb.co/rKvNKwFP/Polish-20260310-035040856.jpg", "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.", "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red"], "color_previews": {"Black": "https://i.ibb.co/rKvNKwFP/Polish-20260310-035040856.jpg", "Silver": "https://i.ibb.co/Fkqc5S9G/Polish-20260310-035143043.jpg", "Red": "https://i.ibb.co/LXb9mhBf/Polish-20260310-035252469.jpg"}, "payment_url": PAYMENT_LINK},
-    501: {"name": "🔌 Vaporesso XROS 5", "type": "pod", "stock": 8, "gift_liquid": True, "price": 839, "discount": False, "img": "https://i.ibb.co/1HdPNKh/Polish-20260310-040417817.jpg", "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.", "colors": ["⚫️ Obsidian Black", "⚪️ Pearl White", "🔵 Pink"], "color_previews": {"Obsidian Black": "https://i.ibb.co/1HdPNKh/Polish-20260310-040417817.jpg", "Pearl White": "https://i.ibb.co/RpW3VBrZ/Polish-20260310-040517300.jpg", "Pink": "https://i.ibb.co/5XdQNwDR/Polish-20260310-040622066.jpg"}, "payment_url": PAYMENT_LINK},
-    502: {"name": "🔌 Vaporesso XROS Nano 5", "type": "pod", "stock": 12, "gift_liquid": True, "price": 779, "discount": False, "img": "https://i.ibb.co/fzxY8fCB/Polish-20260310-035712367.jpg", "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.", "colors": ["⚫️ Black", "🟠 Brown", "🌸 Pink"], "color_previews": {"Black": "https://i.ibb.co/fzxY8fCB/Polish-20260310-035712367.jpg", "Brown": "https://i.ibb.co/0pWT0RDw/Polish-20260310-035926140.jpg", "Pink": "https://i.ibb.co/LDtSBmNr/Polish-20260310-035829615.jpg"}, "payment_url": PAYMENT_LINK},
+    500: {"name": "🔌 Vaporesso XROS Pro", "type": "pod", "stock": 4, "gift_liquid": True, "price": 999, "discount": False, "img": "https://i.ibb.co/rKvNKwFP/Polish-20260310-035040856.jpg", "desc": "🚀 <b>PROFESSIONAL | 1200 mAh</b>\nЕкран, регулювання потужності, блокування.", "colors": ["⚫️ Black", "⚪️ Silver", "🔴 Red"], "color_previews": {"Black": "https://i.ibb.co/rKvNKwFP/Polish-20260310-035040856.jpg", "Silver": "https://i.ibb.co/Fkqc5S9G/Polish-20260310-035143043.jpg", "Red": "https://i.ibb.co/LXb9mhBf/Polish-20260310-035252469.jpg"}, "payment_url": PAYMENT_LINK},
+    501: {"name": "🔌 Vaporesso XROS 5", "type": "pod", "stock": 6, "gift_liquid": True, "price": 839, "discount": False, "img": "https://i.ibb.co/1HdPNKh/Polish-20260310-040417817.jpg", "desc": "💎 <b>ПРЕМІУМ ФЛАГМАН</b>\n1200 mAh, 3 режими, супер-смак.", "colors": ["⚫️ Obsidian Black", "⚪️ Pearl White", "🔵 Pink"], "color_previews": {"Obsidian Black": "https://i.ibb.co/1HdPNKh/Polish-20260310-040417817.jpg", "Pearl White": "https://i.ibb.co/RpW3VBrZ/Polish-20260310-040517300.jpg", "Pink": "https://i.ibb.co/5XdQNwDR/Polish-20260310-040622066.jpg"}, "payment_url": PAYMENT_LINK},
+    502: {"name": "🔌 Vaporesso XROS Nano 5", "type": "pod", "stock": 8, "gift_liquid": True, "price": 779, "discount": False, "img": "https://i.ibb.co/fzxY8fCB/Polish-20260310-035712367.jpg", "desc": "🎒 <b>КОМПАКТНИЙ КВАДРАТ</b>\nСтильний, зручний, на шнурку.", "colors": ["⚫️ Black", "🟠 Brown", "🌸 Pink"], "color_previews": {"Black": "https://i.ibb.co/fzxY8fCB/Polish-20260310-035712367.jpg", "Brown": "https://i.ibb.co/0pWT0RDw/Polish-20260310-035926140.jpg", "Pink": "https://i.ibb.co/LDtSBmNr/Polish-20260310-035829615.jpg"}, "payment_url": PAYMENT_LINK},
     503: {"name": "🔌 Vaporesso XROS 5 Mini", "type": "pod", "stock": 15, "gift_liquid": True, "price": 699, "discount": False, "img": "https://i.ibb.co/9kjjt8fS/Polish-20260310-035358626.jpg", "desc": "🔥 <b>НОВИНКА 2025 | COREX 2.0</b>\nМаксимальна передача смаку.", "colors": ["⚫️ Core Black", "🌸 Pink", "🟢 Green"], "color_previews": {"Core Black": "https://i.ibb.co/9kjjt8fS/Polish-20260310-035358626.jpg", "Green": "https://i.ibb.co/qFRkWbSd/Polish-20260310-035559939.jpg", "Pink": "https://i.ibb.co/Wppc1Kpz/Polish-20260310-035500449.jpg"}, "payment_url": PAYMENT_LINK},
-    504: {"name": "🔌 Vaporesso XROS 4", "type": "pod", "stock": 11, "gift_liquid": True, "price": 799, "discount": False, "img": "https://i.ibb.co/dxxRp0s/Polish-20260310-040035754.jpg", "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.", "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient"], "color_previews": {"Black": "https://i.ibb.co/dxxRp0s/Polish-20260310-040035754.jpg", "Blue": "https://i.ibb.co/yFBdq6H5/Polish-20260310-040313133.jpg", "Purple Gradient": "https://i.ibb.co/R4pNBjqd/Polish-20260310-040208981.jpg"}, "payment_url": PAYMENT_LINK},
-    505: {"name": "🔌 Vaporesso XROS 3 Mini", "type": "pod", "stock": 15, "gift_liquid": True, "price": 549, "discount": False, "img": "https://i.ibb.co/3yjwss9n/Polish-20260310-034640422.jpg", "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель.\n✨ <i>Ідеальний вибір для старту.</i>", "colors": ["⚫️ Black", "🟢 Green", "🌸 Pink"], "color_previews": {"Black": "https://i.ibb.co/3yjwss9n/Polish-20260310-034640422.jpg", "Green": "https://i.ibb.co/HfJyCtCy/Polish-20260310-034754250.jpg", "Pink": "https://i.ibb.co/MD42jyrq/Polish-20260310-034919145.jpg"}, "payment_url": PAYMENT_LINK},
-    506: {"name": "🔌 Voopoo Vmate Mini", "type": "pod", "stock": 25, "gift_liquid": True, "price": 479, "discount": False, "img": "https://i.ibb.co/HDMZfbSj/Polish-20260310-040815896.jpg", "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.", "colors": ["⚫️ Black", "🔴 Red", "🌸 Pink"], "color_previews": {"Black": "https://i.ibb.co/HDMZfbSj/Polish-20260310-040815896.jpg", "Red": "https://i.ibb.co/S7Jt4Z2P/Polish-20260310-040956311.jpg", "Pink": "https://i.ibb.co/nNrz1dKC/Polish-20260310-041156722.jpg"}, "payment_url": PAYMENT_LINK}
+    504: {"name": "🔌 Vaporesso XROS 4", "type": "pod", "stock": 7, "gift_liquid": True, "price": 799, "discount": False, "img": "https://i.ibb.co/dxxRp0s/Polish-20260310-040035754.jpg", "desc": "👌 <b>БАЛАНС ТА СТИЛЬ</b>\nМеталевий корпус, 3 режими потужності.", "colors": ["⚫️ Black", "🔵 Blue", "🟣 Purple Gradient"], "color_previews": {"Black": "https://i.ibb.co/dxxRp0s/Polish-20260310-040035754.jpg", "Blue": "https://i.ibb.co/yFBdq6H5/Polish-20260310-040313133.jpg", "Purple Gradient": "https://i.ibb.co/R4pNBjqd/Polish-20260310-040208981.jpg"}, "payment_url": PAYMENT_LINK},
+    505: {"name": "🔌 Vaporesso XROS 3 Mini", "type": "pod", "stock": 28, "gift_liquid": True, "price": 549, "discount": False, "img": "https://i.ibb.co/3yjwss9n/Polish-20260310-034640422.jpg", "desc": "🔋 <b>1000 mAh | MTL</b>\nЛегендарна модель.", "colors": ["⚫️ Black", "🟢 Green", "🌸 Pink"], "color_previews": {"Black": "https://i.ibb.co/3yjwss9n/Polish-20260310-034640422.jpg", "Green": "https://i.ibb.co/HfJyCtCy/Polish-20260310-034754250.jpg", "Pink": "https://i.ibb.co/MD42jyrq/Polish-20260310-034919145.jpg"}, "payment_url": PAYMENT_LINK},
+    506: {"name": "🔌 Voopoo Vmate Mini", "type": "pod", "stock": 35, "gift_liquid": True, "price": 479, "discount": False, "img": "https://i.ibb.co/HDMZfbSj/Polish-20260310-040815896.jpg", "desc": "😌 <b>ЛЕГКИЙ СТАРТ</b>\nАвтоматична тяга, жодних кнопок.", "colors": ["⚫️ Black", "🔴 Red", "🌸 Pink"], "color_previews": {"Black": "https://i.ibb.co/HDMZfbSj/Polish-20260310-040815896.jpg", "Red": "https://i.ibb.co/S7Jt4Z2P/Polish-20260310-040956311.jpg", "Pink": "https://i.ibb.co/nNrz1dKC/Polish-20260310-041156722.jpg"}, "payment_url": PAYMENT_LINK}
 }
 
 GIFT_LIQUIDS = {
@@ -449,7 +449,7 @@ async def show_category_items(update: Update, context: ContextTypes.DEFAULT_TYPE
             btn_text = f"⛔️ {item['name']} (Sold Out)"
             kb.append([InlineKeyboardButton(btn_text, callback_data="ignore_click")])
         else:
-            hot_mark = "⌛ " if stock < 10 else ""
+            hot_mark = "⌛ " if stock < 3 else ""
             vip_mark = "🔥 " if is_discounted else ""
             btn_text = f"{vip_mark}{hot_mark}{item['name']} | {price_display}"
             kb.append([InlineKeyboardButton(btn_text, callback_data=f"view_item_{i_id}")])
@@ -752,14 +752,14 @@ async def render_product_card(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 🔥 ВИПРАВЛЕННЯ ЦІНИ (Пункт №7): Використовуємо універсальну функцію
     price_html, final_price, is_discounted = get_price_display(item['price'], profile, item_id)
 
-    # --- ЛОГІКА СКЛАДУ ---
-    stock = item.get('stock', 0)
-    if stock >= 13: 
-        stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
-    elif 9 <= stock < 13: 
-        stock_status = f"🟡 <b>Закінчується</b> ({stock})"
-    else: 
-        stock_status = "🔴 <b>Немає в наявності</b>"
+# --- ЛОГІКА СКЛАДУ (FIXED) ---
+stock = item.get('stock', 0)
+if stock >= 13: 
+    stock_status = f"🟢 <b>В наявності</b> ({stock} шт)"
+elif 1 <= stock < 13: 
+    stock_status = f"🟡 <b>Залишилось небагато</b> ({stock} шт) 🔥"
+else: 
+    stock_status = "🔴 <b>Тимчасово відсутній</b>"
 
     # --- ЛОГІКА КОЛЬОРУ ---
     selected_color = context.user_data.get('selected_color')
