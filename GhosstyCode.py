@@ -2900,32 +2900,40 @@ import sys
 import traceback
 import logging
 from datetime import datetime
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, PicklePersistence, Defaults
-from telegram.constants import ParseMode
 
-# Конфігурація логів (ОБОВ'ЯЗКОВО до старту main)
+# Налаштування логування
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+    level=logging.INFO
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("GhostyBoot")
+
+# Глобальна точка відліку для аптайму
+START_TIME = datetime.now()
 
 async def post_init(application: Application) -> None:
     """Професійний звіт системи моніторингу GHO$$TY для Адміна."""
     try:
+        # 1. Ініціалізація бази даних (якщо функція існує)
+        if 'init_db' in globals():
+            globals()['init_db']()
+            logger.info("📡 Database: SQLite3 Connection Verified.")
+
+        # 2. Збір метрик
         start_ping = time.time()
         bot_info = await application.bot.get_me()
         ping = round((time.time() - start_ping) * 1000, 2)
         
         db_sz = f"{os.path.getsize(DB_PATH) / 1024:.2f} KB" if os.path.exists(DB_PATH) else "🛠 NEW"
-        # Розрахунок аптайму
         uptime_dt = datetime.now() - START_TIME
         uptime_str = str(uptime_dt).split('.')[0]
         
+        # 3. Формування звіту
         report = (
             f"🛰 <b>GHO$$TY STAFF | MONITORING CENTER</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🤖 <b>BOT-NODE:</b> @{bot_info.username}\n"
-            f"🛡 <b>VERSION:</b> <code>TITAN ULTIMATE v10.5</code>\n"
+            f"🛡 <b>VERSION:</b> <code>TITAN ULTIMATE v10.6</code>\n"
             f"🟢 <b>STATUS:</b> <code>STABLE / ONLINE</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"⚡️ <b>PERFORMANCE:</b>\n"
@@ -2938,79 +2946,84 @@ async def post_init(application: Application) -> None:
             f"📦 DB Weight: <code>{db_sz}</code>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🕒 <code>{datetime.now().strftime('%d.%m.%Y | %H:%M:%S')}</code>\n\n"
-            f"👑 <i>System fully operational. Waiting for customers...</i>"
+            f"👑 <i>System fully operational. Ready for orders.</i>"
         )
-        # Відправка менеджеру та адміну (якщо вони різні)
-        await application.bot.send_message(chat_id=MANAGER_ID, text=report)
+        
+        # 4. Сповіщення адміна
+        await application.bot.send_message(chat_id=MANAGER_ID, text=report, parse_mode='HTML')
+        logger.info(f"🚀 Boot Report sent to Manager ({MANAGER_ID})")
+        
     except Exception as e:
-        logger.error(f"Post-init reporting failed: {e}")
+        logger.error(f"❌ Post-init reporting failed: {e}")
 
 def main():
     # ЕЛІТНИЙ СИСАДМІН-ВИВІД
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print("\n" + "═"*60)
-    print(f"   ☁️  GHO$$TY STAFF PREMIUM ENGINE v10.5  ☁️")
-    print("═"*60)
-    print(f"   [⏳] TIME:      {datetime.now().strftime('%H:%M:%S')}")
-    print(f"   [👤] ADMIN ID:  {MANAGER_ID}")
+    if os.name == 'nt': os.system('cls')
+    else: os.system('clear')
     
-    if not TOKEN or "ВСТАВ" in TOKEN:
-        print(f"   [❌] FATAL:      BOT_TOKEN IS MISSING!")
-        print("═"*60 + "\n")
+    print("\n" + "═"*60)
+    print(f"    ☁️  GHO$$TY STAFF PREMIUM ENGINE v10.6  ☁️")
+    print("═" * 60)
+    print(f"    [⏳] TIME:      {datetime.now().strftime('%H:%M:%S')}")
+    print(f"    [👤] ADMIN ID:  {MANAGER_ID}")
+    
+    if not TOKEN or "8351638507" not in TOKEN: # Валідація токена
+        print(f"    [❌] FATAL:      BOT_TOKEN IS INCORRECT OR MISSING!")
+        print("═" * 60 + "\n")
         sys.exit(1)
         
-    # Ініціалізація бази (Section 12)
-    if 'init_db' in globals():
-        globals()['init_db']()
-        print(f"   [💾] DATABASE:   SQLITE3 Connection Active")
-    
     # Конфігурація додатка
     persistence = PicklePersistence(filepath=PERSISTENCE_PATH)
-    defaults = Defaults(parse_mode=ParseMode.HTML)
+    
+    # Використовуємо Defaults для чистоти коду в хендлерах
+    defaults = Defaults(parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
     app = (
         Application.builder()
         .token(TOKEN)
         .persistence(persistence)
         .defaults(defaults)
-        .connection_pool_size(25)
-        .post_init(post_init)
+        .post_init(post_init) # Виклик звіту та БД
+        .concurrent_updates(True) # Включення паралельної обробки
         .build()
     )
 
     # РЕЄСТРАЦІЯ ХЕНДЛЕРІВ (Titan Bulletproof Routing)
-    app.add_handler(CommandHandler("start", globals().get('start_command')))
-    app.add_handler(CommandHandler("admin", globals().get('admin_menu')))
+    # Команди
+    app.add_handler(CommandHandler("start", globals().get('start_command', lambda u, c: None)))
+    app.add_handler(CommandHandler("admin", globals().get('admin_menu', lambda u, c: None)))
     
-    # Головний обробник кнопок (Section 29)
+    # Кнопки
     app.add_handler(CallbackQueryHandler(globals().get('global_callback_handler')))
     
-   # Головний обробник тексту та медіа (Синхронізація з Section 28)
-    # Змінюємо global_message_handler на handle_user_input
-    app.add_handler(MessageHandler(
-        (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.Document.IMAGE) & ~filters.COMMAND, 
-        globals().get('handle_user_input') # <--- ТУТ була невідповідність
-    ))
+    # Текст та Медіа (Синхронізація з global_message_handler)
+    # ПРІОРИТЕТ: global_message_handler (як у твоєму останньому файлі)
+    msg_handler = globals().get('global_message_handler') or globals().get('handle_user_input')
+    
+    if msg_handler:
+        app.add_handler(MessageHandler(
+            (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.Document.ALL) & ~filters.COMMAND, 
+            msg_handler
+        ))
     
     # Error handler (Section 25)
     if 'error_handler' in globals():
         app.add_error_handler(globals()['error_handler'])
     
-    print(f"   [🌐] NETWORK:    Pool Size: 25 | Drop Pending: True")
-    print(f"   [🚀] STATUS:     POLLING STARTED - SYSTEM ONLINE")
-    print("═"*60 + "\n")
+    print(f"    [🌐] NETWORK:    Pool Size: 25 | Drop Pending: True")
+    print(f"    [🚀] STATUS:     POLLING STARTED - SYSTEM ONLINE")
+    print("═" * 60 + "\n")
     
+    # Запуск бота з очищенням старих запитів
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    # Фіксація часу старту для аптайму
-    START_TIME = datetime.now()
     try:
         main()
     except (KeyboardInterrupt, SystemExit):
-        print(f"\n   [🚫] SHUTDOWN:   System manually terminated.")
+        print(f"\n    [🚫] SHUTDOWN:    System manually terminated.")
     except Exception as fatal_e:
-        print(f"\n   [💥] CRASH:      CRITICAL ERROR DETECTED!")
-        print(f"   [!] REASON:     {fatal_e}")
+        print(f"\n    [💥] CRASH:      CRITICAL ERROR DETECTED!")
+        print(f"    [!] REASON:      {fatal_e}")
         traceback.print_exc()
         sys.exit(1)
