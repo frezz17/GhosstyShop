@@ -40,18 +40,18 @@ from telegram.ext import (
 from telegram.error import BadRequest, NetworkError, TimedOut
 
 # 🛡️ ТЕХНІЧНА ГІГІЄНА & СИСТЕМНИЙ КОНТРОЛЬ
-# Пригнічуємо зайві попередження бібліотек для чистоти логів
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# Гарантуємо унікальність логера GhostyCore (запобігає дублюванню записів)
-if 'GhostyCore' in logging.Logger.manager.loggerDict:
-    logging.getLogger("GhostyCore").handlers.clear()
+# Гарантуємо унікальність логера (використовуємо GhosstyCore для точності)
+if 'GhosstyCore' in logging.Logger.manager.loggerDict:
+    logging.getLogger("GhosstyCore").handlers.clear()
 
-# Ініціалізація пулу потоків для важких операцій з БД (щоб не блокувати Event Loop)
+logger = logging.getLogger("GhosstyCore")
+
+# Ініціалізація пулу потоків для важких операцій з БД
 db_executor = ThreadPoolExecutor(max_workers=5)
 
-# Кольоровий вивід у термінал (опціонально для дебагу)
 class Colors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -93,7 +93,7 @@ LOG_PATH = os.path.join(DATA_DIR, 'ghosty_system.log')
 # 🔑 AUTH & ADMINISTRATION
 # =================================================================
 # Використовуй екологічний підхід: токен з оточення, але з fallback-значенням
-TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAGH4wmu0UUk-v1rzLXIY3eTfQsSscDrvBE")
+TOKEN = os.getenv("BOT_TOKEN", "8351638507:AAHV2kIM0b_H0tFCTJgF4GGq5qaKX4y58_c")
 MANAGER_ID = 7544847872
 ADMIN_LIST = [MANAGER_ID]
 MANAGER_USERNAME = "ghosstydp"
@@ -2186,11 +2186,17 @@ async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_
             if target_gift_id:
                 g = globals().get('get_item_data')(target_gift_id)
                 if g: items_text += f"    🎁 Бонус: {g['name']}\n"
-    elif cart:
-        for i in cart:
-            _, p, _ = globals().get('get_price_display')(i['price'], profile, i.get('real_id'))
-            total_goods_price += p
-            items_text += f"▫️ {i['name']}{f' (🎨 {i.get('color')})' if i.get('color') else ''} — {int(p)} грн\n"
+  elif cart:
+    for i in cart:
+        # 1. Получаем цену (как и было)
+        _, p, _ = globals().get('get_price_display')(i['price'], profile, i.get('real_id'))
+        total_goods_price += p
+        
+        # 2. Сначала готовим строку с цветом (отдельно от основной строки)
+        color_info = f" (🎨 {i.get('color')})" if i.get('color') else ""
+        
+        # 3. Формируем финальную строку для этого товара
+        items_text += f"▫️ {i['name']}{color_info} — {int(p)} грн\n"
     else:
         if update.callback_query: await update.callback_query.answer("⚠️ Кошик порожній", show_alert=True)
         return
