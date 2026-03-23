@@ -2161,10 +2161,11 @@ from telegram.ext import ContextTypes
 
 # Конфігурація (переконайся, що MANAGER_ID та ADMIN_ID синхронізовані в Section 1)
 MANAGER_ID = 5309653842 
-MANAGER_USERNAME = "ghosstydp" # Юзернейм БЕЗ @ для посилання
+MANAGER_USERNAME = "ghosstydp"  # Юзернейм БЕЗ @ для посилання
 
 async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Генератор заявки. Об'єднує розрахунок, бонуси та запис в БД."""
+    
     user = update.effective_user
     profile = context.user_data.get('profile', {})
     
@@ -2172,61 +2173,74 @@ async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_
     target_item_id = context.user_data.get('target_item_id')
     target_gift_id = context.user_data.get('target_gift_id')
     cart = context.user_data.get('cart', [])
-    
+
     items_text = ""
     total_goods_price = 0.0
-    
+
+    # --- ОДИНОЧНИЙ ТОВАР ---
     if target_item_id:
-        item = globals().get('get_item_data')(target_item_id)
-        if item:
-            color = context.user_data.get('selected_color')
-            _, price, _ = globals().get('get_price_display')(item['price'], profile, target_item_id)
-            total_goods_price = price
-            items_text += f"▫️ {item['name']}{f' (🎨 {color})' if color else ''} — {int(price)} грн\n"
-            if target_gift_id:
-                g = globals().get('get_item_data')(target_gift_id)
-                if g: items_text += f"    🎁 Бонус: {g['name']}\n"
-  elif cart:
-    for i in cart:
-        # 1. Получаем цену (как и было)
-        _, p, _ = globals().get('get_price_display')(i['price'], profile, i.get('real_id'))
-        total_goods_price += p
-        
-        # 2. Сначала готовим строку с цветом (отдельно от основной строки)
-        color_info = f" (🎨 {i.get('color')})" if i.get('color') else ""
-        
-        # 3. Формируем финальную строку для этого товара
-        items_text += f"▫️ {i['name']}{color_info} — {int(p)} грн\n"
+        get_item_data = globals().get('get_item_data')
+        get_price_display = globals().get('get_price_display')
+        if get_item_data and get_price_display:
+            item = get_item_data(target_item_id)
+            if item:
+                color = context.user_data.get('selected_color')
+                _, price, _ = get_price_display(item['price'], profile, target_item_id)
+                total_goods_price += price
+                items_text += f"▫️ {item['name']}{f' (🎨 {color})' if color else ''} — {int(price)} грн\n"
+                
+                # Бонусний подарунок
+                if target_gift_id:
+                    g = get_item_data(target_gift_id)
+                    if g:
+                        items_text += f"    🎁 Бонус: {g['name']}\n"
+
+    # --- КОРЗИНА ---
+    elif cart:
+        get_price_display = globals().get('get_price_display')
+        if get_price_display:
+            for i in cart:
+                _, p, _ = get_price_display(i['price'], profile, i.get('real_id'))
+                total_goods_price += p
+
+                color_info = f" (🎨 {i.get('color')})" if i.get('color') else ""
+                items_text += f"▫️ {i['name']}{color_info} — {int(p)} грн\n"
+
+    # --- ПОРОЖНЯ КОРЗИНА ---
     else:
-        if update.callback_query: await update.callback_query.answer("⚠️ Кошик порожній", show_alert=True)
+        if update.callback_query:
+            await update.callback_query.answer("⚠️ Кошик порожній", show_alert=True)
         return
 
     # 2. РОЗРАХУНОК ТА БОНУСИ
     delivery_price = 150.0 if "Кур'єр" in str(profile.get('district', '')) and not profile.get("is_vip") else 0.0
     pre_total = total_goods_price + delivery_price
-    
+
     current_balance = float(profile.get('next_order_discount', 0.0))
     discount_to_apply = min(current_balance, max(0.0, pre_total - 1.0))
     final_amount = pre_total - discount_to_apply
-    
+
     # Зберігаємо в context клієнта для Section 28 (WAITING_RECEIPT)
     context.user_data['final_checkout_sum'] = final_amount
     context.user_data['planned_bonus_deduction'] = discount_to_apply
 
-    # 3. ГЕНЕРАЦІЯ ID ТА ЗАПИС В БД (Додаємо суму бонусів в базу!)
-    order_id = f"GH{random.randint(100, 999)}-{user.id % 10000}"
+    # 3. ГЕНЕРАЦІЯ ID ТА ЗАПИС В БД
+    order_id = f"GH{random.randint(100, 999)}-{user.id % 10000:04d}"
     context.user_data['current_order_id'] = order_id
-    
+
     try:
-        with sqlite3.connect(globals().get('DB_PATH'), timeout=30) as conn:
-            # ВАЖЛИВО: додаємо discount_applied у таблицю orders (переконайся, що така колонка є або ігноруй)
-            conn.execute("""
-                INSERT INTO orders (order_id, user_id, amount, status) 
-                VALUES (?, ?, ?, ?)
-            """, (order_id, user.id, final_amount, 'awaiting_payment'))
-            conn.commit()
-    except Exception as e: 
-        globals().get('logger').error(f"DB Order Error: {e}")
+        db_path = globals().get('DB_PATH')
+        logger = globals().get('logger')
+        if db_path:
+            with sqlite3.connect(db_path, timeout=30) as conn:
+                conn.execute("""
+                    INSERT INTO orders (order_id, user_id, amount, status) 
+                    VALUES (?, ?, ?, ?)
+                """, (order_id, user.id, final_amount, 'awaiting_payment'))
+                conn.commit()
+    except Exception as e:
+        if logger:
+            logger.error(f"DB Order Error: {e}")
 
     # 4. ФОРМУВАННЯ ПОВІДОМЛЕННЯ
     report = (
@@ -2236,7 +2250,7 @@ async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_
         f"🛒 ТОВАРИ:\n{items_text}"
         f"💰 ДО СПЛАТИ: {final_amount:.2f} грн"
     )
-    
+
     # 5. DEEP LINK
     magic_link = f"https://t.me/{MANAGER_USERNAME}?text={quote(report)}"
 
@@ -2249,34 +2263,33 @@ async def submit_order_to_manager(update: Update, context: ContextTypes.DEFAULT_
         f"💎 Знижка бонусами: <b>-{int(discount_to_apply)} грн</b>\n\n"
         f"👇 <b>ОБЕРІТЬ СПОСІБ ПІДТВЕРДЖЕННЯ:</b>"
     )
-    
+
     kb = [
         [InlineKeyboardButton("📸 НАДІСЛАТИ ЧЕК У БОТ", callback_data="confirm_payment_start")],
         [InlineKeyboardButton("✈️ НАПИСАТИ МЕНЕДЖЕРУ", url=magic_link)],
         [InlineKeyboardButton("🔙 НАЗАД", callback_data="menu_cart")]
     ]
-    
+
     if update.callback_query:
         await update.callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
     else:
         await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
 
-# --- СИСТЕМА ПРИЙНЯТТЯ РІШЕНЬ (CALLBACKS ДЛЯ АДМІНА) ---
 
+# --- СИСТЕМА ПРИЙНЯТТЯ РІШЕНЬ (CALLBACKS ДЛЯ АДМІНА) ---
 async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обробка кнопок ✅ Прийняти / ❌ Відмовити."""
     query = update.callback_query
     # adm_pay_ok_USERID_ORDERID_BONUS
     data_parts = query.data.split("_")
-    if len(data_parts) < 5: return
-    
+    if len(data_parts) < 5: 
+        return
+
     _, _, action, client_id, order_id = data_parts[:5]
     client_id = int(client_id)
-    # Бонуси краще передавати прямо в callback_data або брати з БД
-    
+
     if action == "ok":
-        # Логіка списання бонусів (приклад з прямою зміною балансу)
-        # В ідеалі: дістати запланований бонус з БД таблиці orders
+        # Логіка списання бонусів
         await context.bot.send_message(
             client_id, 
             f"✅ <b>Замовлення #{order_id} підтверджено!</b>\nДякуємо за покупку, ми вже готуємо відправку.", 
@@ -2296,7 +2309,7 @@ async def admin_decision_handler(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup=None, 
         parse_mode='HTML'
     )
-
+    
 # =================================================================
 # 📝 SECTION 17: DATA INPUT HANDLER (TEXT PROCESSOR - PRO FIX)
 # =================================================================
