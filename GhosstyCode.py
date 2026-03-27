@@ -533,7 +533,7 @@ def init_db():
 # 👤 USER SYNC & REFERRALS
 # ==========================================
 
-async def get_or_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_or_create_user(update: Update, referrer=None, context: ContextTypes.DEFAULT_TYPE):
     """Синхронізація профілю з БД та обробка реферальних переходів."""
     user = update.effective_user
     if not user: return None
